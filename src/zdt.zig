@@ -1,6 +1,5 @@
 //! datetime in Zig
 const std = @import("std");
-const log = std.log.scoped(.zdt);
 pub const cal = @import("calendar.zig");
 pub const zone = @import("timezone.zig");
 
@@ -74,7 +73,7 @@ pub const Datetime = struct {
         _ = try fields.validate();
         if (fields.tzinfo != null) {
             // TODO:  handle tz
-            log.warn("have tz!", .{});
+            std.debug.print("\nhave tz!", .{});
         }
         const d = cal.unixdaysFromDate([_]u16{ fields.year, fields.month, fields.day });
         return .{
@@ -118,7 +117,7 @@ pub const Datetime = struct {
     pub fn __normalize(self: *Datetime) void {
         if (self.tzinfo != null) {
             // TODO:  handle tz
-            log.warn("have tz!", .{});
+            std.debug.print("\nhave tz!", .{});
         }
         const seconds: i39 = @intCast(self.__unix);
         const mdns: i32 = @intCast(@mod(seconds, s_per_day));
