@@ -1,33 +1,39 @@
 # zdt
 
-Datetime in Zig. This is an exploratory project.
+Exploring datetime with time zones in Zig.
+
+## Demo
+
+For example, build and run the [datetime example](https://codeberg.org/FObersteiner/zdt/src/branch/main/examples/ex_datetime.zig):
 
 ```zig
-// demo
+zig build examples && ./zig-out/bin/ex_datetime
 ```
 
-## features
+## Status
 
-- proleptic Gregorian calendar
-- Unix time as serial representation of date and time, with nanosecond resolution
-- UTC by default (naive datetime / no time zone set), however without leap seconds
+### working
 
-## pending, not implemented
+- basic parsing, from string to datetime and vice versa
+- datetime to / from Unix time, datetime from fields (year, month, day, etc.)
+  - everything including time zone handling, fixed offset and IANA-db TZif
+- setting, changing and removing time zone information from datetime
 
+### planned
 
-## examples
+- see also <https://codeberg.org/FObersteiner/zdt/issues>
+- duration arithmetic
+- calendric calculations, ISO calendar
+- POSIX TZ support
+- extended testing for time zone handling
+- extended parsing / formatting
 
-- see `/examples`; run `zig build examples` to build them
+## Limitations
 
-## note on Zig version
+IANA-db time zone support currently only works on Linux (tested on debian)
 
-The package is developed with the `master` branch version of Zig.
+## Credits
 
-
-## credits
-
-Zig packages that influenced this developement:
-
-Other influences:
-
-I try to give credits where appropriate, please notify me if something doesn't seem right.
+- influenced by: Python's datetime and zoneinfo modules, as well as datetime in the pandas package
+- calendric calculations: Howard Hinnant's 'date' algorithms, <https://howardhinnant.github.io/date_algorithms.html>, as well as Cassio Neri's talk on "Euclidean affine functions", <https://github.com/cassioneri/eaf>, and Travis Staloch's translation to Zig, <https://github.com/travisstaloch/date-zig/>
+- string input output: parser adapted from LeRoyce Pearson's chrono-zig, <https://codeberg.org/geemili/chrono-zig>

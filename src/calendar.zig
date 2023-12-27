@@ -1,11 +1,12 @@
 //! calendaric stuff
 
-/// zero and index 0 is just a place-holder (no month '0')
-pub const DAYS_IN_REGULAR_MONTH = [_]u5{ 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-
-/// days per month, depending on if it comes from a leap year
-pub fn days_in_month(m: u8, is_leap: bool) u5 {
-    if (m == 2) return 28 + @as(u5, @intFromBool(is_leap)) else return DAYS_IN_REGULAR_MONTH[m];
+/// Days per month, depending on if it comes from a leap year.
+/// Based on Neri/Schneider's "Euclidean affine functions"
+pub fn daysInMonth(m: u5, is_leap: bool) u5 {
+    if (m == 2) {
+        return if (is_leap) 29 else 28;
+    }
+    return 30 | (m ^ (m >> 3));
 }
 
 /// Calculate days since the Unix epoch (1970-01-01) from a year-month-day tuple,
@@ -13,7 +14,7 @@ pub fn days_in_month(m: u8, is_leap: bool) u5 {
 /// (!) assumes the caller has checked the validity of the input.
 /// Based on Howard Hinnant 'date' algorithms, https://howardhinnant.github.io/date_algorithms.html
 pub fn unixdaysFromDate(ymd: [3]u16) i32 {
-    // year: account for era starting in Mar
+    // year: account for era starting in Mar (computational calendar)
     const y = if (ymd[1] <= 2) ymd[0] - 1 else ymd[0];
 
     // era - multiples of 400 years
@@ -30,7 +31,7 @@ pub fn unixdaysFromDate(ymd: [3]u16) i32 {
     // day-of-era
     const doe: u32 = @as(u32, yoe) * 365 + yoe / 4 - yoe / 100 + doy; // [0, 146096]
 
-    // cast down to 32 bit, which are sufficient
+    // cast down to 32 bits, which are sufficient
     const tmp: i32 = @intCast(@as(u32, era) * 146097 + doe);
 
     return tmp - 719468;
@@ -79,4 +80,153 @@ pub fn dateFromUnixdays(unix_days: i32) [3]u16 { // i23 should covert the range 
     const y: u16 = @intCast(if (m <= 2) yoe + era * 400 + 1 else yoe + era * 400);
 
     return [_]u16{ y, m, d };
+}
+
+//
+//
+// --- from https://github.com/travisstaloch/date-zig/blob/main/src/lib.zig ---
+// --- vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv ---
+//
+/// Determine if the given year is a leap year
+///
+/// # Panics
+///
+/// Year must be between [YEAR_MIN] and [YEAR_MAX] inclusive. Bounds are checked
+/// using `std.debug.assert` only, so that the checks are not present in release
+/// builds, similar to integer overflow checks.
+///
+/// # Examples
+///
+/// ```
+/// try expectEqual(is_leap_year(2023), false);
+/// try expectEqual(is_leap_year(2024), true);
+/// try expectEqual(is_leap_year(2100), false);
+/// try expectEqual(is_leap_year(2400), true);
+/// ```
+///
+/// # Algorithm
+///
+/// Algorithm is Neri-Schneider from C++now 2023 conference:
+/// > https://github.com/boostcon/cppnow_presentations_2023/blob/main/cppnow_slides/Speeding_Date_Implementing_Fast_Calendar_Algorithms.pdf
+pub fn isLeapYear(y: u16) bool {
+    // Using `%` instead of `&` causes compiler to emit branches instead. This
+    // is faster in a tight loop due to good branch prediction, but probably
+    // slower in a real program so we use `&`. Also `% 25` is functionally
+    // equivalent to `% 100` here, but a little cheaper to compute. If branches
+    // were to be emitted, using `% 100` would be most likely faster due to
+    // better branch prediction.
+    return if (@mod(y, 25) != 0)
+        y & 3 == 0
+    else
+        y & 15 == 0;
+}
+
+/// Determine the number of days in the given month in the given year
+///
+/// # Panics
+///
+/// Year must be between [YEAR_MIN] and [YEAR_MAX]. Month must be between `1`
+/// and `12`. Bounds are checked using `std.debug.assert` only, so that the checks
+/// are not present in release builds, similar to integer overflow checks.
+///
+/// # Example
+///
+/// ```
+/// try expectEqual(days_in_month(2023, 1), 31);
+/// try expectEqual(days_in_month(2023, 2), 28);
+/// try expectEqual(days_in_month(2023, 4), 30);
+/// try expectEqual(days_in_month(2024, 1), 31);
+/// try expectEqual(days_in_month(2024, 2), 29);
+/// try expectEqual(days_in_month(2024, 4), 30);
+/// ```
+///
+/// # Algorithm
+///
+/// Algorithm is Neri-Schneider from C++now 2023 conference:
+/// > https://github.com/boostcon/cppnow_presentations_2023/blob/main/cppnow_slides/Speeding_Date_Implementing_Fast_Calendar_Algorithms.pdf
+pub fn daysInMonth_(y: i32, m: u8) u8 {
+    return if (m != 2) 30 | (m ^ (m >> 3)) else if (isLeapYear(y)) 29 else 28;
+}
+//
+/// Adjustment from Unix epoch to make calculations use positive integers
+///
+/// Unit is eras, which is defined to be 400 years, as that is the period of the
+/// proleptic Gregorian calendar. Selected to place Unix epoch roughly in the
+/// center of the value space, can be arbitrary within type limits.
+const ERA_OFFSET: i32 = 3670;
+/// Every era has 146097 days
+const DAYS_IN_ERA: i32 = 146097;
+/// Every era has 400 years
+const YEARS_IN_ERA: i32 = 400;
+/// Number of days from 0000-03-01 to Unix epoch 1970-01-01
+const DAYS_TO_UNIX_EPOCH: i32 = 719468;
+/// Offset to be added to given day values
+const DAY_OFFSET: i32 = ERA_OFFSET * DAYS_IN_ERA + DAYS_TO_UNIX_EPOCH;
+/// Offset to be added to given year values
+const YEAR_OFFSET: i32 = ERA_OFFSET * YEARS_IN_ERA;
+/// Seconds in a single 24 hour calendar day
+const SECS_IN_DAY: i64 = 86400;
+/// Offset to be added to given second values
+const SECS_OFFSET: i64 = DAY_OFFSET * SECS_IN_DAY;
+
+/// Convert Rata Die / days since 0001-01-01 to Gregorian date
+///
+/// Given a day counting from Unix epoch (January 1st, 1970) returns a
+/// `(year, month, day)` triple.
+///
+/// ## Algorithm
+///
+/// > Neri C, Schneider L. "*Euclidean affine functions and their application to
+/// > calendar algorithms*". Softw Pract Exper. 2022;1-34. DOI:
+/// > [10.1002/spe.3172](https://onlinelibrary.wiley.com/doi/full/10.1002/spe.3172).
+pub fn rdToDate(rd: i32) [3]u16 {
+    const n0: u32 = @intCast(rd +% DAY_OFFSET);
+    // century
+    const n1 = 4 * n0 + 3;
+    const c = n1 / 146097;
+    const r = n1 % 146097;
+    // year
+    const n2 = r | 3;
+    const p: u64 = 2939745 * @as(u64, n2);
+    const z: u32 = @truncate(p / (1 << 32));
+    const n3: u32 = @truncate((p % (1 << 32)) / 2939745 / 4);
+    const j = @intFromBool(n3 >= 306);
+    const y1: u32 = 100 * c + z + j;
+    // month and day
+    const n4 = 2141 * n3 + 197913;
+    const m1 = n4 / (1 << 16);
+    const d1 = n4 % (1 << 16) / 2141;
+    // map
+    const y = (@as(i32, @intCast(y1))) -% (YEAR_OFFSET);
+    const m = if (j != 0) m1 - 12 else m1;
+    const d = d1 + 1;
+    return [3]u16{ @intCast(y), @intCast(m), @intCast(d) };
+}
+
+/// Convert Gregorian date to Rata Die / days since 0001-01-01
+///
+/// Given a `year, month, day` returns the days since Unix epoch
+/// (January 1st, 1970). Dates before the epoch produce negative values.
+///
+/// ## Algorithm
+///
+/// > Neri C, Schneider L. "*Euclidean affine functions and their application to
+/// > calendar algorithms*". Softw Pract Exper. 2022;1-34. DOI:
+/// > [10.1002/spe.3172](https://onlinelibrary.wiley.com/doi/full/10.1002/spe.3172).
+pub fn dateToRD(ymd: [3]u16) i32 {
+    const y1: u32 = @intCast(ymd[0] +% YEAR_OFFSET);
+    // map
+    const jf: u32 = @intFromBool(ymd[1] < 3);
+    const y2 = y1 -% jf;
+    const m1 = @as(u32, ymd[1]) + 12 * jf;
+    const d1 = @as(u32, ymd[2]) -% 1;
+    // century
+    const c = y2 / 100;
+    // year
+    const y3 = 1461 * y2 / 4 - c + c / 4;
+    // month
+    const m = (979 * m1 - 2919) / 32;
+    // result
+    const n = y3 +% m +% d1;
+    return @as(i32, @intCast(n)) -% DAY_OFFSET;
 }

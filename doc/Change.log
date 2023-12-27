@@ -1,0 +1,61 @@
+# CHANGELOG
+
+## 2023-12-27, v0.1.6
+
+- add examples (offset time zone, time zone)
+- adhere to ziglang naming convention
+- revise TZ deinit method, make sure to free tzfile memory
+
+## 2023-12-22, v0.1.5
+
+- revise TZ struct and attachment logic of datetime-->timezone
+- add comparison methods for UT and wall time
+- add datetime demo
+
+## 2023-12-21, v0.1.4
+
+- add 'now' method
+- allow seconds in UTC offset
+
+## 2023-12-21, v0.1.3
+
+- add datetime localization method
+- add time zone conversion method
+- offset tz: check range
+
+## 2023-12-20, v0.1.2
+
+- datetime from fields with time zone handles ambiguous and non-existent datetime
+
+## 2023-12-18
+
+- add benchmark for calendric functions (r.d. <--> date)
+
+## 2023-12-16, v0.1.1
+
+- some basic time zone calculations working
+
+## 2023-12-10, v0.1.0
+
+- set 0.1.0 tag
+
+## 2023-12-06, no tag
+
+- prepare for restart
+
+## 2023-11-26, v0.0.4
+
+- structural changes, where to put tests etc.
+- include zBench via build.zig.zon
+
+## 2023-11-23, v0.0.3
+
+- benchmarks as binary; install-artifact, not test in build script
+
+## 2023-11-02
+
+- integrate zBench from fork
+
+## 2023-10-23
+
+- created

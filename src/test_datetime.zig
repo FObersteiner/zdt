@@ -1,33 +1,41 @@
 //! test datetime struct functionality
 const std = @import("std");
-const zdt = @import("zdt.zig");
+const datetime = @import("datetime.zig");
+const tz = @import("timezone.zig");
 
 test "validate datetime fields" {
-    var fields = zdt.datetime_fields{ .year = 2020, .month = 2, .day = 29 };
+    var fields = datetime.DatetimeFields{ .year = 2020, .month = 2, .day = 29 };
     _ = try fields.validate();
-    fields = zdt.datetime_fields{ .year = 2023, .month = 2, .day = 29 };
+    fields = datetime.DatetimeFields{ .year = 2023, .month = 2, .day = 29 };
     var err = fields.validate();
-    try std.testing.expectError(zdt.RangeError.DayOutOfRange, err);
+    try std.testing.expectError(datetime.ZdtError.DayOutOfRange, err);
 
-    fields = zdt.datetime_fields{ .year = 2023, .month = 4, .day = 31 };
+    fields = datetime.DatetimeFields{ .year = 2023, .month = 4, .day = 31 };
     err = fields.validate();
-    try std.testing.expectError(zdt.RangeError.DayOutOfRange, err);
+    try std.testing.expectError(datetime.ZdtError.DayOutOfRange, err);
 
-    fields = zdt.datetime_fields{ .year = 2023, .month = 6, .day = 0 };
+    fields = datetime.DatetimeFields{ .year = 2023, .month = 6, .day = 0 };
     err = fields.validate();
-    try std.testing.expectError(zdt.RangeError.DayOutOfRange, err);
+    try std.testing.expectError(datetime.ZdtError.DayOutOfRange, err);
 
-    fields = zdt.datetime_fields{ .year = 2023, .month = 13, .day = 1 };
+    fields = datetime.DatetimeFields{ .year = 2023, .month = 13, .day = 1 };
     err = fields.validate();
-    try std.testing.expectError(zdt.RangeError.MonthOutOfRange, err);
+    try std.testing.expectError(datetime.ZdtError.MonthOutOfRange, err);
 
-    fields = zdt.datetime_fields{ .year = 10000, .month = 1, .day = 1 };
+    fields = datetime.DatetimeFields{ .year = 10000, .month = 1, .day = 1 };
     err = fields.validate();
-    try std.testing.expectError(zdt.RangeError.YearOutOfRange, err);
+    try std.testing.expectError(datetime.ZdtError.YearOutOfRange, err);
+}
+
+test "validate tz field" {
+    const undef = tz.TZ{};
+    const fields = datetime.DatetimeFields{ .year = 1, .month = 1, .day = 1, .tzinfo = undef };
+    const err = fields.validate();
+    try std.testing.expectError(datetime.ZdtError.AllTZRulesUndefined, err);
 }
 
 test "Datetime from empty field struct" {
-    const dt = try zdt.Datetime.from_fields(.{});
+    const dt = try datetime.Datetime.fromFields(.{});
     try std.testing.expect(dt.year == @as(u14, 1));
     try std.testing.expect(dt.month == @as(u4, 1));
     try std.testing.expect(dt.day == @as(u5, 1));
@@ -35,7 +43,15 @@ test "Datetime from empty field struct" {
 }
 
 test "Datetime from populated field struct" {
-    const dt = try zdt.Datetime.from_fields(.{ .year = 2023, .month = 12 });
+    const dt = try datetime.Datetime.fromFields(.{ .year = 2023, .month = 12 });
+    try std.testing.expect(dt.year == @as(u14, 2023));
+    try std.testing.expect(dt.month == @as(u4, 12));
+    try std.testing.expect(dt.day == @as(u5, 1));
+    try std.testing.expect(dt.tzinfo == null);
+}
+
+test "Datetime from list" {
+    const dt = try datetime.Datetime.naiveFromList(.{ 2023, 12, 1, 0, 0, 0, 0 });
     try std.testing.expect(dt.year == @as(u14, 2023));
     try std.testing.expect(dt.month == @as(u4, 12));
     try std.testing.expect(dt.day == @as(u5, 1));
@@ -43,1091 +59,860 @@ test "Datetime from populated field struct" {
 }
 
 test "Datetime Unix epoch roundtrip" {
-    const unix_from_fields = try zdt.Datetime.from_fields(.{ .year = 1970 });
-    const unix_from_seconds = try zdt.Datetime.from_unix(0, zdt.Timeunit.second);
+    const unix_from_fields = try datetime.Datetime.fromFields(.{ .year = 1970 });
+    const unix_from_seconds = try datetime.Datetime.fromUnix(0, datetime.Unit.second, null);
     try std.testing.expect(std.meta.eql(unix_from_fields, unix_from_seconds));
+    const unix_s = unix_from_seconds.toUnix(datetime.Unit.second);
+    try std.testing.expect(unix_s == 0);
 }
 
 test "Dateime from invalid fields" {
-    var fields = zdt.datetime_fields{ .year = 2021, .month = 2, .day = 29 };
-    var err = zdt.Datetime.from_fields(fields);
-    try std.testing.expectError(zdt.RangeError.DayOutOfRange, err);
+    var fields = datetime.DatetimeFields{ .year = 2021, .month = 2, .day = 29 };
+    var err = datetime.Datetime.fromFields(fields);
+    try std.testing.expectError(datetime.ZdtError.DayOutOfRange, err);
 
-    fields = zdt.datetime_fields{ .year = 1, .month = 1, .day = 1, .nanosecond = 1000000000 };
-    err = zdt.Datetime.from_fields(fields);
-    try std.testing.expectError(zdt.RangeError.NanosecondOutOfRange, err);
+    fields = datetime.DatetimeFields{ .year = 1, .month = 1, .day = 1, .nanosecond = 1000000000 };
+    err = datetime.Datetime.fromFields(fields);
+    try std.testing.expectError(datetime.ZdtError.NanosecondOutOfRange, err);
 }
 
 test "Datetime Min Max from fields" {
-    var fields = zdt.datetime_fields{ .year = zdt.MIN_YEAR, .month = 1, .day = 1 };
-    var dt = try zdt.Datetime.from_fields(fields);
-    try std.testing.expect(dt.year == zdt.MIN_YEAR);
-    try std.testing.expect(dt.__unix == zdt.UNIX_s_MIN);
+    var fields = datetime.DatetimeFields{ .year = datetime.min_year, .month = 1, .day = 1 };
+    var dt = try datetime.Datetime.fromFields(fields);
+    try std.testing.expect(dt.year == datetime.min_year);
+    try std.testing.expect(dt.__unix == datetime.unix_s_min);
 
-    fields = zdt.datetime_fields{
-        .year = zdt.MAX_YEAR,
-        .month = 12,
-        .day = 31,
-        .hour = 23,
-        .minute = 59,
-        .second = 59, // NOTE : prepare for leap seconds
-        .nanosecond = 999999999,
-    };
-    dt = try zdt.Datetime.from_fields(fields);
-    try std.testing.expect(dt.year == zdt.MAX_YEAR);
+    fields = datetime.DatetimeFields{ .year = datetime.max_year, .month = 12, .day = 31, .hour = 23, .minute = 59, .second = 59, .nanosecond = 999999999 };
+    dt = try datetime.Datetime.fromFields(fields);
+    try std.testing.expect(dt.year == datetime.max_year);
     try std.testing.expect(dt.hour == 23);
-    try std.testing.expectEqual(zdt.UNIX_s_MAX, dt.__unix);
+    try std.testing.expectEqual(datetime.unix_s_max, dt.__unix);
 }
 
 test "Datetime Min Max fields vs seconds roundtrip" {
-    const max_from_seconds = try zdt.Datetime.from_unix(zdt.UNIX_s_MAX, zdt.Timeunit.second);
-    const max_from_fields = try zdt.Datetime.from_fields(.{ .year = zdt.MAX_YEAR, .month = 12, .day = 31, .hour = 23, .minute = 59, .second = 59 });
+    const max_from_seconds = try datetime.Datetime.fromUnix(datetime.unix_s_max, datetime.Unit.second, null);
+    const max_from_fields = try datetime.Datetime.fromFields(.{ .year = datetime.max_year, .month = 12, .day = 31, .hour = 23, .minute = 59, .second = 59 });
     try std.testing.expect(std.meta.eql(max_from_fields, max_from_seconds));
 
-    const min_from_fields = try zdt.Datetime.from_fields(.{ .year = 1 });
-    const min_from_seconds = try zdt.Datetime.from_unix(zdt.UNIX_s_MIN, zdt.Timeunit.second);
+    const min_from_fields = try datetime.Datetime.fromFields(.{ .year = 1 });
+    const min_from_seconds = try datetime.Datetime.fromUnix(datetime.unix_s_min, datetime.Unit.second, null);
     try std.testing.expect(std.meta.eql(min_from_fields, min_from_seconds));
 
-    const too_large_s = zdt.Datetime.from_unix(zdt.UNIX_s_MAX + 1, zdt.Timeunit.second);
-    try std.testing.expectError(zdt.RangeError.UnixOutOfRange, too_large_s);
-    const too_large_ns = zdt.Datetime.from_unix(@as(i72, zdt.UNIX_s_MAX + 1) * std.time.ns_per_s, zdt.Timeunit.second);
-    try std.testing.expectError(zdt.RangeError.UnixOutOfRange, too_large_ns);
-    const too_small_s = zdt.Datetime.from_unix(zdt.UNIX_s_MIN - 1, zdt.Timeunit.second);
-    try std.testing.expectError(zdt.RangeError.UnixOutOfRange, too_small_s);
-    const too_small_ns = zdt.Datetime.from_unix(@as(i72, zdt.UNIX_s_MIN - 1) * std.time.ns_per_s, zdt.Timeunit.second);
-    try std.testing.expectError(zdt.RangeError.UnixOutOfRange, too_small_ns);
+    const too_large_s = datetime.Datetime.fromUnix(datetime.unix_s_max + 1, datetime.Unit.second, null);
+    try std.testing.expectError(datetime.ZdtError.UnixOutOfRange, too_large_s);
+    const too_large_ns = datetime.Datetime.fromUnix(@as(i72, datetime.unix_s_max + 1) * std.time.ns_per_s, datetime.Unit.second, null);
+    try std.testing.expectError(datetime.ZdtError.UnixOutOfRange, too_large_ns);
+    const too_small_s = datetime.Datetime.fromUnix(datetime.unix_s_min - 1, datetime.Unit.second, null);
+    try std.testing.expectError(datetime.ZdtError.UnixOutOfRange, too_small_s);
+    const too_small_ns = datetime.Datetime.fromUnix(@as(i72, datetime.unix_s_min - 1) * std.time.ns_per_s, datetime.Unit.second, null);
+    try std.testing.expectError(datetime.ZdtError.UnixOutOfRange, too_small_ns);
 }
 
-test "Datetime format basic naive" {
+test "default format ISO8601, naive" {
     var str = std.ArrayList(u8).init(std.testing.allocator);
     defer str.deinit();
 
-    var dt = try zdt.Datetime.from_fields(.{ .year = 2023, .month = 12, .day = 31 });
+    var dt = try datetime.Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 31 });
     try dt.format("", .{}, str.writer());
     try std.testing.expectEqualStrings("2023-12-31T00:00:00", str.items);
 
     str.clearRetainingCapacity();
-    dt = try zdt.Datetime.from_fields(.{ .year = 2023, .month = 12, .day = 31, .nanosecond = 1 });
+    dt = try datetime.Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 31, .nanosecond = 1 });
     try dt.format("", .{}, str.writer());
     try std.testing.expectEqualStrings("2023-12-31T00:00:00.000000001", str.items);
 }
 
-// ---vv--- test generated with Python script ---vv---
-
-test "full range random unix seconds <--> fields" {
-    var dt_from_unix = try zdt.Datetime.from_unix(0, zdt.Timeunit.second);
-    try std.testing.expect(dt_from_unix.year == 1970);
-
-    // 6784-12-06T15:35:41+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(151944564941, zdt.Timeunit.second);
-    var dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 6784, .month = 12, .day = 6, .hour = 15, .minute = 35, .second = 41, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 0738-10-03T01:48:05+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-38854419115, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 738, .month = 10, .day = 3, .hour = 1, .minute = 48, .second = 5, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 8508-12-01T07:42:26+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(206348283746, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 8508, .month = 12, .day = 1, .hour = 7, .minute = 42, .second = 26, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 6190-06-17T21:30:44+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(133184899844, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 6190, .month = 6, .day = 17, .hour = 21, .minute = 30, .second = 44, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 3799-05-09T19:35:47+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(57728835347, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 3799, .month = 5, .day = 9, .hour = 19, .minute = 35, .second = 47, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2383-06-05T16:53:10+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(13046460790, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2383, .month = 6, .day = 5, .hour = 16, .minute = 53, .second = 10, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2353-02-04T19:39:31+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(12089331571, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2353, .month = 2, .day = 4, .hour = 19, .minute = 39, .second = 31, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1737-02-03T11:11:53+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-7349834887, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1737, .month = 2, .day = 3, .hour = 11, .minute = 11, .second = 53, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 9379-10-06T01:35:38+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(233829509738, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 9379, .month = 10, .day = 6, .hour = 1, .minute = 35, .second = 38, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2573-08-16T18:23:07+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(19048587787, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2573, .month = 8, .day = 16, .hour = 18, .minute = 23, .second = 7, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1676-06-08T18:07:21+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-9263915559, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1676, .month = 6, .day = 8, .hour = 18, .minute = 7, .second = 21, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1325-04-02T13:26:19+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-20346287621, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1325, .month = 4, .day = 2, .hour = 13, .minute = 26, .second = 19, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 5810-05-20T08:24:10+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(121190718250, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 5810, .month = 5, .day = 20, .hour = 8, .minute = 24, .second = 10, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 9728-07-05T11:39:03+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(244834918743, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 9728, .month = 7, .day = 5, .hour = 11, .minute = 39, .second = 3, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 6139-04-21T00:25:24+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(131570439924, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 6139, .month = 4, .day = 21, .hour = 0, .minute = 25, .second = 24, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 5504-03-06T14:01:06+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(111527848866, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 5504, .month = 3, .day = 6, .hour = 14, .minute = 1, .second = 6, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 3663-12-02T00:52:12+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(53454905532, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 3663, .month = 12, .day = 2, .hour = 0, .minute = 52, .second = 12, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 9659-09-15T03:17:21+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(242663656641, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 9659, .month = 9, .day = 15, .hour = 3, .minute = 17, .second = 21, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 7687-08-22T09:12:38+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(180431313158, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 7687, .month = 8, .day = 22, .hour = 9, .minute = 12, .second = 38, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 9101-07-06T14:03:10+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(225048722590, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 9101, .month = 7, .day = 6, .hour = 14, .minute = 3, .second = 10, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 0989-03-03T00:43:47+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-30952019773, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 989, .month = 3, .day = 3, .hour = 0, .minute = 43, .second = 47, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1500-01-13T23:35:04+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-14830647896, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1500, .month = 1, .day = 13, .hour = 23, .minute = 35, .second = 4, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 5835-05-17T02:12:58+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(121979355178, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 5835, .month = 5, .day = 17, .hour = 2, .minute = 12, .second = 58, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1208-04-16T12:24:08+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-24037212952, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1208, .month = 4, .day = 16, .hour = 12, .minute = 24, .second = 8, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 3889-02-05T15:52:47+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(60560927567, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 3889, .month = 2, .day = 5, .hour = 15, .minute = 52, .second = 47, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2582-07-10T12:57:54+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(19329368274, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2582, .month = 7, .day = 10, .hour = 12, .minute = 57, .second = 54, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 9501-05-12T20:56:29+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(237666776189, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 9501, .month = 5, .day = 12, .hour = 20, .minute = 56, .second = 29, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1559-02-04T15:41:56+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-12966941884, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1559, .month = 2, .day = 4, .hour = 15, .minute = 41, .second = 56, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 8566-04-17T03:18:35+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(208158866315, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 8566, .month = 4, .day = 17, .hour = 3, .minute = 18, .second = 35, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 5187-09-22T12:58:57+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(101541560337, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 5187, .month = 9, .day = 22, .hour = 12, .minute = 58, .second = 57, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 5111-10-23T14:52:39+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(99145867959, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 5111, .month = 10, .day = 23, .hour = 14, .minute = 52, .second = 39, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2138-09-12T09:40:13+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(5323570813, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2138, .month = 9, .day = 12, .hour = 9, .minute = 40, .second = 13, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 5791-10-18T18:14:02+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(120604270442, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 5791, .month = 10, .day = 18, .hour = 18, .minute = 14, .second = 2, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 3613-03-10T15:41:53+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(51854053313, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 3613, .month = 3, .day = 10, .hour = 15, .minute = 41, .second = 53, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 9610-03-30T09:27:46+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(241102776466, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 9610, .month = 3, .day = 30, .hour = 9, .minute = 27, .second = 46, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 4980-08-26T07:25:43+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(95007021943, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 4980, .month = 8, .day = 26, .hour = 7, .minute = 25, .second = 43, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1558-09-09T11:46:13+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-12979743227, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1558, .month = 9, .day = 9, .hour = 11, .minute = 46, .second = 13, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 5497-06-21T07:47:49+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(111316232869, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 5497, .month = 6, .day = 21, .hour = 7, .minute = 47, .second = 49, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 4162-05-30T20:32:50+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(69185824370, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 4162, .month = 5, .day = 30, .hour = 20, .minute = 32, .second = 50, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 3170-11-12T13:25:32+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(37895606732, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 3170, .month = 11, .day = 12, .hour = 13, .minute = 25, .second = 32, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 0570-10-28T10:53:41+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-44153730379, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 570, .month = 10, .day = 28, .hour = 10, .minute = 53, .second = 41, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 4581-09-28T14:43:03+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(82418654583, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 4581, .month = 9, .day = 28, .hour = 14, .minute = 43, .second = 3, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1154-09-04T15:23:40+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-25729173380, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1154, .month = 9, .day = 4, .hour = 15, .minute = 23, .second = 40, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2281-09-30T00:13:44+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(9837764024, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2281, .month = 9, .day = 30, .hour = 0, .minute = 13, .second = 44, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2706-04-10T14:44:59+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(23234481899, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2706, .month = 4, .day = 10, .hour = 14, .minute = 44, .second = 59, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 0671-01-31T14:20:56+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-40989836344, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 671, .month = 1, .day = 31, .hour = 14, .minute = 20, .second = 56, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1476-09-06T14:54:32+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-15567584728, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1476, .month = 9, .day = 6, .hour = 14, .minute = 54, .second = 32, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 9215-10-31T21:26:09+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(228656381169, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 9215, .month = 10, .day = 31, .hour = 21, .minute = 26, .second = 9, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 9021-04-03T15:24:45+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(222516084285, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 9021, .month = 4, .day = 3, .hour = 15, .minute = 24, .second = 45, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 4194-07-12T08:53:57+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(70199340837, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 4194, .month = 7, .day = 12, .hour = 8, .minute = 53, .second = 57, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 3791-05-17T10:57:23+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(57477034643, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 3791, .month = 5, .day = 17, .hour = 10, .minute = 57, .second = 23, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 7343-09-05T08:36:04+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(169576878964, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 7343, .month = 9, .day = 5, .hour = 8, .minute = 36, .second = 4, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 4843-06-22T05:34:42+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(90678029682, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 4843, .month = 6, .day = 22, .hour = 5, .minute = 34, .second = 42, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 8636-10-03T14:24:01+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(210382496641, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 8636, .month = 10, .day = 3, .hour = 14, .minute = 24, .second = 1, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 6233-07-27T12:53:46+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(134545236826, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 6233, .month = 7, .day = 27, .hour = 12, .minute = 53, .second = 46, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 5592-05-25T20:07:12+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(114311851632, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 5592, .month = 5, .day = 25, .hour = 20, .minute = 7, .second = 12, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1989-10-31T09:19:02+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(625828742, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1989, .month = 10, .day = 31, .hour = 9, .minute = 19, .second = 2, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 5803-01-21T02:50:47+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(120959491847, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 5803, .month = 1, .day = 21, .hour = 2, .minute = 50, .second = 47, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 3382-06-20T12:07:30+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(44573198850, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 3382, .month = 6, .day = 20, .hour = 12, .minute = 7, .second = 30, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 0306-04-14T21:44:13+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-52501832147, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 306, .month = 4, .day = 14, .hour = 21, .minute = 44, .second = 13, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 4728-01-12T16:39:14+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(87035013554, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 4728, .month = 1, .day = 12, .hour = 16, .minute = 39, .second = 14, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 6427-10-21T19:48:36+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(140674736916, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 6427, .month = 10, .day = 21, .hour = 19, .minute = 48, .second = 36, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2967-04-16T14:18:32+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(31471424312, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2967, .month = 4, .day = 16, .hour = 14, .minute = 18, .second = 32, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 7395-10-10T00:31:25+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(171220869085, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 7395, .month = 10, .day = 10, .hour = 0, .minute = 31, .second = 25, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1064-10-06T03:32:19+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-28566505661, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1064, .month = 10, .day = 6, .hour = 3, .minute = 32, .second = 19, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 3906-10-25T22:41:10+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(61119960070, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 3906, .month = 10, .day = 25, .hour = 22, .minute = 41, .second = 10, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1318-07-20T16:42:20+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-20557783060, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1318, .month = 7, .day = 20, .hour = 16, .minute = 42, .second = 20, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2046-03-02T03:35:04+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2403574504, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2046, .month = 3, .day = 2, .hour = 3, .minute = 35, .second = 4, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 3353-11-16T11:42:40+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(43670922160, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 3353, .month = 11, .day = 16, .hour = 11, .minute = 42, .second = 40, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2120-12-02T19:42:23+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(4762611743, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2120, .month = 12, .day = 2, .hour = 19, .minute = 42, .second = 23, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1551-05-16T02:11:33+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-13210724907, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1551, .month = 5, .day = 16, .hour = 2, .minute = 11, .second = 33, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2039-11-18T12:31:29+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2205232289, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2039, .month = 11, .day = 18, .hour = 12, .minute = 31, .second = 29, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 3270-05-25T00:40:23+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(41036546423, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 3270, .month = 5, .day = 25, .hour = 0, .minute = 40, .second = 23, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 8320-02-04T07:25:46+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(200389533946, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 8320, .month = 2, .day = 4, .hour = 7, .minute = 25, .second = 46, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1062-09-13T05:11:55+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-28631645285, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1062, .month = 9, .day = 13, .hour = 5, .minute = 11, .second = 55, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 9395-02-23T03:10:43+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(234314997043, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 9395, .month = 2, .day = 23, .hour = 3, .minute = 10, .second = 43, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1125-03-12T20:16:34+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-26659511006, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1125, .month = 3, .day = 12, .hour = 20, .minute = 16, .second = 34, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1255-12-22T21:49:45+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-22532436615, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1255, .month = 12, .day = 22, .hour = 21, .minute = 49, .second = 45, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 5260-12-05T02:21:12+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(103851685272, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 5260, .month = 12, .day = 5, .hour = 2, .minute = 21, .second = 12, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 7534-04-18T00:53:44+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(175592105624, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 7534, .month = 4, .day = 18, .hour = 0, .minute = 53, .second = 44, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 0978-04-04T12:56:05+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-31296366235, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 978, .month = 4, .day = 4, .hour = 12, .minute = 56, .second = 5, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 8099-07-27T19:33:02+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(193430575982, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 8099, .month = 7, .day = 27, .hour = 19, .minute = 33, .second = 2, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 6940-08-09T22:00:33+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(156857205633, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 6940, .month = 8, .day = 9, .hour = 22, .minute = 0, .second = 33, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 4519-07-03T22:16:14+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(80454550574, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 4519, .month = 7, .day = 3, .hour = 22, .minute = 16, .second = 14, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 8266-09-13T03:02:35+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(198704631755, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 8266, .month = 9, .day = 13, .hour = 3, .minute = 2, .second = 35, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 9925-05-12T09:42:14+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(251046898934, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 9925, .month = 5, .day = 12, .hour = 9, .minute = 42, .second = 14, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 3631-03-16T03:42:10+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(52422522130, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 3631, .month = 3, .day = 16, .hour = 3, .minute = 42, .second = 10, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2815-01-28T13:34:24+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(26668013664, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2815, .month = 1, .day = 28, .hour = 13, .minute = 34, .second = 24, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2838-02-08T16:15:13+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(27394820113, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2838, .month = 2, .day = 8, .hour = 16, .minute = 15, .second = 13, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 9166-06-07T12:20:01+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(227097433201, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 9166, .month = 6, .day = 7, .hour = 12, .minute = 20, .second = 1, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2076-08-25T18:42:55+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3365606575, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2076, .month = 8, .day = 25, .hour = 18, .minute = 42, .second = 55, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 0160-11-23T14:14:49+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-57089785511, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 160, .month = 11, .day = 23, .hour = 14, .minute = 14, .second = 49, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 6718-08-13T07:38:15+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(149851755495, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 6718, .month = 8, .day = 13, .hour = 7, .minute = 38, .second = 15, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2621-02-04T01:16:51+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(20546529411, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2621, .month = 2, .day = 4, .hour = 1, .minute = 16, .second = 51, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 7896-08-12T20:25:46+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(187025919946, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 7896, .month = 8, .day = 12, .hour = 20, .minute = 25, .second = 46, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1462-12-14T13:24:43+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-16000886117, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1462, .month = 12, .day = 14, .hour = 13, .minute = 24, .second = 43, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 9398-04-07T04:32:48+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(234413411568, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 9398, .month = 4, .day = 7, .hour = 4, .minute = 32, .second = 48, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2352-12-19T08:40:51+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(12085231251, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2352, .month = 12, .day = 19, .hour = 8, .minute = 40, .second = 51, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 8432-12-13T18:20:07+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(203951067607, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 8432, .month = 12, .day = 13, .hour = 18, .minute = 20, .second = 7, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2263-03-02T05:04:36+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(9251384676, zdt.Timeunit.second);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2263, .month = 3, .day = 2, .hour = 5, .minute = 4, .second = 36, .nanosecond = 0 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+test "format offset" {
+    var tzinfo = tz.TZ{};
+    try tzinfo.loadOffset(3600, "");
+    var dt = try datetime.Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
+
+    var str = std.ArrayList(u8).init(std.testing.allocator);
+    try dt.formatOffset(str.writer());
+    try std.testing.expectEqualStrings("+01:00", str.items);
+    str.deinit();
+
+    try tzinfo.loadOffset(3600 * 9 + 942, "");
+    dt = try datetime.Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
+    str = std.ArrayList(u8).init(std.testing.allocator);
+    try dt.formatOffset(str.writer());
+    try std.testing.expectEqualStrings("+09:15:42", str.items);
+    str.deinit();
 }
 
-test "full range random unix nanoseconds <--> fields" {
-    var dt_from_unix = try zdt.Datetime.from_unix(0, zdt.Timeunit.nanosecond);
-    try std.testing.expect(dt_from_unix.year == 1970);
-    try std.testing.expect(dt_from_unix.nanosecond == 0);
-    dt_from_unix = try zdt.Datetime.from_unix(999999999, zdt.Timeunit.nanosecond);
-    try std.testing.expect(dt_from_unix.year == 1970);
-    try std.testing.expect(dt_from_unix.nanosecond == 999999999);
-    dt_from_unix = try zdt.Datetime.from_unix(1999999999, zdt.Timeunit.nanosecond);
-    try std.testing.expect(dt_from_unix.year == 1970);
-    try std.testing.expect(dt_from_unix.second == 1);
-    try std.testing.expect(dt_from_unix.nanosecond == 999999999);
+test "default format ISO8601, with offset" {
+    var str = std.ArrayList(u8).init(std.testing.allocator);
+    defer str.deinit();
+    var tzinfo = tz.TZ{};
+    const offset: i32 = 3600;
+    try tzinfo.loadOffset(offset, "");
+    const dt = try datetime.Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
+    try dt.format("", .{}, str.writer());
+    try std.testing.expectEqualStrings("2021-02-18T17:00:00+01:00", str.items);
+}
+
+test "compare Unix time" {
+    var tzinfo = tz.TZ{};
+    const offset: i32 = 3600;
+    try tzinfo.loadOffset(offset, "");
+    var a = try datetime.Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
+    const b = try datetime.Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 18, .tzinfo = null });
+
+    var err = datetime.Datetime.compareUT(a, b);
+    try std.testing.expectError(datetime.ZdtError.CompareNaiveAware, err);
+    err = datetime.Datetime.compareUT(b, a);
+    try std.testing.expectError(datetime.ZdtError.CompareNaiveAware, err);
+
+    var want_eq = try datetime.Datetime.compareUT(a, a);
+    try std.testing.expectEqual(std.math.Order.eq, want_eq);
+    want_eq = try datetime.Datetime.compareUT(b, b);
+    try std.testing.expectEqual(std.math.Order.eq, want_eq);
+
+    a = try datetime.Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = null });
+    const want_lt = try datetime.Datetime.compareUT(a, b);
+    try std.testing.expectEqual(std.math.Order.lt, want_lt);
+    const want_gt = try datetime.Datetime.compareUT(b, a);
+    try std.testing.expectEqual(std.math.Order.gt, want_gt);
+}
+
+test "compare wall time" {
+    var tzinfo = tz.TZ{};
+    const offset: i32 = 3600;
+    try tzinfo.loadOffset(offset, "");
+    var a = try datetime.Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 18, .nanosecond = 42, .tzinfo = null });
+    const b = try datetime.Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 18, .nanosecond = 42, .tzinfo = tzinfo });
+    try std.testing.expectEqual(std.math.Order.eq, try datetime.Datetime.compareWall(a, b));
+
+    a = try datetime.Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 42, .tzinfo = null });
+    try std.testing.expectEqual(std.math.Order.lt, try datetime.Datetime.compareWall(a, b));
+    try std.testing.expectEqual(std.math.Order.gt, try datetime.Datetime.compareWall(b, a));
+}
+
+test "floor naive datetime to the second" {
+    const dt = try datetime.Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 18, .minute = 5, .second = 32, .nanosecond = 42, .tzinfo = null });
+    const dt_floored = try dt.floorTo(datetime.Timespan.second);
+    try std.testing.expectEqual(dt_floored.year, dt.year);
+    try std.testing.expectEqual(dt_floored.month, dt.month);
+    try std.testing.expectEqual(dt_floored.day, dt.day);
+    try std.testing.expectEqual(dt_floored.hour, dt.hour);
+    try std.testing.expectEqual(dt_floored.minute, dt.minute);
+    try std.testing.expectEqual(dt_floored.second, dt.second);
+    try std.testing.expectEqual(@as(u30, 0), dt_floored.nanosecond);
+}
+
+test "floor naive datetime to the date" {
+    const dt = try datetime.Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 18, .nanosecond = 42, .tzinfo = null });
+    const dt_floored = try dt.floorTo(datetime.Timespan.day);
+    try std.testing.expectEqual(dt_floored.year, dt.year);
+    try std.testing.expectEqual(dt_floored.month, dt.month);
+    try std.testing.expectEqual(dt_floored.day, dt.day);
+    try std.testing.expectEqual(@as(u5, 0), dt_floored.hour);
+    try std.testing.expectEqual(@as(u6, 0), dt_floored.minute);
+    try std.testing.expectEqual(@as(u6, 0), dt_floored.second);
+    try std.testing.expectEqual(@as(u30, 0), dt_floored.nanosecond);
+    try std.testing.expectEqual(@as(i48, 1613606400), dt_floored.__unix);
+}
+
+// ---vv--- test generated with Python script ---vv---
+
+test "unix nanoseconds, fields" {
+    // 1931-10-12T06:52:00.652701+00:00 :
+    var dt_from_unix = try datetime.Datetime.fromUnix(-1206205679347298795, datetime.Unit.nanosecond, null);
+    var dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1931, .month = 10, .day = 12, .hour = 6, .minute = 52, .second = 0, .nanosecond = 652701205 });
+    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    var unix: i72 = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1206205679347298795);
+
+    // 1969-11-24T23:10:10.285143+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-3199789714856270, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1969, .month = 11, .day = 24, .hour = 23, .minute = 10, .second = 10, .nanosecond = 285143730 });
+    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -3199789714856270);
+
+    // 1939-10-30T19:50:28.445918+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-952142971554081681, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1939, .month = 10, .day = 30, .hour = 19, .minute = 50, .second = 28, .nanosecond = 445918319 });
+    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -952142971554081681);
+
+    // 1929-04-04T02:38:18.493097+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1285795301506902592, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1929, .month = 4, .day = 4, .hour = 2, .minute = 38, .second = 18, .nanosecond = 493097408 });
+    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1285795301506902592);
 
-    // 2009-12-16T19:31:59.646669+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(1260991919646669000, zdt.Timeunit.nanosecond);
-    var dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2009, .month = 12, .day = 16, .hour = 19, .minute = 31, .second = 59, .nanosecond = 646669000 });
+    // 2055-08-30T11:24:07.794000+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2703237847794000687, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2055, .month = 8, .day = 30, .hour = 11, .minute = 24, .second = 7, .nanosecond = 794000687 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2703237847794000687);
 
-    // 1911-07-23T11:20:24.738901+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1844339975261099000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1911, .month = 7, .day = 23, .hour = 11, .minute = 20, .second = 24, .nanosecond = 738901000 });
+    // 2068-07-16T19:35:14.335618+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3109692914335618665, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2068, .month = 7, .day = 16, .hour = 19, .minute = 35, .second = 14, .nanosecond = 335618665 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3109692914335618665);
 
-    // 2038-09-11T23:19:08.439138+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2167859948439138000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2038, .month = 9, .day = 11, .hour = 23, .minute = 19, .second = 8, .nanosecond = 439138000 });
+    // 1909-01-27T08:37:47.320729+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1922714532679270618, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1909, .month = 1, .day = 27, .hour = 8, .minute = 37, .second = 47, .nanosecond = 320729382 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1922714532679270618);
 
-    // 2002-03-13T14:52:55.090692+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(1016031175090692000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2002, .month = 3, .day = 13, .hour = 14, .minute = 52, .second = 55, .nanosecond = 90692000 });
+    // 1926-09-29T17:18:56.871022+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1365057663128977552, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1926, .month = 9, .day = 29, .hour = 17, .minute = 18, .second = 56, .nanosecond = 871022448 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1365057663128977552);
 
-    // 1962-05-08T16:01:23.383827+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-241430316616173000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1962, .month = 5, .day = 8, .hour = 16, .minute = 1, .second = 23, .nanosecond = 383827000 });
+    // 1966-05-29T21:27:36.943755+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-113365943056244079, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1966, .month = 5, .day = 29, .hour = 21, .minute = 27, .second = 36, .nanosecond = 943755921 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -113365943056244079);
 
-    // 1939-10-03T07:13:45.494646+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-954521174505354000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1939, .month = 10, .day = 3, .hour = 7, .minute = 13, .second = 45, .nanosecond = 494646000 });
+    // 2071-10-31T10:24:20.899537+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3213512660899537529, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2071, .month = 10, .day = 31, .hour = 10, .minute = 24, .second = 20, .nanosecond = 899537529 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3213512660899537529);
 
-    // 1939-11-21T12:04:45.988467+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-950270114011533000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1939, .month = 11, .day = 21, .hour = 12, .minute = 4, .second = 45, .nanosecond = 988467000 });
+    // 2060-03-11T18:49:00.839859+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2846256540839859462, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2060, .month = 3, .day = 11, .hour = 18, .minute = 49, .second = 0, .nanosecond = 839859462 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2846256540839859462);
 
-    // 1927-01-26T02:49:32.179065+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1354828227820935000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1927, .month = 1, .day = 26, .hour = 2, .minute = 49, .second = 32, .nanosecond = 179065000 });
+    // 2019-09-28T22:09:47.657462+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1569708587657462123, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2019, .month = 9, .day = 28, .hour = 22, .minute = 9, .second = 47, .nanosecond = 657462123 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1569708587657462123);
 
-    // 2052-01-03T18:07:31.344746+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2587918051344746000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2052, .month = 1, .day = 3, .hour = 18, .minute = 7, .second = 31, .nanosecond = 344746000 });
+    // 2028-03-20T00:25:42.687712+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1837124742687712253, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2028, .month = 3, .day = 20, .hour = 0, .minute = 25, .second = 42, .nanosecond = 687712253 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1837124742687712253);
 
-    // 2071-10-19T07:39:58.251422+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3212465998251422000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2071, .month = 10, .day = 19, .hour = 7, .minute = 39, .second = 58, .nanosecond = 251422000 });
+    // 1979-05-28T09:33:31.101612+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(296732011101612230, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1979, .month = 5, .day = 28, .hour = 9, .minute = 33, .second = 31, .nanosecond = 101612230 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 296732011101612230);
 
-    // 1941-12-12T17:59:55.400459+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-885276004599541000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1941, .month = 12, .day = 12, .hour = 17, .minute = 59, .second = 55, .nanosecond = 400459000 });
+    // 1945-07-28T11:31:05.719741+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-770905734280258935, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1945, .month = 7, .day = 28, .hour = 11, .minute = 31, .second = 5, .nanosecond = 719741065 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -770905734280258935);
 
-    // 1928-03-11T01:20:53.388505+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1319409546611495000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1928, .month = 3, .day = 11, .hour = 1, .minute = 20, .second = 53, .nanosecond = 388505000 });
+    // 2020-08-16T13:13:03.388538+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1597583583388538346, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2020, .month = 8, .day = 16, .hour = 13, .minute = 13, .second = 3, .nanosecond = 388538346 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1597583583388538346);
 
-    // 1921-01-18T16:18:51.962619+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1544773268037381000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1921, .month = 1, .day = 18, .hour = 16, .minute = 18, .second = 51, .nanosecond = 962619000 });
+    // 1979-04-25T01:55:13.501302+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(293853313501302021, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1979, .month = 4, .day = 25, .hour = 1, .minute = 55, .second = 13, .nanosecond = 501302021 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 293853313501302021);
 
-    // 1994-04-01T01:17:06.051626+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(765163026051626000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1994, .month = 4, .day = 1, .hour = 1, .minute = 17, .second = 6, .nanosecond = 51626000 });
+    // 1961-06-16T10:21:15.451696+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-269617124548303398, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1961, .month = 6, .day = 16, .hour = 10, .minute = 21, .second = 15, .nanosecond = 451696602 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -269617124548303398);
 
-    // 2059-10-14T13:49:22.883671+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2833364962883671000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2059, .month = 10, .day = 14, .hour = 13, .minute = 49, .second = 22, .nanosecond = 883671000 });
+    // 1929-03-05T09:54:45.560185+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1288361114439814433, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1929, .month = 3, .day = 5, .hour = 9, .minute = 54, .second = 45, .nanosecond = 560185567 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1288361114439814433);
 
-    // 2000-12-24T17:43:17.644788+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(977679797644788000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2000, .month = 12, .day = 24, .hour = 17, .minute = 43, .second = 17, .nanosecond = 644788000 });
+    // 2008-06-10T09:46:55.937809+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1213091215937809235, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2008, .month = 6, .day = 10, .hour = 9, .minute = 46, .second = 55, .nanosecond = 937809235 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1213091215937809235);
 
-    // 1990-04-02T11:56:58.338978+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(639057418338978000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1990, .month = 4, .day = 2, .hour = 11, .minute = 56, .second = 58, .nanosecond = 338978000 });
+    // 2002-06-18T14:03:44.710551+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1024409024710551602, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2002, .month = 6, .day = 18, .hour = 14, .minute = 3, .second = 44, .nanosecond = 710551602 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1024409024710551602);
 
-    // 2082-10-17T03:41:15.141817+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3559434075141817000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2082, .month = 10, .day = 17, .hour = 3, .minute = 41, .second = 15, .nanosecond = 141817000 });
+    // 1998-03-05T09:38:34.682387+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(889090714682387225, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1998, .month = 3, .day = 5, .hour = 9, .minute = 38, .second = 34, .nanosecond = 682387225 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 889090714682387225);
 
-    // 1958-05-13T19:16:37.223356+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-367217002776644000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1958, .month = 5, .day = 13, .hour = 19, .minute = 16, .second = 37, .nanosecond = 223356000 });
+    // 1975-07-03T07:19:10.766595+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(173603950766595007, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1975, .month = 7, .day = 3, .hour = 7, .minute = 19, .second = 10, .nanosecond = 766595007 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 173603950766595007);
 
-    // 2057-09-14T15:07:06.567617+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2767705626567617000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2057, .month = 9, .day = 14, .hour = 15, .minute = 7, .second = 6, .nanosecond = 567617000 });
+    // 1912-05-27T17:44:36.535679+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1817619323464320928, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1912, .month = 5, .day = 27, .hour = 17, .minute = 44, .second = 36, .nanosecond = 535679072 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1817619323464320928);
 
-    // 2026-05-10T18:56:51.511302+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(1778439411511302000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2026, .month = 5, .day = 10, .hour = 18, .minute = 56, .second = 51, .nanosecond = 511302000 });
+    // 2031-02-18T00:51:49.426128+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1929142309426128724, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2031, .month = 2, .day = 18, .hour = 0, .minute = 51, .second = 49, .nanosecond = 426128724 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1929142309426128724);
 
-    // 2048-10-22T02:44:34.330526+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2486947474330526000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2048, .month = 10, .day = 22, .hour = 2, .minute = 44, .second = 34, .nanosecond = 330526000 });
+    // 1935-08-19T03:09:06.861701+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1084654253138298354, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1935, .month = 8, .day = 19, .hour = 3, .minute = 9, .second = 6, .nanosecond = 861701646 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1084654253138298354);
 
-    // 1917-10-11T14:55:02.369219+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1648026297630781000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1917, .month = 10, .day = 11, .hour = 14, .minute = 55, .second = 2, .nanosecond = 369219000 });
+    // 1922-06-29T21:20:46.293267+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1499222353706732940, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1922, .month = 6, .day = 29, .hour = 21, .minute = 20, .second = 46, .nanosecond = 293267060 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1499222353706732940);
 
-    // 1926-08-16T13:52:18.242728+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1368871661757272000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1926, .month = 8, .day = 16, .hour = 13, .minute = 52, .second = 18, .nanosecond = 242728000 });
+    // 1983-09-06T20:09:28.301809+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(431726968301809234, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1983, .month = 9, .day = 6, .hour = 20, .minute = 9, .second = 28, .nanosecond = 301809234 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 431726968301809234);
 
-    // 2078-06-19T23:11:40.693121+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3422905900693121000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2078, .month = 6, .day = 19, .hour = 23, .minute = 11, .second = 40, .nanosecond = 693121000 });
+    // 2079-06-06T17:23:01.849394+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3453297781849394069, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2079, .month = 6, .day = 6, .hour = 17, .minute = 23, .second = 1, .nanosecond = 849394069 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3453297781849394069);
 
-    // 2074-08-26T06:08:52.794693+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3302489332794693000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2074, .month = 8, .day = 26, .hour = 6, .minute = 8, .second = 52, .nanosecond = 794693000 });
+    // 2003-03-22T11:03:03.191233+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1048330983191233927, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2003, .month = 3, .day = 22, .hour = 11, .minute = 3, .second = 3, .nanosecond = 191233927 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1048330983191233927);
 
-    // 1995-02-01T09:03:23.166506+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(791629403166506000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1995, .month = 2, .day = 1, .hour = 9, .minute = 3, .second = 23, .nanosecond = 166506000 });
+    // 1954-11-20T02:13:21.558975+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-477006398441024968, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1954, .month = 11, .day = 20, .hour = 2, .minute = 13, .second = 21, .nanosecond = 558975032 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -477006398441024968);
 
-    // 1917-12-24T02:58:03.872232+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1641675716127768000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1917, .month = 12, .day = 24, .hour = 2, .minute = 58, .second = 3, .nanosecond = 872232000 });
+    // 1919-11-09T02:57:00.678640+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1582491779321359120, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1919, .month = 11, .day = 9, .hour = 2, .minute = 57, .second = 0, .nanosecond = 678640880 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1582491779321359120);
 
-    // 1963-04-13T14:51:41.846095+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-212058498153905000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1963, .month = 4, .day = 13, .hour = 14, .minute = 51, .second = 41, .nanosecond = 846095000 });
+    // 2088-09-27T15:54:58.920857+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3747138898920857338, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2088, .month = 9, .day = 27, .hour = 15, .minute = 54, .second = 58, .nanosecond = 920857338 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3747138898920857338);
 
-    // 1940-09-03T01:37:02.552018+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-925510977447982000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1940, .month = 9, .day = 3, .hour = 1, .minute = 37, .second = 2, .nanosecond = 552018000 });
+    // 2008-07-01T03:17:32.757712+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1214882252757712072, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2008, .month = 7, .day = 1, .hour = 3, .minute = 17, .second = 32, .nanosecond = 757712072 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1214882252757712072);
 
-    // 2054-12-25T17:09:08.538237+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2681831348538237000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2054, .month = 12, .day = 25, .hour = 17, .minute = 9, .second = 8, .nanosecond = 538237000 });
+    // 2029-06-01T00:25:46.635065+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1874967946635065526, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2029, .month = 6, .day = 1, .hour = 0, .minute = 25, .second = 46, .nanosecond = 635065526 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1874967946635065526);
 
-    // 1926-01-14T05:58:22.968388+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1387389697031612000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1926, .month = 1, .day = 14, .hour = 5, .minute = 58, .second = 22, .nanosecond = 968388000 });
+    // 1946-06-05T16:31:01.280833+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-743930938719166757, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1946, .month = 6, .day = 5, .hour = 16, .minute = 31, .second = 1, .nanosecond = 280833243 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -743930938719166757);
 
-    // 2039-08-28T03:38:28.654731+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2198115508654731000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2039, .month = 8, .day = 28, .hour = 3, .minute = 38, .second = 28, .nanosecond = 654731000 });
+    // 2001-05-27T22:52:23.603720+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(991003943603720285, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2001, .month = 5, .day = 27, .hour = 22, .minute = 52, .second = 23, .nanosecond = 603720285 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 991003943603720285);
 
-    // 1986-01-15T19:03:18.617873+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(506199798617873000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1986, .month = 1, .day = 15, .hour = 19, .minute = 3, .second = 18, .nanosecond = 617873000 });
+    // 2091-04-14T18:09:00.694702+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3827412540694702685, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2091, .month = 4, .day = 14, .hour = 18, .minute = 9, .second = 0, .nanosecond = 694702685 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3827412540694702685);
 
-    // 1983-02-01T04:59:58.158263+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(412923598158263000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1983, .month = 2, .day = 1, .hour = 4, .minute = 59, .second = 58, .nanosecond = 158263000 });
+    // 2095-02-06T20:48:46.618697+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3947863726618697497, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2095, .month = 2, .day = 6, .hour = 20, .minute = 48, .second = 46, .nanosecond = 618697497 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3947863726618697497);
 
-    // 1935-08-17T13:10:39.484285+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1084790960515715000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1935, .month = 8, .day = 17, .hour = 13, .minute = 10, .second = 39, .nanosecond = 484285000 });
+    // 1920-05-19T16:44:41.161131+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1565853318838868781, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1920, .month = 5, .day = 19, .hour = 16, .minute = 44, .second = 41, .nanosecond = 161131219 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1565853318838868781);
 
-    // 1994-12-23T05:53:09.473898+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(788161989473898000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1994, .month = 12, .day = 23, .hour = 5, .minute = 53, .second = 9, .nanosecond = 473898000 });
+    // 2081-03-28T11:05:41.079667+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3510385541079667552, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2081, .month = 3, .day = 28, .hour = 11, .minute = 5, .second = 41, .nanosecond = 79667552 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3510385541079667552);
 
-    // 1957-12-31T19:25:58.854337+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-378707641145663000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1957, .month = 12, .day = 31, .hour = 19, .minute = 25, .second = 58, .nanosecond = 854337000 });
+    // 2052-06-16T01:27:20.929793+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2602114040929793135, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2052, .month = 6, .day = 16, .hour = 1, .minute = 27, .second = 20, .nanosecond = 929793135 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2602114040929793135);
 
-    // 2056-03-11T17:28:58.767250+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2720021338767250000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2056, .month = 3, .day = 11, .hour = 17, .minute = 28, .second = 58, .nanosecond = 767250000 });
+    // 1969-11-16T12:53:36.178644+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-3927983821355260, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1969, .month = 11, .day = 16, .hour = 12, .minute = 53, .second = 36, .nanosecond = 178644740 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -3927983821355260);
 
-    // 1982-02-08T07:06:29.748343+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(381999989748343000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1982, .month = 2, .day = 8, .hour = 7, .minute = 6, .second = 29, .nanosecond = 748343000 });
+    // 2031-12-10T14:02:32.602351+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1954677752602351957, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2031, .month = 12, .day = 10, .hour = 14, .minute = 2, .second = 32, .nanosecond = 602351957 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1954677752602351957);
 
-    // 1926-02-26T15:29:56.616453+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1383640203383547000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1926, .month = 2, .day = 26, .hour = 15, .minute = 29, .second = 56, .nanosecond = 616453000 });
+    // 1977-01-19T01:06:50.327543+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(222484010327543903, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1977, .month = 1, .day = 19, .hour = 1, .minute = 6, .second = 50, .nanosecond = 327543903 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 222484010327543903);
 
-    // 1990-06-30T03:05:33.411749+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(646715133411749000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1990, .month = 6, .day = 30, .hour = 3, .minute = 5, .second = 33, .nanosecond = 411749000 });
+    // 2096-06-01T21:34:11.019304+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3989424851019304584, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2096, .month = 6, .day = 1, .hour = 21, .minute = 34, .second = 11, .nanosecond = 19304584 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3989424851019304584);
 
-    // 1969-02-07T16:08:12.436850+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-28281107563150000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1969, .month = 2, .day = 7, .hour = 16, .minute = 8, .second = 12, .nanosecond = 436850000 });
+    // 1962-09-07T21:18:19.730489+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-230870500269510410, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1962, .month = 9, .day = 7, .hour = 21, .minute = 18, .second = 19, .nanosecond = 730489590 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -230870500269510410);
 
-    // 1952-06-25T07:03:56.293324+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-552848163706676000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1952, .month = 6, .day = 25, .hour = 7, .minute = 3, .second = 56, .nanosecond = 293324000 });
+    // 1992-07-23T11:55:49.386543+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(711892549386543484, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1992, .month = 7, .day = 23, .hour = 11, .minute = 55, .second = 49, .nanosecond = 386543484 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 711892549386543484);
 
-    // 1909-05-31T09:00:00.581045+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1911999599418955000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1909, .month = 5, .day = 31, .hour = 9, .minute = 0, .second = 0, .nanosecond = 581045000 });
+    // 1915-12-20T13:12:26.388025+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1705142853611974752, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1915, .month = 12, .day = 20, .hour = 13, .minute = 12, .second = 26, .nanosecond = 388025248 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1705142853611974752);
 
-    // 1974-03-24T20:53:19.321207+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(133390399321207000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1974, .month = 3, .day = 24, .hour = 20, .minute = 53, .second = 19, .nanosecond = 321207000 });
+    // 2014-07-03T09:57:05.887228+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1404381425887228803, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2014, .month = 7, .day = 3, .hour = 9, .minute = 57, .second = 5, .nanosecond = 887228803 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1404381425887228803);
 
-    // 1919-09-21T03:31:38.464124+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1586723301535876000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1919, .month = 9, .day = 21, .hour = 3, .minute = 31, .second = 38, .nanosecond = 464124000 });
+    // 1918-11-23T03:31:15.394206+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1612816124605793516, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1918, .month = 11, .day = 23, .hour = 3, .minute = 31, .second = 15, .nanosecond = 394206484 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1612816124605793516);
 
-    // 2093-09-21T22:56:40.344224+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3904412200344224000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2093, .month = 9, .day = 21, .hour = 22, .minute = 56, .second = 40, .nanosecond = 344224000 });
+    // 2061-11-20T12:33:59.601124+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2899715639601124826, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2061, .month = 11, .day = 20, .hour = 12, .minute = 33, .second = 59, .nanosecond = 601124826 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2899715639601124826);
 
-    // 1937-03-03T21:53:42.421688+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1036029977578312000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1937, .month = 3, .day = 3, .hour = 21, .minute = 53, .second = 42, .nanosecond = 421688000 });
+    // 1960-09-09T07:43:38.490583+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-293818581509416584, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1960, .month = 9, .day = 9, .hour = 7, .minute = 43, .second = 38, .nanosecond = 490583416 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -293818581509416584);
 
-    // 1942-09-08T15:01:03.777259+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-861958736222741000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1942, .month = 9, .day = 8, .hour = 15, .minute = 1, .second = 3, .nanosecond = 777259000 });
+    // 2042-06-29T20:17:40.209685+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2287685860209685194, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2042, .month = 6, .day = 29, .hour = 20, .minute = 17, .second = 40, .nanosecond = 209685194 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2287685860209685194);
 
-    // 1911-01-12T10:00:30.657224+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1860933569342776000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1911, .month = 1, .day = 12, .hour = 10, .minute = 0, .second = 30, .nanosecond = 657224000 });
+    // 2083-06-27T08:14:07.792741+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3581309647792741096, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2083, .month = 6, .day = 27, .hour = 8, .minute = 14, .second = 7, .nanosecond = 792741096 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3581309647792741096);
 
-    // 1922-11-27T21:10:54.517544+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1486176545482456000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1922, .month = 11, .day = 27, .hour = 21, .minute = 10, .second = 54, .nanosecond = 517544000 });
+    // 1940-10-12T08:42:36.883113+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-922115843116886901, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1940, .month = 10, .day = 12, .hour = 8, .minute = 42, .second = 36, .nanosecond = 883113099 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -922115843116886901);
 
-    // 2099-08-09T10:19:24.395638+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(4089953964395638000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2099, .month = 8, .day = 9, .hour = 10, .minute = 19, .second = 24, .nanosecond = 395638000 });
+    // 1939-11-09T11:20:31.070174+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-951309568929825326, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1939, .month = 11, .day = 9, .hour = 11, .minute = 20, .second = 31, .nanosecond = 70174674 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -951309568929825326);
 
-    // 2095-02-01T17:27:23.945401+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3947419643945401000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2095, .month = 2, .day = 1, .hour = 17, .minute = 27, .second = 23, .nanosecond = 945401000 });
+    // 2053-11-02T09:22:40.170619+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2645688160170619441, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2053, .month = 11, .day = 2, .hour = 9, .minute = 22, .second = 40, .nanosecond = 170619441 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2645688160170619441);
 
-    // 2049-09-22T20:23:16.138993+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2515954996138993000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2049, .month = 9, .day = 22, .hour = 20, .minute = 23, .second = 16, .nanosecond = 138993000 });
+    // 2022-04-15T05:01:16.560761+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1649998876560761362, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2022, .month = 4, .day = 15, .hour = 5, .minute = 1, .second = 16, .nanosecond = 560761362 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1649998876560761362);
 
-    // 2048-12-06T14:52:11.735357+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2490879131735357000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2048, .month = 12, .day = 6, .hour = 14, .minute = 52, .second = 11, .nanosecond = 735357000 });
+    // 2066-07-22T08:02:29.370997+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3047011349370997433, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2066, .month = 7, .day = 22, .hour = 8, .minute = 2, .second = 29, .nanosecond = 370997433 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3047011349370997433);
 
-    // 1967-03-22T01:08:44.001829+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-87778275998171000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1967, .month = 3, .day = 22, .hour = 1, .minute = 8, .second = 44, .nanosecond = 1829000 });
+    // 2003-04-29T02:49:42.810775+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1051584582810775420, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2003, .month = 4, .day = 29, .hour = 2, .minute = 49, .second = 42, .nanosecond = 810775420 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1051584582810775420);
 
-    // 1961-06-04T17:37:23.904915+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-270627756095085000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1961, .month = 6, .day = 4, .hour = 17, .minute = 37, .second = 23, .nanosecond = 904915000 });
+    // 1939-06-27T02:21:26.895600+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-963005913104399522, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1939, .month = 6, .day = 27, .hour = 2, .minute = 21, .second = 26, .nanosecond = 895600478 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -963005913104399522);
 
-    // 2093-12-09T05:45:37.238534+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3911175937238534000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2093, .month = 12, .day = 9, .hour = 5, .minute = 45, .second = 37, .nanosecond = 238534000 });
+    // 2040-11-11T00:15:55.510952+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2236205755510952884, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2040, .month = 11, .day = 11, .hour = 0, .minute = 15, .second = 55, .nanosecond = 510952884 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2236205755510952884);
 
-    // 2019-09-18T21:39:02.966900+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(1568842742966900000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2019, .month = 9, .day = 18, .hour = 21, .minute = 39, .second = 2, .nanosecond = 966900000 });
+    // 1943-08-17T16:30:33.293621+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-832318166706378254, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1943, .month = 8, .day = 17, .hour = 16, .minute = 30, .second = 33, .nanosecond = 293621746 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -832318166706378254);
 
-    // 1978-07-21T17:00:24.395890+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(269888424395890000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1978, .month = 7, .day = 21, .hour = 17, .minute = 0, .second = 24, .nanosecond = 395890000 });
+    // 1945-08-31T02:59:52.472004+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-767998807527995945, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1945, .month = 8, .day = 31, .hour = 2, .minute = 59, .second = 52, .nanosecond = 472004055 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -767998807527995945);
 
-    // 2040-08-13T07:56:21.264001+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2228457381264001000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2040, .month = 8, .day = 13, .hour = 7, .minute = 56, .second = 21, .nanosecond = 264001000 });
+    // 2094-03-24T04:09:30.992268+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3920242170992268689, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2094, .month = 3, .day = 24, .hour = 4, .minute = 9, .second = 30, .nanosecond = 992268689 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3920242170992268689);
 
-    // 2083-01-05T18:52:04.088656+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3566400724088656000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2083, .month = 1, .day = 5, .hour = 18, .minute = 52, .second = 4, .nanosecond = 88656000 });
+    // 2070-03-25T15:18:28.308200+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3162986308308200669, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2070, .month = 3, .day = 25, .hour = 15, .minute = 18, .second = 28, .nanosecond = 308200669 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3162986308308200669);
 
-    // 2099-11-11T12:52:38.757617+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(4098084758757617000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2099, .month = 11, .day = 11, .hour = 12, .minute = 52, .second = 38, .nanosecond = 757617000 });
+    // 2009-10-27T23:10:08.501264+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1256685008501264661, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2009, .month = 10, .day = 27, .hour = 23, .minute = 10, .second = 8, .nanosecond = 501264661 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1256685008501264661);
 
-    // 2002-01-01T14:23:47.161690+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(1009895027161690000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2002, .month = 1, .day = 1, .hour = 14, .minute = 23, .second = 47, .nanosecond = 161690000 });
+    // 2070-01-30T08:27:09.900066+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3158296029900066100, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2070, .month = 1, .day = 30, .hour = 8, .minute = 27, .second = 9, .nanosecond = 900066100 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3158296029900066100);
 
-    // 1992-07-27T20:11:59.902064+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(712267919902064000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1992, .month = 7, .day = 27, .hour = 20, .minute = 11, .second = 59, .nanosecond = 902064000 });
+    // 2033-08-05T05:00:22.010777+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2006830822010777062, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2033, .month = 8, .day = 5, .hour = 5, .minute = 0, .second = 22, .nanosecond = 10777062 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2006830822010777062);
 
-    // 1932-12-04T04:38:15.622278+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1170012104377722000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1932, .month = 12, .day = 4, .hour = 4, .minute = 38, .second = 15, .nanosecond = 622278000 });
+    // 1971-10-05T21:57:44.246697+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(55547864246697412, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1971, .month = 10, .day = 5, .hour = 21, .minute = 57, .second = 44, .nanosecond = 246697412 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 55547864246697412);
 
-    // 2067-07-26T12:18:24.620404+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3078908304620404000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2067, .month = 7, .day = 26, .hour = 12, .minute = 18, .second = 24, .nanosecond = 620404000 });
+    // 2057-11-26T19:17:17.634489+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2774027837634489745, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2057, .month = 11, .day = 26, .hour = 19, .minute = 17, .second = 17, .nanosecond = 634489745 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2774027837634489745);
 
-    // 1995-09-11T23:14:06.854663+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(810861246854663000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1995, .month = 9, .day = 11, .hour = 23, .minute = 14, .second = 6, .nanosecond = 854663000 });
+    // 2094-03-03T12:06:46.920080+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3918456406920080347, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2094, .month = 3, .day = 3, .hour = 12, .minute = 6, .second = 46, .nanosecond = 920080347 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3918456406920080347);
 
-    // 1954-05-05T00:23:27.410434+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-494206592589566000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1954, .month = 5, .day = 5, .hour = 0, .minute = 23, .second = 27, .nanosecond = 410434000 });
+    // 1932-09-12T00:47:58.929337+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1177197121070662181, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1932, .month = 9, .day = 12, .hour = 0, .minute = 47, .second = 58, .nanosecond = 929337819 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1177197121070662181);
 
-    // 1904-08-17T18:19:32.155693+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-2062993227844307000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1904, .month = 8, .day = 17, .hour = 18, .minute = 19, .second = 32, .nanosecond = 155693000 });
+    // 1997-02-04T06:55:26.909075+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(855039326909075882, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1997, .month = 2, .day = 4, .hour = 6, .minute = 55, .second = 26, .nanosecond = 909075882 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 855039326909075882);
 
-    // 1977-05-12T16:50:17.539762+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(232303817539762000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1977, .month = 5, .day = 12, .hour = 16, .minute = 50, .second = 17, .nanosecond = 539762000 });
+    // 1983-10-10T08:56:19.343081+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(434624179343081111, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1983, .month = 10, .day = 10, .hour = 8, .minute = 56, .second = 19, .nanosecond = 343081111 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 434624179343081111);
 
-    // 2006-03-13T05:51:39.051540+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(1142229099051540000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2006, .month = 3, .day = 13, .hour = 5, .minute = 51, .second = 39, .nanosecond = 51540000 });
+    // 1945-02-21T22:10:20.039834+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-784432179960165746, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1945, .month = 2, .day = 21, .hour = 22, .minute = 10, .second = 20, .nanosecond = 39834254 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -784432179960165746);
 
-    // 1948-08-29T18:04:50.177592+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-673422909822408000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1948, .month = 8, .day = 29, .hour = 18, .minute = 4, .second = 50, .nanosecond = 177592000 });
+    // 1900-12-05T07:13:21.177763+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-2179759598822236804, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1900, .month = 12, .day = 5, .hour = 7, .minute = 13, .second = 21, .nanosecond = 177763196 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -2179759598822236804);
 
-    // 2021-08-18T03:29:56.942557+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(1629257396942557000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2021, .month = 8, .day = 18, .hour = 3, .minute = 29, .second = 56, .nanosecond = 942557000 });
+    // 2044-11-26T18:53:42.845748+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2363799222845748194, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2044, .month = 11, .day = 26, .hour = 18, .minute = 53, .second = 42, .nanosecond = 845748194 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2363799222845748194);
 
-    // 1917-10-02T14:26:43.835459+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1648805596164541000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1917, .month = 10, .day = 2, .hour = 14, .minute = 26, .second = 43, .nanosecond = 835459000 });
+    // 1930-05-17T08:08:46.514799+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1250524273485200451, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1930, .month = 5, .day = 17, .hour = 8, .minute = 8, .second = 46, .nanosecond = 514799549 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1250524273485200451);
 
-    // 1962-06-12T03:44:46.844678+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-238450513155322000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1962, .month = 6, .day = 12, .hour = 3, .minute = 44, .second = 46, .nanosecond = 844678000 });
+    // 2078-06-23T13:20:07.491094+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3423216007491094459, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2078, .month = 6, .day = 23, .hour = 13, .minute = 20, .second = 7, .nanosecond = 491094459 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3423216007491094459);
 
-    // 2081-01-07T00:42:12.532841+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3503436132532841000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2081, .month = 1, .day = 7, .hour = 0, .minute = 42, .second = 12, .nanosecond = 532841000 });
+    // 2044-11-24T20:54:56.084391+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2363633696084391143, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2044, .month = 11, .day = 24, .hour = 20, .minute = 54, .second = 56, .nanosecond = 84391143 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2363633696084391143);
 
-    // 2071-11-16T07:01:19.345325+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3214882879345325000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2071, .month = 11, .day = 16, .hour = 7, .minute = 1, .second = 19, .nanosecond = 345325000 });
+    // 1956-10-10T11:17:23.164359+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-417357756835640568, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1956, .month = 10, .day = 10, .hour = 11, .minute = 17, .second = 23, .nanosecond = 164359432 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -417357756835640568);
 
-    // 1921-02-14T04:08:58.035948+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1542484261964052000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1921, .month = 2, .day = 14, .hour = 4, .minute = 8, .second = 58, .nanosecond = 35948000 });
+    // 2006-09-22T12:20:41.467261+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1158927641467261187, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2006, .month = 9, .day = 22, .hour = 12, .minute = 20, .second = 41, .nanosecond = 467261187 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1158927641467261187);
 
-    // 1935-07-10T05:43:14.670056+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1088101005329944000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1935, .month = 7, .day = 10, .hour = 5, .minute = 43, .second = 14, .nanosecond = 670056000 });
+    // 1946-02-10T11:30:35.105377+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-753884964894622715, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1946, .month = 2, .day = 10, .hour = 11, .minute = 30, .second = 35, .nanosecond = 105377285 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -753884964894622715);
 
-    // 1953-10-23T06:50:17.581232+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-510944982418768000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1953, .month = 10, .day = 23, .hour = 6, .minute = 50, .second = 17, .nanosecond = 581232000 });
+    // 2070-12-14T22:13:58.714065+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3185820838714065473, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2070, .month = 12, .day = 14, .hour = 22, .minute = 13, .second = 58, .nanosecond = 714065473 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3185820838714065473);
 
-    // 1934-03-02T06:01:09.373727+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1130867930626273000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1934, .month = 3, .day = 2, .hour = 6, .minute = 1, .second = 9, .nanosecond = 373727000 });
+    // 2039-06-18T03:14:41.104955+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2191979681104955255, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2039, .month = 6, .day = 18, .hour = 3, .minute = 14, .second = 41, .nanosecond = 104955255 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2191979681104955255);
 
-    // 1926-02-16T04:53:42.502613+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1384542377497387000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1926, .month = 2, .day = 16, .hour = 4, .minute = 53, .second = 42, .nanosecond = 502613000 });
+    // 1931-12-07T04:18:16.195458+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1201376503804541105, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1931, .month = 12, .day = 7, .hour = 4, .minute = 18, .second = 16, .nanosecond = 195458895 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1201376503804541105);
 
-    // 1933-02-14T20:07:02.245281+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1163735577754719000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1933, .month = 2, .day = 14, .hour = 20, .minute = 7, .second = 2, .nanosecond = 245281000 });
+    // 2003-08-09T17:54:30.345777+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(1060451670345777945, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2003, .month = 8, .day = 9, .hour = 17, .minute = 54, .second = 30, .nanosecond = 345777945 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 1060451670345777945);
 
-    // 2072-10-28T19:00:57.651475+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3244906857651475000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2072, .month = 10, .day = 28, .hour = 19, .minute = 0, .second = 57, .nanosecond = 651475000 });
+    // 1968-05-06T20:56:02.893567+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-52196637106432923, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1968, .month = 5, .day = 6, .hour = 20, .minute = 56, .second = 2, .nanosecond = 893567077 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -52196637106432923);
 
-    // 1955-07-18T01:35:16.883575+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-456272683116425000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1955, .month = 7, .day = 18, .hour = 1, .minute = 35, .second = 16, .nanosecond = 883575000 });
+    // 1968-10-01T20:20:08.557338+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-39411591442661547, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1968, .month = 10, .day = 1, .hour = 20, .minute = 20, .second = 8, .nanosecond = 557338453 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -39411591442661547);
 
-    // 2036-10-14T01:40:38.788090+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2107561238788090000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2036, .month = 10, .day = 14, .hour = 1, .minute = 40, .second = 38, .nanosecond = 788090000 });
+    // 2061-12-08T23:06:33.724088+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2901308793724088827, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2061, .month = 12, .day = 8, .hour = 23, .minute = 6, .second = 33, .nanosecond = 724088827 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2901308793724088827);
 
-    // 1917-06-09T02:58:49.667227+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1658782870332773000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1917, .month = 6, .day = 9, .hour = 2, .minute = 58, .second = 49, .nanosecond = 667227000 });
+    // 1922-06-25T10:39:00.560758+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1499606459439241118, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1922, .month = 6, .day = 25, .hour = 10, .minute = 39, .second = 0, .nanosecond = 560758882 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1499606459439241118);
 
-    // 2093-11-25T23:16:01.059320+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3910029361059320000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2093, .month = 11, .day = 25, .hour = 23, .minute = 16, .second = 1, .nanosecond = 59320000 });
+    // 2052-01-18T14:40:05.997253+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2589201605997253876, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2052, .month = 1, .day = 18, .hour = 14, .minute = 40, .second = 5, .nanosecond = 997253876 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2589201605997253876);
 
-    // 2055-05-04T12:27:31.336243+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(2693046451336243000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2055, .month = 5, .day = 4, .hour = 12, .minute = 27, .second = 31, .nanosecond = 336243000 });
+    // 1935-11-24T12:36:13.946292+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-1076239426053707437, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1935, .month = 11, .day = 24, .hour = 12, .minute = 36, .second = 13, .nanosecond = 946292563 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -1076239426053707437);
 
-    // 2077-02-18T12:56:44.024597+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3380878604024597000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2077, .month = 2, .day = 18, .hour = 12, .minute = 56, .second = 44, .nanosecond = 24597000 });
+    // 2088-04-22T23:40:17.280861+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3733515617280861100, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2088, .month = 4, .day = 22, .hour = 23, .minute = 40, .second = 17, .nanosecond = 280861100 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3733515617280861100);
 
-    // 1919-12-25T22:16:10.105890+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1578447829894110000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1919, .month = 12, .day = 25, .hour = 22, .minute = 16, .second = 10, .nanosecond = 105890000 });
+    // 1947-02-18T11:52:36.124080+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(-721656443875919949, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 1947, .month = 2, .day = 18, .hour = 11, .minute = 52, .second = 36, .nanosecond = 124080051 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == -721656443875919949);
 
-    // 1920-07-18T00:43:57.276281+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1560726962723719000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1920, .month = 7, .day = 18, .hour = 0, .minute = 43, .second = 57, .nanosecond = 276281000 });
+    // 2050-08-11T23:51:27.770691+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(2543874687770691667, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2050, .month = 8, .day = 11, .hour = 23, .minute = 51, .second = 27, .nanosecond = 770691667 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 2543874687770691667);
 
-    // 1985-12-06T15:42:55.167640+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(502731775167640000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1985, .month = 12, .day = 6, .hour = 15, .minute = 42, .second = 55, .nanosecond = 167640000 });
+    // 2073-02-19T10:07:28.691610+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(3254724448691610553, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2073, .month = 2, .day = 19, .hour = 10, .minute = 7, .second = 28, .nanosecond = 691610553 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 3254724448691610553);
 
-    // 2024-06-19T03:48:06.627736+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(1718768886627736000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2024, .month = 6, .day = 19, .hour = 3, .minute = 48, .second = 6, .nanosecond = 627736000 });
+    // 2096-11-26T17:12:15.289130+00:00 :
+    dt_from_unix = try datetime.Datetime.fromUnix(4004788335289130856, datetime.Unit.nanosecond, null);
+    dt_from_fields = try datetime.Datetime.fromFields(.{ .year = 2096, .month = 11, .day = 26, .hour = 17, .minute = 12, .second = 15, .nanosecond = 289130856 });
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 1917-06-04T16:03:32.856933+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(-1659167787143067000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 1917, .month = 6, .day = 4, .hour = 16, .minute = 3, .second = 32, .nanosecond = 856933000 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2033-05-01T10:36:39.792238+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(1998556599792238000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2033, .month = 5, .day = 1, .hour = 10, .minute = 36, .second = 39, .nanosecond = 792238000 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2070-04-02T12:32:44.075274+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(3163667564075274000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2070, .month = 4, .day = 2, .hour = 12, .minute = 32, .second = 44, .nanosecond = 75274000 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-
-    // 2099-08-09T09:22:20.224880+00:00 :
-    dt_from_unix = try zdt.Datetime.from_unix(4089950540224880000, zdt.Timeunit.nanosecond);
-    dt_from_fields = try zdt.Datetime.from_fields(.{ .year = 2099, .month = 8, .day = 9, .hour = 9, .minute = 22, .second = 20, .nanosecond = 224880000 });
-    try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
+    unix = dt_from_fields.toUnix(datetime.Unit.nanosecond);
+    try std.testing.expect(unix == 4004788335289130856);
 }

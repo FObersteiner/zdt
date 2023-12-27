@@ -1,14 +1,17 @@
 const std = @import("std");
 
-// const example_files = [_][]const u8{
-//     "ex_datetime", "ex_duration", "ex_helpers",
-// };
+const example_files = [_][]const u8{
+    "ex_datetime",
+    "ex_offsetTz",
+    "ex_timezones",
+};
 
 const test_files = [_][]const u8{
-    "test_datetime",
     "test_calendar",
+    "test_datetime",
+    "test_duration",
+    "test_stringIO",
     "test_timezone",
-    //    "zdt",
 };
 
 // Although this function looks imperative, note that its job is to
@@ -57,39 +60,39 @@ pub fn build(b: *std.Build) void {
     }
 
     // --------------------------------------------------------------------------------
-    // benchmarks (as binary 'benchmarks')
-    // const bench_step = b.step("bench", "Run benchmarks");
-    // const benchmarks = b.addExecutable(
-    //     .{
-    //         .name = "benchmarks",
-    //         .root_source_file = .{ .path = "src/benchmarks.zig" },
-    //         .target = target,
-    //         .optimize = optimize,
-    //     },
-    // );
-    // const zbench = b.dependency("zbench", .{ .target = target, .optimize = optimize });
-    // benchmarks.addModule("zbench", zbench.module("zbench"));
-    // benchmarks.linkLibrary(zbench.artifact("zbench"));
-    // const build_benchmarks = b.addInstallArtifact(benchmarks, .{});
-    // bench_step.dependOn(&build_benchmarks.step);
+    // benchmarks (as binary 'benchmark')
+    const bench_step = b.step("benchmark", "Build benchmark");
+    const benchmarks = b.addTest(
+        .{
+            .name = "benchmark",
+            .root_source_file = .{ .path = "src/benchmark.zig" },
+            .target = target,
+            .optimize = optimize,
+        },
+    );
+    const zbench = b.dependency("zbench", .{ .target = target, .optimize = optimize });
+    benchmarks.addModule("zbench", zbench.module("zbench"));
+    benchmarks.linkLibrary(zbench.artifact("zbench"));
+    const build_benchmarks = b.addInstallArtifact(benchmarks, .{});
+    bench_step.dependOn(&build_benchmarks.step);
 
     // --------------------------------------------------------------------------------
     // examples (as binaries with a main() that prints stuff to stderr)
     // build via 'zig build examples'
     // build & run via 'zig build examples && ./zig-out/bin/[example-name]'
-    // const zdt_mod = b.addModule("zdt", .{ .source_file = .{ .path = "src/zdt.zig" } });
-    // const example_step = b.step("examples", "Build examples");
-    // // Add new examples here
-    // for (example_files) |example_name| {
-    //     const example = b.addExecutable(.{
-    //         .name = example_name,
-    //         .root_source_file = .{ .path = b.fmt("examples/{s}.zig", .{example_name}) },
-    //         .target = target,
-    //         .optimize = optimize,
-    //     });
-    //     example.addModule("zdt", zdt_mod);
-    //     const install_example = b.addInstallArtifact(example, .{});
-    //     example_step.dependOn(&example.step);
-    //     example_step.dependOn(&install_example.step);
-    // }
+    const zdt_mod = b.addModule("zdt", .{ .source_file = .{ .path = "src/zdt.zig" } });
+    const example_step = b.step("examples", "Build examples");
+    // Add new examples here
+    for (example_files) |example_name| {
+        const example = b.addTest(.{
+            .name = example_name,
+            .root_source_file = .{ .path = b.fmt("examples/{s}.zig", .{example_name}) },
+            .target = target,
+            .optimize = optimize,
+        });
+        example.addModule("zdt", zdt_mod);
+        const install_example = b.addInstallArtifact(example, .{});
+        example_step.dependOn(&example.step);
+        example_step.dependOn(&install_example.step);
+    }
 }
