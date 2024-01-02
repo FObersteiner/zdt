@@ -6,11 +6,6 @@ const example_files = [_][]const u8{
     "ex_timezones",
 };
 
-const bench_files = [_][]const u8{
-    "bench_calendar",
-    "bench_isoparse",
-};
-
 const test_files = [_][]const u8{
     "zdt",
     "test_calendar",
@@ -59,23 +54,6 @@ pub fn build(b: *std.Build) void {
         });
         const run_test = b.addRunArtifact(_test);
         test_step.dependOn(&run_test.step);
-    }
-
-    // --------------------------------------------------------------------------------
-    // benchmarks (as binaries 'bench_*')
-    const zbench = b.dependency("zbench", .{ .target = target, .optimize = optimize });
-    const bench_step = b.step("benchmarks", "Build benchmark");
-    for (bench_files) |bench_name| {
-        const _bench = b.addTest(.{
-            .name = bench_name,
-            .root_source_file = .{ .path = b.fmt("src/{s}.zig", .{bench_name}) },
-            .target = target,
-            .optimize = optimize,
-        });
-        _bench.addModule("zbench", zbench.module("zbench"));
-        _bench.linkLibrary(zbench.artifact("zbench"));
-        const build_benchmark = b.addInstallArtifact(_bench, .{});
-        bench_step.dependOn(&build_benchmark.step);
     }
 
     // --------------------------------------------------------------------------------

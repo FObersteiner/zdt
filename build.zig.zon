@@ -2,11 +2,4 @@
     .name = "zdt",
     .version = "0.1.9",
     .paths = .{"src/"},
-
-    .dependencies = .{
-        .zbench = .{
-            .url = "https://github.com/hendriknielaender/zBench/archive/refs/tags/v0.1.1.tar.gz",
-            .hash = "12202c57ebc22b6a9bd2dd3a549a8d64f9eed2441c6e90537c0a137b0332c830e5c4",
-        },
-    },
 }

@@ -12,24 +12,24 @@ permissions:
   contents: read
 
 jobs:
-  # build-tests-stable:
-  #   strategy:
-  #     matrix:
-  #       os: [ubuntu-latest]
-  #   runs-on: ${{matrix.os}}
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - uses: goto-bus-stop/setup-zig@v2
-  #       with:
-  #         version: 0.11.0
-  #     - run: zig build tests
+  build-tests-stable:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{matrix.os}}
+    steps:
+      - uses: actions/checkout@main
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.11.0
+      - run: zig build tests
   build-tests-master:
     strategy:
       matrix:
         os: [ubuntu-latest]
     runs-on: ${{matrix.os}}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@main
       - uses: goto-bus-stop/setup-zig@v2
         with:
           version: master
@@ -37,6 +37,6 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@main
       - uses: goto-bus-stop/setup-zig@v2
       - run: zig fmt --check build.zig src/*.zig
