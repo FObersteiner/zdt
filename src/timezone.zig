@@ -1,6 +1,8 @@
 const std = @import("std");
 const datetime = @import("datetime.zig");
 
+// TODO : make this a "struct-file" ?
+
 pub const TzError = error{
     AllTZRulesUndefined,
     InvalidOffset,
@@ -8,6 +10,9 @@ pub const TzError = error{
     InvalidTz,
     AmbiguousDatetime,
     NonexistentDatetime,
+    TzAlreadyDefined,
+    TzUndefined,
+    CompareNaiveAware,
     NotImplemented,
 };
 
@@ -21,7 +26,7 @@ pub const UT_off_range = [2]i20{ -89999, 93599 };
 /// Convenience constant for UTC
 pub const UTC = TZ{
     .name = "UTC",
-    .abbreviation = [6:0]u8{ 'U', 'T', 'C', 0, 0xAA, 0xAA },
+    .abbreviation = [6:0]u8{ 'Z', 0, 0xAA, 0xAA, 0xAA, 0xAA },
     .is_dst = false,
     .tzOffset = UToffset{ .seconds_east = 0 },
 };
@@ -41,8 +46,10 @@ pub fn fromOffset(offset_sec_East: i32, name: []const u8) TzError!TZ {
         return TzError.InvalidOffset;
     }
     var tzinfo = TZ{};
-    tzinfo.name = name;
-    tzinfo.tzOffset = UToffset{ .seconds_east = @intCast(offset_sec_East) };
+    try tzinfo.loadOffset(@intCast(offset_sec_East), name);
+    if (std.mem.eql(u8, name, "UTC")) {
+        tzinfo.abbreviation = [6:0]u8{ 'Z', 0x00, 0xAA, 0xAA, 0xAA, 0xAA };
+    }
     return tzinfo;
 }
 
@@ -58,7 +65,7 @@ pub const UToffset = struct {
 /// - (not impolemented yet) a POSIX TZ rule such as "EST5EDT,M3.2.0/4:00,M11.1.0/3:00"
 pub const TZ = struct {
     name: []const u8 = "", // name can be multiple things, depending on input
-    abbreviation: [6:0]u8 = undefined, // only makes sense in combination with a datetime
+    abbreviation: [6:0]u8 = [6:0]u8{ 0x00, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA }, // only makes sense in combination with a datetime
     is_dst: bool = undefined,
     // time zone rule sources:
     tzFile: ?std.tz.Tz = null, // a IANA db file with transitions list etc.
@@ -68,7 +75,7 @@ pub const TZ = struct {
     /// Clear a TZ instance and free potentially used memory
     pub fn deinit(self: *TZ) void {
         self.name = "";
-        self.abbreviation = [6:0]u8{ 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA };
+        self.abbreviation = [6:0]u8{ 0x00, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA };
         if (self.tzFile != null) {
             self.tzFile.?.deinit(); // free memory allocated for the data from the tzfile
             self.tzFile = null;
@@ -125,7 +132,10 @@ pub const TZ = struct {
         if (self.tzFile != null) {
             const idx = findTransition(self.tzFile.?.transitions, unixtime);
             const timet = switch (idx) {
-                -1 => return TzError.InvalidTz,
+                -1 => if (self.tzFile.?.timetypes.len == 1) // UTC offset time zones...
+                    self.tzFile.?.timetypes[0]
+                else
+                    return TzError.InvalidTz,
                 // Unix time exceedes defined range of transitions => could use POSIX rule here as well
                 -2 => self.tzFile.?.transitions[self.tzFile.?.transitions.len - 1].timetype.*,
                 // Unix time precedes defined range of transitions => use first entry in timetypes (should be LMT)

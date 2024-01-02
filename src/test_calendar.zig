@@ -1,21 +1,40 @@
-//! test calendaric calculations
+//! test calendric calculations from a users's perspective (no internal functionality)
 const std = @import("std");
 const testing = std.testing;
+
 const cal = @import("calendar.zig");
 
 test "days_in_month" {
-    // index 0 is a place-holder
-    const DAYS_IN_REGULAR_MONTH = [_]u5{ 30, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-    for (DAYS_IN_REGULAR_MONTH, 0..) |m, idx| {
-        const x = cal.daysInMonth(@truncate(idx), std.time.epoch.isLeapYear(2021));
-        try testing.expect(x == m);
-    }
     var d = cal.daysInMonth(2, std.time.epoch.isLeapYear(2020));
     try testing.expect(d == 29);
     d = cal.daysInMonth(2, std.time.epoch.isLeapYear(2023));
     try testing.expect(d == 28);
     d = cal.daysInMonth(12, std.time.epoch.isLeapYear(2023));
     try testing.expect(d == 31);
+
+    // index 0 is a place-holder --------vv
+    const DAYS_IN_REGULAR_MONTH = [_]u5{ 30, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    for (DAYS_IN_REGULAR_MONTH, 0..) |m, idx| {
+        const x = cal.daysInMonth(@truncate(idx), std.time.epoch.isLeapYear(2021));
+        try testing.expect(x == m);
+    }
+}
+
+test "is_leap_month" {
+    try testing.expect(cal.isLeapMonth(1900, 7) == false);
+    try testing.expect(cal.isLeapMonth(2000, 3) == false);
+    try testing.expect(cal.isLeapMonth(2000, 2) == true);
+    try testing.expect(cal.isLeapMonth(2020, 2) == true);
+    try testing.expect(cal.isLeapMonth(2022, 2) == false);
+}
+
+test "weekday" {
+    // How many days to add to y to get to x
+    try testing.expect(cal.weekdayDifference(0, 0) == 0);
+    try testing.expect(cal.weekdayDifference(6, 5) == 1);
+    try testing.expect(cal.weekdayDifference(5, 6) == -1);
+    try testing.expect(cal.weekdayDifference(0, 6) == -6);
+    try testing.expect(cal.weekdayDifference(6, 0) == 6);
 }
 
 test "unix-days_from_ymd" {

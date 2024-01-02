@@ -9,6 +9,45 @@ pub fn daysInMonth(m: u5, is_leap: bool) u5 {
     return 30 | (m ^ (m >> 3));
 }
 
+/// Number of days in a certain month of any year.
+pub fn lastDayOfMonth(year: u16, month: u5) u5 {
+    return daysInMonth(month, isLeapYear(year));
+}
+
+/// Calculate the day of the week (Sun = 0, Sat = 6) for given days after Unix epoch
+pub fn weekdayFromUnixdays(unix_days: i32) u3 {
+    // offset by +4 since Unix epoch falls on a Thursday
+    // since @mod always returns a positive value, we do not have to treat negative unix_days separately
+    return @intCast(@mod((unix_days + 4), 7));
+}
+
+/// Calculate the day of the week (Sun = 0, Sat = 6) for given days after Unix epoch
+pub fn ISOweekdayFromUnixdays(unix_days: i32) u3 {
+    return @intCast(@mod((unix_days + 3), 7) + 1);
+}
+
+/// Test if a month is a leap month (Feb in a leap year).
+pub fn isLeapMonth(year: u16, month: u4) bool {
+    return isLeapYear(year) and month == 2;
+}
+
+/// Difference between weekdays; x-y. x and y both <= 6 and >= 0, result in range [0..6].
+pub fn weekdayDifference(x: u3, y: u3) i4 {
+    const z: i4 = @as(i4, x) - @as(i4, y);
+    if (z <= 6) return z else return z + 7;
+}
+
+/// Calculate the day of the year. Result is [1, 366].
+/// See also https://astronomy.stackexchange.com/q/2407
+pub fn dayOfYear(year: u14, month: u4, day: u5) u9 {
+    const _month: i16 = @as(i16, month);
+    const _day: i16 = @as(i16, day);
+    const base_offset: i16 = @divFloor(_month * 275, 9);
+    const feb_offset: i16 = if (month <= 2) 0 else 1;
+    const leap_offset: i16 = if (isLeapYear(year)) 1 else 2;
+    return @intCast(base_offset - (feb_offset * leap_offset) + _day - 30);
+}
+
 /// Calculate days since the Unix epoch (1970-01-01) from a year-month-day tuple,
 /// representing a Gregorian calendar date.
 /// (!) assumes the caller has checked the validity of the input.

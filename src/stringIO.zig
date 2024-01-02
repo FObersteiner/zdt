@@ -4,7 +4,8 @@ const std = @import("std");
 const datetime = @import("datetime.zig");
 const tz = @import("timezone.zig");
 
-pub const FormatCode = enum(u8) {
+/// directives for formatting datetime strings
+const FormatCode = enum(u8) {
     year = 'Y',
     month = 'm',
     day = 'd',
@@ -35,7 +36,7 @@ pub const FormatCode = enum(u8) {
 };
 
 // a part of a parsing/formatting directive
-pub const Part = union(enum) {
+const Part = union(enum) {
     literal: u8,
     specifier: FormatCode,
 
@@ -52,7 +53,7 @@ pub const Part = union(enum) {
 };
 
 // parse a string with format codes to a list of Part
-pub fn parseFormatBuf(buf: []Part, format_str: []const u8) ![]Part {
+fn parseFormatBuf(buf: []Part, format_str: []const u8) ![]Part {
     var parts_idx: usize = 0;
 
     var next_char_is_specifier = false;
@@ -82,7 +83,7 @@ pub fn parseFormatBuf(buf: []Part, format_str: []const u8) ![]Part {
     return buf[0..parts_idx];
 }
 
-pub fn parseFormatAlloc(allocator: std.mem.Allocator, format_str: []const u8) ![]Part {
+fn parseFormatAlloc(allocator: std.mem.Allocator, format_str: []const u8) ![]Part {
     var parts = std.ArrayList(Part).init(allocator);
     errdefer parts.deinit();
 
@@ -104,7 +105,7 @@ pub fn parseFormatAlloc(allocator: std.mem.Allocator, format_str: []const u8) ![
     return parts.toOwnedSlice();
 }
 
-pub fn formatDatetimeParts(writer: anytype, parts: []const Part, dt: datetime.Datetime) !void {
+fn formatDatetimeParts(writer: anytype, parts: []const Part, dt: datetime.Datetime) !void {
     for (parts) |part| {
         try part.formatDatetime(writer, dt);
     }
@@ -126,15 +127,10 @@ pub fn formatDatetime(writer: anytype, format: []const u8, dt: datetime.Datetime
         }
     }
 }
-pub fn parseDatetime(comptime format: []const u8, dtString: []const u8) !datetime.Datetime {
-    var year: ?u14 = null;
-    var month: ?u4 = null;
-    var day: ?u5 = null;
-    var hour: ?u5 = null;
-    var minute: ?u6 = null;
-    var second: ?u6 = null;
-    var nanosecond: ?u30 = null;
-    var utcoffset: ?i20 = null;
+
+/// string to datetime instance, with a compile-time-known format
+pub fn parseDatetime(comptime format: []const u8, dt_string: []const u8) !datetime.Datetime {
+    var fields = datetime.DatetimeFields{};
 
     comptime var next_char_is_specifier = false;
     var dt_string_idx: usize = 0;
@@ -142,51 +138,34 @@ pub fn parseDatetime(comptime format: []const u8, dtString: []const u8) !datetim
         if (next_char_is_specifier) {
             switch (fc) {
                 // Date specifiers
-                'Y' => {
-                    std.debug.assert(year == null);
-                    // Read digits until: 1) there is four digits or 2) the next character is not a digit
-                    year = try parseDigits(u14, dtString, &dt_string_idx, 4);
-                },
-                'm' => {
-                    std.debug.assert(month == null);
-                    // Read 2 digits or just 1 if the digit after is not a digit
-                    month = try parseDigits(u4, dtString, &dt_string_idx, 2);
-                },
-                'd' => {
-                    std.debug.assert(day == null);
-                    // Read 2 digits or just 1 if the digit after is not a digit
-                    day = try parseDigits(u5, dtString, &dt_string_idx, 2);
-                },
-
+                'Y' => fields.year = try parseDigits(u14, dt_string, &dt_string_idx, 4),
+                'm' => fields.month = try parseDigits(u7, dt_string, &dt_string_idx, 2),
+                'd' => fields.day = try parseDigits(u7, dt_string, &dt_string_idx, 2),
                 // Time specifiers
-                'H' => {
-                    std.debug.assert(hour == null);
-                    hour = try parseDigits(u5, dtString, &dt_string_idx, 2);
-                },
-                'M' => {
-                    std.debug.assert(minute == null);
-                    minute = try parseDigits(u6, dtString, &dt_string_idx, 2);
-                },
-                'S' => {
-                    std.debug.assert(second == null);
-                    second = try parseDigits(u6, dtString, &dt_string_idx, 2);
-                },
+                'H' => fields.hour = try parseDigits(u7, dt_string, &dt_string_idx, 2),
+                'M' => fields.minute = try parseDigits(u7, dt_string, &dt_string_idx, 2),
+                'S' => fields.second = try parseDigits(u7, dt_string, &dt_string_idx, 2),
                 'f' => {
-                    std.debug.assert(nanosecond == null);
-                    nanosecond = try parseDigits(u30, dtString, &dt_string_idx, 9);
+                    // if we only parse n digits out of 9, we have to multiply the result by
+                    // 10^n to get nanoseconds
+                    const tmp_idx = dt_string_idx;
+                    fields.nanosecond = try parseDigits(u30, dt_string, &dt_string_idx, 9);
+                    const missing = 9 - (dt_string_idx - tmp_idx);
+                    const f: u30 = try std.math.powi(u30, 10, @as(u30, @intCast(missing)));
+                    fields.nanosecond *= f;
                 },
-
-                // UTC offset (+|-)hh[:mm[:ss]]
+                // UTC offset (+|-)hh[:mm[:ss]] or Z
                 'z' => {
-                    std.debug.assert(utcoffset == null);
-                    utcoffset = try parseOffset(i20, dtString, &dt_string_idx, 9);
+                    const utcoffset = try parseOffset(i20, dt_string, &dt_string_idx, 9);
+                    fields.tzinfo = try tz.fromOffset(utcoffset, "");
+                    if (dt_string[dt_string_idx - 1] == 'Z') {
+                        fields.tzinfo.?.name = "UTC";
+                        fields.tzinfo.?.abbreviation = [6:0]u8{ 'Z', 0x00, 0xAA, 0xAA, 0xAA, 0xAA };
+                    }
                 },
-
                 // literals
                 '%' => {
-                    if (dtString[dt_string_idx] != fc) {
-                        return error.InvalidFormat;
-                    }
+                    if (dt_string[dt_string_idx] != fc) return error.InvalidFormat;
                     dt_string_idx += 1;
                 },
 
@@ -197,7 +176,7 @@ pub fn parseDatetime(comptime format: []const u8, dtString: []const u8) !datetim
             if (fc == '%') {
                 next_char_is_specifier = true;
             } else {
-                if (dtString[dt_string_idx] != fc) {
+                if (dt_string[dt_string_idx] != fc) {
                     return error.InvalidFormat;
                 }
                 dt_string_idx += 1;
@@ -206,64 +185,162 @@ pub fn parseDatetime(comptime format: []const u8, dtString: []const u8) !datetim
     }
 
     // if we come here, the string must be completely consumed
-    if (dt_string_idx != dtString.len) {
+    if (dt_string_idx != dt_string.len) {
         return error.InvalidFormat;
     }
 
-    var tzinfo = tz.TZ{};
-    if (utcoffset != null) {
-        try tzinfo.loadOffset(utcoffset.?, "");
+    return datetime.Datetime.fromFields(fields);
+}
+
+/// Parse ISO8601 formats. Format is infered at runtime.
+/// Required is at least a year and a month, separated by ASCII minus.
+/// Date and time separator is either 'T' or ASCII space.
+///
+/// ## examples
+///
+/// string                         len  datetime, normlized ISO8601
+/// -----------------------------|----|------------------------------------
+/// 2014-08                        7    2014-08-01T00:00:00
+/// 2014-08-23                     10   2014-08-23T00:00:00
+/// 2014-08-23 12:15               16   2014-08-23T12:15:00
+/// 2014-08-23T12:15:56            19   2014-08-23T12:15:56
+/// 2014-08-23T12:15:56.999999999Z 30   2014-08-23T12:15:56.999999999+00:00
+/// 2014-08-23 12:15:56+01         22   2014-08-23T12:15:56+01:00
+/// 2014-08-23T12:15:56-0530       24   2014-08-23T12:15:56-05:30
+/// 2014-08-23T12:15:56+02:15:30   28   2014-08-23T12:15:56+02:15:30
+pub fn parseISO8601(dt_string: []const u8) !datetime.Datetime {
+    if (dt_string.len > 38) return error.InvalidFormat;
+    if (dt_string[dt_string.len - 1] != 'Z' and !std.ascii.isDigit(dt_string[dt_string.len - 1])) {
+        return error.InvalidFormat;
+    }
+    if (dt_string.len < 20) {
+        switch (dt_string.len) {
+            7, 10, 16, 19 => {},
+            else => return error.InvalidFormat,
+        }
     }
 
-    return datetime.Datetime.fromFields(.{
-        .year = year orelse 1,
-        .month = month orelse 1,
-        .day = day orelse 1,
-        .hour = hour orelse 0,
-        .minute = minute orelse 0,
-        .second = second orelse 0,
-        .nanosecond = nanosecond orelse 0,
-        .tzinfo = if (utcoffset == null) null else tzinfo,
-    });
+    var fields = datetime.DatetimeFields{};
+    var utcoffset: ?i20 = null;
+
+    var dt_string_idx: usize = 0;
+    parseblock: {
+        // yyyy-mm
+        fields.year = try parseDigits(u14, dt_string, &dt_string_idx, 4);
+        if (dt_string_idx != 4) return error.InvalidFormat; // 2-digit year not allowed
+        if (dt_string[dt_string_idx] != '-') return error.InvalidFormat;
+        dt_string_idx += 1;
+        fields.month = try parseDigits(u7, dt_string, &dt_string_idx, 2);
+        if (dt_string_idx != 7) return error.InvalidFormat; // 1-digit month not allowed
+        if (dt_string_idx == dt_string.len) break :parseblock;
+
+        // yyyy-mm-dd
+        if (dt_string[dt_string_idx] != '-') return error.InvalidFormat;
+        dt_string_idx += 1;
+        fields.day = try parseDigits(u7, dt_string, &dt_string_idx, 2);
+        if (dt_string_idx != 10) return error.InvalidFormat; // 1-digit day not allowed
+        if (dt_string_idx == dt_string.len) break :parseblock;
+
+        // yyyy-mm-ddTHH:MM
+        if (!(dt_string[dt_string_idx] == 'T' or dt_string[dt_string_idx] == ' ')) return error.InvalidFormat;
+        dt_string_idx += 1;
+        fields.hour = try parseDigits(u7, dt_string, &dt_string_idx, 2);
+        if (dt_string_idx != 13) return error.InvalidFormat; // 1-digit hour not allowed
+        if (dt_string[dt_string_idx] != ':') return error.InvalidFormat;
+        dt_string_idx += 1;
+        fields.minute = try parseDigits(u7, dt_string, &dt_string_idx, 2);
+        if (dt_string_idx != 16) return error.InvalidFormat; // 1-digit minute not allowed
+        if (dt_string_idx == dt_string.len) break :parseblock;
+
+        // yyyy-mm-ddTHH:MM:SS
+        if (dt_string[dt_string_idx] != ':') return error.InvalidFormat;
+        dt_string_idx += 1;
+        fields.second = try parseDigits(u7, dt_string, &dt_string_idx, 2);
+        if (dt_string_idx != 19) return error.InvalidFormat; // 1-digit minute not allowed
+        if (dt_string_idx == dt_string.len) break :parseblock;
+
+        // yyyy-mm-ddTHH:MM:SS[+-](offset or Z)
+        if (dt_string[dt_string_idx] == '+' or
+            dt_string[dt_string_idx] == '-' or
+            dt_string[dt_string_idx] == 'Z')
+        {
+            utcoffset = try parseOffset(i20, dt_string, &dt_string_idx, 9);
+            if (dt_string_idx == dt_string.len) break :parseblock;
+            return error.InvalidFormat; // offset must not befollowed by other fields
+        }
+
+        // yyyy-mm-ddTHH:MM:SS.fff (fractional seconds separator can either be '.' or ',')
+        if (!(dt_string[dt_string_idx] == '.' or dt_string[dt_string_idx] == ',')) return error.InvalidFormat;
+        dt_string_idx += 1;
+        // parse any number of fractional seconds up to 9
+        const tmp_idx = dt_string_idx;
+        fields.nanosecond = try parseDigits(u30, dt_string, &dt_string_idx, 9);
+        const missing = 9 - (dt_string_idx - tmp_idx);
+        const f: u30 = try std.math.powi(u30, 10, @as(u30, @intCast(missing)));
+        fields.nanosecond *= f;
+        if (dt_string_idx == dt_string.len) break :parseblock;
+
+        // trailing UTC offset
+        utcoffset = try parseOffset(i20, dt_string, &dt_string_idx, 9);
+    }
+
+    // if we come here, the string must be completely consumed
+    if (dt_string_idx != dt_string.len) {
+        return error.InvalidFormat;
+    }
+
+    if (utcoffset != null) {
+        fields.tzinfo = try tz.fromOffset(utcoffset.?, "");
+        if (dt_string[dt_string_idx - 1] == 'Z') {
+            fields.tzinfo.?.name = "UTC";
+            fields.tzinfo.?.abbreviation = [6:0]u8{ 'Z', 0x00, 0xAA, 0xAA, 0xAA, 0xAA };
+        }
+    }
+
+    return datetime.Datetime.fromFields(fields);
 }
 
 // ----- String to Datetime Helpers -----------------
 
-fn parseDigits(comptime T: type, dtString: []const u8, idx: *usize, maxDigits: usize) !T {
+// for any numeric quantity
+fn parseDigits(comptime T: type, dt_string: []const u8, idx: *usize, maxDigits: usize) !T {
     const start_idx = idx.*;
-    if (!std.ascii.isDigit(dtString[start_idx])) return error.InvalidFormat;
+    if (!std.ascii.isDigit(dt_string[start_idx])) return error.InvalidFormat;
 
     idx.* += 1;
-    while (idx.* < dtString.len and // check first if dtString depleted
+    while (idx.* < dt_string.len and // check first if dt_string depleted
         idx.* < start_idx + maxDigits and
-        std.ascii.isDigit(dtString[idx.*])) : (idx.* += 1)
+        std.ascii.isDigit(dt_string[idx.*])) : (idx.* += 1)
     {}
 
-    return try std.fmt.parseInt(T, dtString[start_idx..idx.*], 10);
+    return try std.fmt.parseInt(T, dt_string[start_idx..idx.*], 10);
 }
 
-fn parseOffset(comptime T: type, dtString: []const u8, idx: *usize, maxDigits: usize) !T {
+// offset UTC in the from of (+|-)hh[:mm[:ss]] or Z
+fn parseOffset(comptime T: type, dt_string: []const u8, idx: *usize, maxDigits: usize) !T {
     const start_idx = idx.*;
 
     var sign: i2 = 1;
-    if (dtString[start_idx] == '+') {
-        sign = 1;
-    } else if (dtString[start_idx] == '-') {
-        sign = -1;
-    } else {
-        return error.InvalidFormat; // must start with sign
+    switch (dt_string[start_idx]) {
+        '+' => sign = 1,
+        '-' => sign = -1,
+        'Z' => {
+            idx.* += 1;
+            return 0;
+        },
+        else => return error.InvalidFormat, // must start with sign
     }
 
     idx.* += 1;
-    while (idx.* < dtString.len and // check first if dtString depleted
+    while (idx.* < dt_string.len and // check first if dt_string depleted
         idx.* < start_idx + maxDigits and
-        (std.ascii.isDigit(dtString[idx.*]) or dtString[idx.*] == ':')) : (idx.* += 1)
+        (std.ascii.isDigit(dt_string[idx.*]) or dt_string[idx.*] == ':')) : (idx.* += 1)
     {}
 
     // clean offset string:
     var index: usize = 0;
-    var offset_chars = [6]u8{ 48, 48, 48, 48, 48, 48 }; // start with 0000
-    for (dtString[start_idx + 1 .. idx.*]) |c| {
+    var offset_chars = [6]u8{ 48, 48, 48, 48, 48, 48 }; // start with 000000;
+    for (dt_string[start_idx + 1 .. idx.*]) |c| { //                   hhmmss
         if (c != ':') {
             offset_chars[index] = c;
             index += 1;
@@ -278,4 +355,61 @@ fn parseOffset(comptime T: type, dtString: []const u8, idx: *usize, maxDigits: u
     const minutes = @divFloor(remainder, 100);
     const seconds = @mod(remainder, 100);
     return sign * (hours * 3600 + minutes * 60 + seconds);
+}
+
+const u6Sorter = struct {
+    fn cmp(_: void, a: u6, b: u6) std.math.Order {
+        return std.math.order(a, b);
+    }
+};
+
+// --- internal tests
+
+const TestCase = struct {
+    string: []const u8,
+    dt: datetime.Datetime,
+    directive: []const u8 = "",
+};
+
+test "format naive datetimes with parts api" {
+    const cases = [_]TestCase{
+        .{
+            .dt = try datetime.Datetime.naiveFromList(.{ 2021, 2, 18, 17, 0, 0, 0 }),
+            .string = "2021-02-18 17:00:00",
+        },
+        .{
+            .dt = try datetime.Datetime.naiveFromList(.{ 1970, 1, 1, 0, 0, 0, 0 }),
+            .string = "1970-01-01 00:00:00",
+        },
+    };
+
+    const parts = try parseFormatAlloc(std.testing.allocator, "%Y-%m-%d %H:%M:%S");
+    defer std.testing.allocator.free(parts);
+
+    for (cases) |case| {
+        var s = std.ArrayList(u8).init(std.testing.allocator);
+        defer s.deinit();
+        try formatDatetimeParts(s.writer(), parts, case.dt);
+        try std.testing.expectEqualStrings(case.string, s.items);
+    }
+}
+
+test "parse format string" {
+    const parts = try parseFormatAlloc(std.testing.allocator, "%Y-%m-%d %H:%M:%S.%f");
+    defer std.testing.allocator.free(parts);
+    try std.testing.expectEqualSlices(Part, &[_]Part{
+        .{ .specifier = .year },
+        .{ .literal = '-' },
+        .{ .specifier = .month },
+        .{ .literal = '-' },
+        .{ .specifier = .day },
+        .{ .literal = ' ' },
+        .{ .specifier = .hour },
+        .{ .literal = ':' },
+        .{ .specifier = .min },
+        .{ .literal = ':' },
+        .{ .specifier = .sec },
+        .{ .literal = '.' },
+        .{ .specifier = .nanos },
+    }, parts);
 }

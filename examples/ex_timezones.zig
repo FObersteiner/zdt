@@ -3,8 +3,8 @@ const print = std.debug.print;
 
 const zdt = @import("zdt");
 const dt = zdt.datetime;
-const tz = zdt.tz;
-const dtstr = zdt.str;
+const tz = zdt.timezone;
+const dtstr = zdt.stringIO;
 
 test "time zones demo" {
     print("\n---> time zones demo", .{});
@@ -24,13 +24,14 @@ test "time zones demo" {
     defer tzinfo.deinit();
 
     const now_local = dt.Datetime.now(tzinfo);
-    print("\n'now', local : {s}\n", .{now_local});
+    print("\nNow, local : {s}\n", .{now_local});
 
     try tzinfo.loadTzfile("America/New_York", allocator);
     const now_ny = try now_local.tzConvert(tzinfo);
-    print("'now' in New York : {s}\n", .{now_ny});
-    print("New York has DST currently? : {}\n", .{now_ny.tzinfo.?.is_dst});
+    print("Now in New York : {s}\n", .{now_ny});
+    print("Wall time difference, local->NY: {}\n", .{try now_ny.diffWall(now_local)});
 
+    print("\nNew York has DST currently? : {}\n", .{now_ny.tzinfo.?.is_dst});
     const a_date = try dtstr.parseDatetime("%Y-%m-%d", "2023-8-9");
     const ny_summer_2023 = try a_date.tzLocalize(tzinfo);
     print("New York, summer : {s}\n", .{ny_summer_2023});

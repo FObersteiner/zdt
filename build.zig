@@ -6,7 +6,13 @@ const example_files = [_][]const u8{
     "ex_timezones",
 };
 
+const bench_files = [_][]const u8{
+    "bench_calendar",
+    "bench_isoparse",
+};
+
 const test_files = [_][]const u8{
+    "zdt",
     "test_calendar",
     "test_datetime",
     "test_duration",
@@ -14,9 +20,6 @@ const test_files = [_][]const u8{
     "test_timezone",
 };
 
-// Although this function looks imperative, note that its job is to
-// declaratively construct a build graph that will be executed by an external
-// runner.
 pub fn build(b: *std.Build) void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
@@ -31,8 +34,6 @@ pub fn build(b: *std.Build) void {
 
     const lib = b.addStaticLibrary(.{
         .name = "zdt",
-        // In this case the main source file is merely a path, however, in more
-        // complicated build scripts, this could be a generated file.
         .root_source_file = .{ .path = "src/zdt.zig" },
         .target = target,
         .optimize = optimize,
@@ -54,27 +55,28 @@ pub fn build(b: *std.Build) void {
             .root_source_file = .{ .path = b.fmt("src/{s}.zig", .{test_name}) },
             .target = target,
             .optimize = optimize,
+            //.test_runner = "./test_runner.zig",
         });
         const run_test = b.addRunArtifact(_test);
         test_step.dependOn(&run_test.step);
     }
 
     // --------------------------------------------------------------------------------
-    // benchmarks (as binary 'benchmark')
-    const bench_step = b.step("benchmark", "Build benchmark");
-    const benchmarks = b.addTest(
-        .{
-            .name = "benchmark",
-            .root_source_file = .{ .path = "src/benchmark.zig" },
+    // benchmarks (as binaries 'bench_*')
+    const zbench = b.dependency("zbench", .{ .target = target, .optimize = optimize });
+    const bench_step = b.step("benchmarks", "Build benchmark");
+    for (bench_files) |bench_name| {
+        const _bench = b.addTest(.{
+            .name = bench_name,
+            .root_source_file = .{ .path = b.fmt("src/{s}.zig", .{bench_name}) },
             .target = target,
             .optimize = optimize,
-        },
-    );
-    const zbench = b.dependency("zbench", .{ .target = target, .optimize = optimize });
-    benchmarks.addModule("zbench", zbench.module("zbench"));
-    benchmarks.linkLibrary(zbench.artifact("zbench"));
-    const build_benchmarks = b.addInstallArtifact(benchmarks, .{});
-    bench_step.dependOn(&build_benchmarks.step);
+        });
+        _bench.addModule("zbench", zbench.module("zbench"));
+        _bench.linkLibrary(zbench.artifact("zbench"));
+        const build_benchmark = b.addInstallArtifact(_bench, .{});
+        bench_step.dependOn(&build_benchmark.step);
+    }
 
     // --------------------------------------------------------------------------------
     // examples (as binaries with a main() that prints stuff to stderr)

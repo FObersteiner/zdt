@@ -3,8 +3,8 @@ const print = std.debug.print;
 
 const zdt = @import("zdt");
 const dt = zdt.datetime;
-const tz = zdt.tz;
-const dtstr = zdt.str;
+const tz = zdt.timezone;
+const dtstr = zdt.stringIO;
 
 test "offset demo" {
     print("\n---> UTC offset time zone demo", .{});

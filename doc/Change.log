@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 2024-01-02, v0.1.9
+
+- add day-of-year method
+- add day-of-week and iso-day-of-week methods
+- tzfile bugfix: correct offset determination for zones that only have one timetype
+
+## 2024-01-02, v0.1.8
+
+- add basic duration arithmetic with datetime
+- revise parser and ISO8601 parser
+- parse 'Z' to a named offset, UTC
+- add parser benchmark
+
+## 2023-12-30, v0.1.7
+
+- parser / DatetimeFields: accept leap second input
+- parser: fix bug with incomplete fractional input (< 9 digits)
+- add ISO8601 parser
+
 ## 2023-12-27, v0.1.6
 
 - add examples (offset time zone, time zone)

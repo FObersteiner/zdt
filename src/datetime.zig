@@ -1,15 +1,19 @@
 //! datetime
 const std = @import("std");
-pub const cal = @import("calendar.zig");
-pub const tz = @import("timezone.zig");
+
+const cal = @import("calendar.zig");
+const Duration = @import("Duration.zig");
+const tz = @import("timezone.zig");
+
+// TODO : make this a "struct-file" ?
 
 pub const min_year: u14 = 1; // r.d.; 0001-01-01
 pub const max_year: u14 = 9999;
-pub const unix_s_min: i72 = -62135596800;
-pub const unix_s_max: i72 = 253402300799;
+pub const unix_s_min: i40 = -62135596800;
+pub const unix_s_max: i40 = 253402300799;
 
 /// Combines error sets from the specific packages:
-pub const ZdtError = RangeError || AwarenessError || tz.TzError;
+pub const ZdtError = RangeError || tz.TzError;
 
 /// Errors that are caused by fields being out of defined ranges
 pub const RangeError = error{
@@ -23,13 +27,6 @@ pub const RangeError = error{
     UnixOutOfRange,
 };
 
-/// Errors related to datetime instances being time zone aware or not
-pub const AwarenessError = error{
-    TzAlreadyDefined,
-    TzUndefined,
-    CompareNaiveAware,
-};
-
 // helper constants with the number of bits limited to what is required
 const s_per_minute: u6 = 60;
 const s_per_hour: u12 = 3600;
@@ -38,41 +35,28 @@ const ms_per_s: u10 = 1_000;
 const us_per_s: u20 = 1_000_000;
 const ns_per_s: u30 = 1_000_000_000;
 
-/// Unit describes time as fractions relative to the base unit, second.
-/// E.g. a nanosecond is 1/1_000_000_000 of a second.
-pub const Unit = enum(u30) {
-    second = 1,
-    // millisecond = 1_000,
-    // microsecond = 1_000_000,
-    nanosecond = 1_000_000_000,
-};
-
-// TODO : move this to 'duration.zig' ?
-//        the duplication with "Unit" feels wrong...
-pub const Timespan = enum(u30) {
-    second = 1,
-    day = 86400,
-};
-
-/// A helper struct to provide default values for a datetime instance
+/// A helper struct to provide default values for a datetime instance.
 pub const DatetimeFields = struct {
     year: u14 = 1, // [1, 9999]
-    month: u4 = 1, // [1, 12]
-    day: u5 = 1, // [1, 32]
-    hour: u5 = 0, // [0, 23]
-    minute: u6 = 0, // [0, 59]
-    second: u6 = 0, // [0, 60]
+    // We need to cover potential invalid input from a datetime string, e.g.
+    // '99' for the hour field:
+    month: u7 = 1, // [1, 12]
+    day: u7 = 1, // [1, 32]
+    hour: u7 = 0, // [0, 23]
+    minute: u7 = 0, // [0, 59]
+    second: u7 = 0, // [0, 60]
+
     nanosecond: u30 = 0, // [0, 999999999]
     tzinfo: ?tz.TZ = null,
 
     pub fn validate(self: DatetimeFields) ZdtError!void {
         if (self.year > max_year or self.year < min_year) return ZdtError.YearOutOfRange;
         if (self.month > 12 or self.month < 1) return ZdtError.MonthOutOfRange;
-        const max_days = cal.daysInMonth(self.month, std.time.epoch.isLeapYear(self.year));
+        const max_days = cal.daysInMonth(@truncate(self.month), cal.isLeapYear(self.year));
         if (self.day > max_days or self.day < 1) return ZdtError.DayOutOfRange;
         if (self.hour > 23) return ZdtError.HourOutOfRange;
         if (self.minute > 59) return ZdtError.MinuteOutOfRange;
-        if (self.second > 59) return ZdtError.SecondOutOfRange; // NOTE : no leap seconds atm
+        if (self.second > 60) return ZdtError.SecondOutOfRange;
         if (self.nanosecond > 999999999) return ZdtError.NanosecondOutOfRange;
 
         // if a tz is provided, it must allow offset calculation, which requires
@@ -102,25 +86,26 @@ pub const Datetime = struct {
 
     // Seconds since the Unix epoch as internal, incremental time ("serial" time).
     // This must always refer to 1970-01-01T00:00:00Z, not counting leap seconds
-    __unix: i48 = unix_s_min, // [unix_ns_min, unix_ns_max]
+    __unix: i40 = unix_s_min, // [unix_ns_min, unix_ns_max]
 
     pub fn fromFields(fields: DatetimeFields) ZdtError!Datetime {
         _ = try fields.validate();
         const d = cal.unixdaysFromDate([_]u16{ fields.year, fields.month, fields.day });
+        // Note : need to truncate seconds to 59 so that Unix time is correct
+        const s = if (fields.second == 60) 59 else fields.second;
         var dt = Datetime{
             .year = fields.year,
-            .month = fields.month,
-            .day = fields.day,
-            .hour = fields.hour,
-            .minute = fields.minute,
-            .second = fields.second,
+            .month = @truncate(fields.month),
+            .day = @truncate(fields.day),
+            .hour = @truncate(fields.hour),
+            .minute = @truncate(fields.minute),
+            .second = @truncate(fields.second),
             .nanosecond = fields.nanosecond,
             .tzinfo = fields.tzinfo,
             .__unix = ( //
-                @as(i48, d) * s_per_day +
+                @as(i40, d) * s_per_day +
                 @as(u17, fields.hour) * s_per_hour +
-                @as(u12, fields.minute) * s_per_minute +
-                fields.second //
+                @as(u12, fields.minute) * s_per_minute + s //
             ),
         };
 
@@ -140,7 +125,7 @@ pub const Datetime = struct {
         // For that, We can obtain a UTC offset, subtract it and see if we get the same datetime.
         const local_tz = try fields.tzinfo.?.atUnixtime(dt.__unix);
         const unix_guess_1 = dt.__unix - local_tz.tzOffset.?.seconds_east;
-        var dt_guess_1 = try Datetime.fromUnix(unix_guess_1, Unit.second, fields.tzinfo);
+        var dt_guess_1 = try Datetime.fromUnix(unix_guess_1, Duration.Resolution.second, fields.tzinfo);
         dt_guess_1.nanosecond = fields.nanosecond;
 
         // However, we could still have an ambiguous datetime or a datetime in a gap of
@@ -150,7 +135,7 @@ pub const Datetime = struct {
         // #1 - if there are no surrounding timetypes, we can only use the first guessed datetime
         // to compare to.
         if (sts[0] == null and sts[2] == null) {
-            if (Datetime.equalFields(dt, dt_guess_1)) {
+            if (Datetime.__equalFields(dt, dt_guess_1)) {
                 return dt_guess_1;
             }
             return ZdtError.NotImplemented; // something went totally wrong...
@@ -162,7 +147,7 @@ pub const Datetime = struct {
         //        share the same UTC offset.
         const tt_guess = if (sts[0] != null) sts[0] else sts[2];
         const unix_guess_2 = dt.__unix - @as(i48, @intCast(tt_guess.?.offset));
-        var dt_guess_2 = try Datetime.fromUnix(unix_guess_2, Unit.second, fields.tzinfo);
+        var dt_guess_2 = try Datetime.fromUnix(unix_guess_2, Duration.Resolution.second, fields.tzinfo);
         dt_guess_2.nanosecond = fields.nanosecond;
 
         // Now we have
@@ -173,8 +158,8 @@ pub const Datetime = struct {
         // dt neither matches dt_guess_1 nor dt_guess_2 => non-existent datetime
         // dt matches dt_guess_1 and dt_guess_2 => ambiguous datetime
         // dt matches either dt_guess_1 or dt_guess_2 => normal datetime
-        const dt_eq_guess_1 = Datetime.equalFields(dt, dt_guess_1);
-        const dt_eq_guess_2 = Datetime.equalFields(dt, dt_guess_2);
+        const dt_eq_guess_1 = Datetime.__equalFields(dt, dt_guess_1);
+        const dt_eq_guess_2 = Datetime.__equalFields(dt, dt_guess_2);
         if (dt_eq_guess_1 and dt_eq_guess_2) return ZdtError.AmbiguousDatetime;
         if (!dt_eq_guess_1 and !dt_eq_guess_2) return ZdtError.NonexistentDatetime;
         if (dt_eq_guess_1) return dt_guess_1;
@@ -183,7 +168,7 @@ pub const Datetime = struct {
 
     /// A helper to compare datetime fields, excluding nanosecond field.
     /// Used for determination of correct UTC offset with a time zone.
-    fn equalFields(this: Datetime, other: Datetime) bool {
+    fn __equalFields(this: Datetime, other: Datetime) bool {
         return ( //
             this.year == other.year and
             this.month == other.month and
@@ -196,7 +181,6 @@ pub const Datetime = struct {
 
     /// Construct a datetime from a simple list of numbers representing
     /// year, month, day etc.
-    /// TODO : remvove?
     pub fn naiveFromList(arr: [7]usize) ZdtError!Datetime {
         return try Datetime.fromFields(.{
             .year = @intCast(arr[0]),
@@ -210,28 +194,40 @@ pub const Datetime = struct {
     }
 
     /// Construct a datetime from Unix time with a specific precision (time unit)
-    pub fn fromUnix(n: i72, unit: Unit, tzinfo: ?tz.TZ) RangeError!Datetime {
-        if (n > unix_s_max * @intFromEnum(unit) or n < unix_s_min * @intFromEnum(unit)) {
-            return RangeError.UnixOutOfRange;
+    pub fn fromUnix(n: i72, resolution: Duration.Resolution, tzinfo: ?tz.TZ) ZdtError!Datetime {
+        if (n > @as(i72, unix_s_max) * @intFromEnum(resolution) or
+            n < @as(i72, unix_s_min) * @intFromEnum(resolution))
+        {
+            return ZdtError.UnixOutOfRange;
         }
         var _dt = Datetime{ .tzinfo = tzinfo };
-        switch (unit) {
+        switch (resolution) {
             .second => {
                 _dt.__unix = @intCast(n);
+            },
+            .millisecond => {
+                _dt.__unix = @intCast(@divFloor(n, @as(i72, ms_per_s)));
+                _dt.nanosecond = @intCast(@mod(n, @as(i72, ms_per_s)) * us_per_s);
+            },
+            .microsecond => {
+                _dt.__unix = @intCast(@divFloor(n, @as(i72, us_per_s)));
+                _dt.nanosecond = @intCast(@mod(n, @as(i72, us_per_s)) * ms_per_s);
             },
             .nanosecond => {
                 _dt.__unix = @intCast(@divFloor(n, @as(i72, ns_per_s)));
                 _dt.nanosecond = @intCast(@mod(n, @as(i72, ns_per_s)));
             },
         }
-        _dt.__normalize();
+        try _dt.__normalize();
         return _dt;
     }
 
     /// Return Unix time for given datetime struct
-    pub fn toUnix(self: Datetime, unit: Unit) i72 {
-        switch (unit) {
+    pub fn toUnix(self: Datetime, resolution: Duration.Resolution) i72 {
+        switch (resolution) {
             .second => return @as(i72, self.__unix),
+            .millisecond => return @as(i72, self.__unix) * ms_per_s + @divFloor(self.nanosecond, us_per_s),
+            .microsecond => return @as(i72, self.__unix) * us_per_s + @divFloor(self.nanosecond, ms_per_s),
             .nanosecond => return @as(i72, self.__unix) * ns_per_s + self.nanosecond,
         }
     }
@@ -240,7 +236,7 @@ pub const Datetime = struct {
     /// Checks for non-existent and ambiguous datetime.
     /// 'null' can be supplied to make an aware datetime naive.
     pub fn tzLocalize(self: Datetime, tzinfo: ?tz.TZ) ZdtError!Datetime {
-        if (self.tzinfo != null and tzinfo != null) return AwarenessError.TzAlreadyDefined;
+        if (self.tzinfo != null and tzinfo != null) return ZdtError.TzAlreadyDefined;
         return Datetime.fromFields(.{
             .year = self.year,
             .month = self.month,
@@ -256,17 +252,20 @@ pub const Datetime = struct {
     /// Convert datetime to another timezone. The datetime must be aware.
     pub fn tzConvert(self: Datetime, new_tz: tz.TZ) ZdtError!Datetime {
         if (self.tzinfo == null) return ZdtError.TzUndefined;
-        return Datetime.fromUnix(@as(i72, self.__unix) * ns_per_s + self.nanosecond, Unit.nanosecond, new_tz);
+        return Datetime.fromUnix(
+            @as(i72, self.__unix) * ns_per_s + self.nanosecond,
+            Duration.Resolution.nanosecond,
+            new_tz,
+        );
     }
 
-    /// -- This method should only be called internally --
-    /// Update datetime fields so that they agree with the __unix internal
+    /// A helper to update datetime fields so that they agree with the __unix internal
     /// representation. Expexts a "local" unix time, to be corrected by the
     /// UTC offset of the time zone (if such is supplied).
-    fn __normalize(self: *Datetime) void {
+    fn __normalize(self: *Datetime) ZdtError!void {
         var fake_unix = self.__unix; // "local" unix time to get the fields right
         if (self.tzinfo != null) {
-            self.tzinfo = self.tzinfo.?.atUnixtime(self.__unix) catch self.tzinfo;
+            self.tzinfo = try self.tzinfo.?.atUnixtime(self.__unix);
             if (self.tzinfo.?.tzOffset != null) {
                 fake_unix += self.tzinfo.?.tzOffset.?.seconds_east;
             }
@@ -282,8 +281,10 @@ pub const Datetime = struct {
         self.second = @intCast(@mod(s_after_midnight, s_per_minute));
     }
 
-    /// Floor a datetime to a certain timespan.
-    pub fn floorTo(self: Datetime, timespan: Timespan) !Datetime {
+    /// Floor a datetime to a certain timespan. Creates a new datetime instance.
+    pub fn floorTo(self: Datetime, timespan: Duration.Timespan) !Datetime {
+        // any other timespan than second can lead to ambiguous or non-existent
+        // datetime - therefore we need to make a new datetime
         var fields = DatetimeFields{ .tzinfo = self.tzinfo };
         if (self.tzinfo != null and self.tzinfo.?.tzFile != null) {
             // tzOffset must be resetted so that fromFields method
@@ -298,15 +299,26 @@ pub const Datetime = struct {
                 fields.hour = self.hour;
                 fields.minute = self.minute;
                 fields.second = self.second;
-                fields.nanosecond = 0;
             },
-            // any other timespan than second can lead to ambiguous or non-existent
-            // datetime - therefore we need to make a new datetime
+            .minute => {
+                fields.year = self.year;
+                fields.month = self.month;
+                fields.day = self.day;
+                fields.hour = self.hour;
+                fields.minute = self.minute;
+            },
+            .hour => {
+                fields.year = self.year;
+                fields.month = self.month;
+                fields.day = self.day;
+                fields.hour = self.hour;
+            },
             .day => {
                 fields.year = self.year;
                 fields.month = self.month;
                 fields.day = self.day;
             },
+            else => return ZdtError.NotImplemented,
         }
         return try Datetime.fromFields(fields);
     }
@@ -316,7 +328,7 @@ pub const Datetime = struct {
     pub fn now(tzinfo: ?tz.TZ) Datetime {
         const t = std.time.nanoTimestamp();
         const dummy = Datetime{};
-        return Datetime.fromUnix(@intCast(t), Unit.nanosecond, tzinfo) catch dummy;
+        return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, tzinfo) catch dummy;
     }
 
     /// Now in UTC helper. Homage to the Python method with the same name,
@@ -324,15 +336,15 @@ pub const Datetime = struct {
     pub fn utcnow() Datetime {
         const t = std.time.nanoTimestamp();
         const dummy = Datetime{};
-        return Datetime.fromUnix(@intCast(t), Unit.nanosecond, tz.UTC) catch dummy;
+        return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, tz.UTC) catch dummy;
     }
 
     /// Compare two instances with respect to their Unix time.
     /// Ignores the time zone - however, both datetimes must either be aware or naive.
-    pub fn compareUT(this: Datetime, other: Datetime) AwarenessError!std.math.Order {
+    pub fn compareUT(this: Datetime, other: Datetime) ZdtError!std.math.Order {
         // can only compare if both aware or naive, not a mix.
         if ((this.tzinfo != null and other.tzinfo == null) or
-            (this.tzinfo == null and other.tzinfo != null)) return AwarenessError.CompareNaiveAware;
+            (this.tzinfo == null and other.tzinfo != null)) return ZdtError.CompareNaiveAware;
         if (@as(i72, this.__unix) * ns_per_s + this.nanosecond > @as(i72, other.__unix) * ns_per_s + other.nanosecond) return .gt;
         if (@as(i72, this.__unix) * ns_per_s + this.nanosecond < @as(i72, other.__unix) * ns_per_s + other.nanosecond) return .lt;
         return .eq;
@@ -362,6 +374,66 @@ pub const Datetime = struct {
         const seconds = (absoff % 3600) % 60;
         try writer.print("{s}{d:0>2}:{d:0>2}", .{ sign, hours, minutes });
         if (seconds > 0) try writer.print(":{d:0>2}", .{seconds});
+    }
+
+    /// Add a duration to a datetime.
+    pub fn add(self: Datetime, td: Duration) ZdtError!Datetime {
+        const ns: i72 = ( //
+            @as(i72, self.__unix) * ns_per_s + //
+            @as(i72, self.nanosecond) + //
+            td.__sec * ns_per_s + //
+            td.__nsec //
+        );
+        return try Datetime.fromUnix(ns, Duration.Resolution.nanosecond, self.tzinfo);
+    }
+
+    /// Subtract a duration from a datetime.
+    pub fn sub(self: Datetime, td: Duration) ZdtError!Datetime {
+        return self.add(.{ .__sec = td.__sec * -1, .__nsec = td.__nsec });
+    }
+
+    /// Calculate the duration between two datetimes, independent of the time zone.
+    pub fn diff(this: Datetime, other: Datetime) Duration {
+        var s: i64 = this.__unix - other.__unix;
+        var ns: i32 = @as(i32, this.nanosecond) - other.nanosecond;
+        if (ns < 0) {
+            s -= 1;
+            ns += 1_000_000_000;
+        }
+        return .{ .__sec = s, .__nsec = @intCast(ns) };
+    }
+
+    /// Calculate wall time difference between two timezone-aware datetimes.
+    pub fn diffWall(this: Datetime, other: Datetime) !Duration {
+        if (this.tzinfo == null or other.tzinfo == null) return error.TzUndefined;
+        if (this.tzinfo.?.tzOffset == null or other.tzinfo.?.tzOffset == null) return error.TzUndefined;
+
+        var s: i64 = ((this.__unix - other.__unix) +
+            (this.tzinfo.?.tzOffset.?.seconds_east - other.tzinfo.?.tzOffset.?.seconds_east));
+
+        var ns: i32 = @as(i32, this.nanosecond) - other.nanosecond;
+        if (ns < 0) {
+            s -= 1;
+            ns += 1_000_000_000;
+        }
+        return .{ .__sec = s, .__nsec = @intCast(ns) };
+    }
+
+    /// Day of the year starting with 1 == yyyy-01-01.
+    pub fn dayOfYear(self: Datetime) u9 {
+        return cal.dayOfYear(self.year, self.month, self.day);
+    }
+
+    /// Number of the weekday starting at 0 == Sunday.
+    pub fn weekdayNumber(self: Datetime) u3 {
+        const days = cal.unixdaysFromDate([3]u16{ self.year, self.month, self.day });
+        return cal.weekdayFromUnixdays(days);
+    }
+
+    /// ISO-number of the weekday, starting at 1 == Monday
+    pub fn weekdayIsoNumber(self: Datetime) u3 {
+        const days = cal.unixdaysFromDate([3]u16{ self.year, self.month, self.day });
+        return cal.ISOweekdayFromUnixdays(days);
     }
 
     pub fn format(
