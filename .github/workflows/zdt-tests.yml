@@ -1,4 +1,4 @@
-name: Zig zdt
+name: zdt-tests
 
 on:
   push:
