@@ -1,29 +1,38 @@
 const std = @import("std");
-const print = std.debug.print;
 
 const zdt = @import("zdt");
-const dt = zdt.datetime;
-const tz = zdt.timezone;
-const dtstr = zdt.stringIO;
+const Datetime = zdt.Datetime;
+const Tz = zdt.Timezone;
+const str = zdt.stringIO;
 
-test "offset demo" {
-    print("\n---> UTC offset time zone demo", .{});
+pub fn main() !void {
+    println("---> UTC offset time zone example", .{});
+    println("", .{});
 
-    const tzinfo = try tz.fromOffset(3600, "UTC+1");
-    const a_date = try dt.Datetime.fromFields(.{ .year = 1970, .tzinfo = tzinfo });
-    print("\ndatetime: {s}", .{a_date});
-    print("\ntz name: {s}", .{a_date.tzinfo.?.name});
+    const tzinfo = try Tz.fromOffset(3600, "UTC+1");
+    const a_date = try Datetime.fromFields(.{ .year = 1970, .tzinfo = tzinfo });
+    println("datetime: {s}", .{a_date});
+    println("tz name: {s}", .{a_date.tzinfo.?.name});
 
-    var s = std.ArrayList(u8).init(std.testing.allocator);
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
+    var s = std.ArrayList(u8).init(gpa.allocator());
     defer s.deinit();
-    try dtstr.formatDatetime(s.writer(), "%Y-%m-%d", a_date);
-    print("\nformatted date-only: {s}\n", .{s.items});
 
-    const other_tzinfo = try tz.fromOffset(-5 * 3600, "UTC-5");
+    try str.formatDatetime(s.writer(), "%Y-%m-%d", a_date);
+    println("formatted date-only: {s}", .{s.items});
+
+    const other_tzinfo = try Tz.fromOffset(-5 * 3600, "UTC-5");
     const a_date_other_tz = try a_date.tzConvert(other_tzinfo);
-    print("\ndatetime in other tz: {s}", .{a_date_other_tz});
-    print("\nother tz name: {s}", .{a_date_other_tz.tzinfo.?.name});
+    println("datetime in other tz: {s}", .{a_date_other_tz});
+    println("other tz name: {s}", .{a_date_other_tz.tzinfo.?.name});
     s.clearAndFree();
-    try dtstr.formatDatetime(s.writer(), "%Y-%m-%d, %Hh", a_date_other_tz);
-    print("\nformatted: {s}\n", .{s.items});
+    try str.formatDatetime(s.writer(), "%Y-%m-%d, %Hh", a_date_other_tz);
+    println("formatted: {s}\n", .{s.items});
+}
+
+fn println(comptime fmt: []const u8, args: anytype) void {
+    const stdout = std.io.getStdOut().writer();
+    nosuspend stdout.print(fmt ++ "\n", args) catch return;
 }

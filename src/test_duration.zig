@@ -3,7 +3,7 @@ const std = @import("std");
 const testing = std.testing;
 const print = std.debug.print;
 
-const datetime = @import("./datetime.zig");
+const Datetime = @import("./Datetime.zig");
 const Duration = @import("./Duration.zig");
 
 test "from timespan" {
@@ -19,41 +19,47 @@ test "from timespan" {
 }
 
 test "add durations" {
-    var a, var b = .{ Duration{ .__sec = 1 }, Duration{ .__sec = 1 } };
+    var a = Duration{ .__sec = 1 };
+    var b = Duration{ .__sec = 1 };
     var c = a.add(b);
     try testing.expectEqual(@as(i64, 2), c.__sec);
     try testing.expectEqual(@as(u30, 0), c.__nsec);
 
-    a, b = .{ Duration{ .__sec = 1 }, Duration{ .__nsec = 1 } };
+    a = Duration{ .__sec = 1 };
+    b = Duration{ .__nsec = 1 };
     c = a.add(b);
     try testing.expectEqual(@as(i64, 1), c.__sec);
     try testing.expectEqual(@as(u30, 1), c.__nsec);
 
-    a, b = .{ Duration{ .__nsec = 500_000_000 }, Duration{ .__nsec = 500_000_314 } };
+    a = Duration{ .__nsec = 500_000_000 };
+    b = Duration{ .__nsec = 500_000_314 };
     c = a.add(b);
     try testing.expectEqual(@as(i64, 1), c.__sec);
     try testing.expectEqual(@as(u30, 314), c.__nsec);
 }
 
 test "sub durations" {
-    var a, var b = .{ Duration{ .__sec = 1 }, Duration{ .__sec = 1 } };
+    var a = Duration{ .__sec = 1 };
+    var b = Duration{ .__sec = 1 };
     var c = a.sub(b);
     try testing.expectEqual(@as(i64, 0), c.__sec);
     try testing.expectEqual(@as(u30, 0), c.__nsec);
 
-    a, b = .{ Duration{ .__sec = 1 }, Duration{ .__nsec = 1 } };
+    a = Duration{ .__sec = 1 };
+    b = Duration{ .__nsec = 1 };
     c = a.sub(b);
     try testing.expectEqual(@as(i64, 0), c.__sec);
     try testing.expectEqual(@as(u30, 999_999_999), c.__nsec);
 
-    a, b = .{ Duration{ .__nsec = 500_000_000 }, Duration{ .__nsec = 500_000_314 } };
+    a = Duration{ .__nsec = 500_000_000 };
+    b = Duration{ .__nsec = 500_000_314 };
     c = a.sub(b);
     try testing.expectEqual(@as(i64, -1), c.__sec);
     try testing.expectEqual(@as(u30, 999999686), c.__nsec);
 }
 
 test "add duration to datetime" {
-    var dt = try datetime.Datetime.fromFields(.{ .year = 1970, .second = 42 });
+    var dt = try Datetime.fromFields(.{ .year = 1970, .second = 42 });
     dt = try dt.add(Duration{ .__sec = 1, .__nsec = 0 });
     try testing.expectEqual(@as(i40, 43), dt.__unix);
 
@@ -69,7 +75,7 @@ test "add duration to datetime" {
 }
 
 test "subtract duration from datetime" {
-    var dt = try datetime.Datetime.fromFields(.{ .year = 1970, .second = 42 });
+    var dt = try Datetime.fromFields(.{ .year = 1970, .second = 42 });
     dt = try dt.sub(Duration{ .__sec = -1, .__nsec = 0 });
     try testing.expectEqual(@as(i40, 43), dt.__unix);
 
@@ -82,14 +88,14 @@ test "subtract duration from datetime" {
 }
 
 test "datetime difference" {
-    var a = try datetime.Datetime.fromFields(.{ .year = 1970, .second = 1 });
-    var b = try datetime.Datetime.fromFields(.{ .year = 1970, .second = 1 });
+    var a = try Datetime.fromFields(.{ .year = 1970, .second = 1 });
+    var b = try Datetime.fromFields(.{ .year = 1970, .second = 1 });
     var diff = a.diff(b);
     try testing.expectEqual(@as(i64, 0), diff.__sec);
     try testing.expectEqual(@as(u30, 0), diff.__nsec);
 
-    a = try datetime.Datetime.fromFields(.{ .year = 1970, .second = 0 });
-    b = try datetime.Datetime.fromFields(.{ .year = 1970, .second = 1 });
+    a = try Datetime.fromFields(.{ .year = 1970, .second = 0 });
+    b = try Datetime.fromFields(.{ .year = 1970, .second = 1 });
     diff = a.diff(b);
     try testing.expectEqual(@as(i64, -1), diff.__sec);
     try testing.expectEqual(@as(u30, 0), diff.__nsec);

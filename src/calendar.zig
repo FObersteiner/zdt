@@ -1,4 +1,5 @@
-//! calendaric stuff
+//! calendric stuff
+const std = @import("std");
 
 /// Days per month, depending on if it comes from a leap year.
 /// Based on Neri/Schneider's "Euclidean affine functions"
@@ -21,12 +22,12 @@ pub fn weekdayFromUnixdays(unix_days: i32) u3 {
     return @intCast(@mod((unix_days + 4), 7));
 }
 
-/// Calculate the day of the week (Sun = 0, Sat = 6) for given days after Unix epoch
+/// Calculate the ISO day of the week (Mon = 1, Sun = 7) for given days after Unix epoch
 pub fn ISOweekdayFromUnixdays(unix_days: i32) u3 {
     return @intCast(@mod((unix_days + 3), 7) + 1);
 }
 
-/// Test if a month is a leap month (Feb in a leap year).
+/// Test if a month is a leap month, i.e. Feb in a leap year.
 pub fn isLeapMonth(year: u16, month: u4) bool {
     return isLeapYear(year) and month == 2;
 }
@@ -40,12 +41,68 @@ pub fn weekdayDifference(x: u3, y: u3) i4 {
 /// Calculate the day of the year. Result is [1, 366].
 /// See also https://astronomy.stackexchange.com/q/2407
 pub fn dayOfYear(year: u14, month: u4, day: u5) u9 {
+    // TODO : do Neri-Schneider suggest a more efficient algorithm here ?
     const _month: i16 = @as(i16, month);
     const _day: i16 = @as(i16, day);
     const base_offset: i16 = @divFloor(_month * 275, 9);
     const feb_offset: i16 = if (month <= 2) 0 else 1;
     const leap_offset: i16 = if (isLeapYear(year)) 1 else 2;
     return @intCast(base_offset - (feb_offset * leap_offset) + _day - 30);
+}
+
+/// Mapping of Unix time [s] to number of leap seconds n_leap; n_leap = array-index + 11;
+/// UTC = TAI - n_leap
+pub const leaps = [_]u48{
+    // default to 10 leap seconds before 1972-07-01
+    78796800, // 1972-07-01: now 11 leap seconds
+    94694400, // 1973-01-01: ... 12
+    126230400, // ... https://en.wikipedia.org/wiki/Leap_second
+    157766400,
+    189302400,
+    220924800,
+    252460800,
+    283996800,
+    315532800,
+    362793600,
+    394329600,
+    425865600,
+    489024000,
+    567993600,
+    631152000,
+    662688000,
+    709948800,
+    741484800,
+    773020800,
+    820454400,
+    867715200,
+    915148800,
+    1136073600,
+    1230768000,
+    1341100800,
+    1435708800, // ...
+    1483228800, // 2017-01-01
+};
+
+/// For a given Unix time in seconds, give me the number of leap seconds that
+/// were added in UTC.
+pub fn leapCorrection(unixtime: i64) u8 {
+    if (unixtime < leaps[0]) return 10;
+    if (unixtime >= leaps[leaps.len - 1]) return leaps.len + 10;
+    const index = index: {
+        var left: usize = 0;
+        var right: usize = leaps.len;
+        var mid: usize = 0;
+        while (left < right) {
+            mid = left + (right - left) / 2;
+            switch (std.math.order(unixtime, leaps[mid])) {
+                .eq => break :index mid,
+                .gt => left = mid + 1,
+                .lt => right = mid,
+            }
+        }
+        break :index mid - @intFromBool(leaps[mid] > unixtime);
+    };
+    return @intCast(index + 11);
 }
 
 /// Calculate days since the Unix epoch (1970-01-01) from a year-month-day tuple,
@@ -158,6 +215,7 @@ pub fn isLeapYear(y: u16) bool {
         y & 3 == 0
     else
         y & 15 == 0;
+    // NOTE : this is actually slower than the standard lib implementation
 }
 
 /// Determine the number of days in the given month in the given year

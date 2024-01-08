@@ -1,4 +1,4 @@
-//! duration
+//! Duration
 const std = @import("std");
 
 const Duration = @This();
@@ -62,8 +62,10 @@ pub fn format(
     if (is_negative and self.__nsec > 0) s -= 1;
     const ns = if (is_negative) 1_000_000_000 - self.__nsec else self.__nsec;
 
-    const hours, const remainder = .{ @divFloor(s, 3600), @rem(s, 3600) };
-    const minutes, const seconds = .{ @divFloor(remainder, 60), @rem(remainder, 60) };
+    const hours = @divFloor(s, 3600);
+    const remainder = @rem(s, 3600);
+    const minutes = @divFloor(remainder, 60);
+    const seconds = @rem(remainder, 60);
 
     if (is_negative) try writer.print("-", .{});
     try writer.print("PT{d:0>2}H{d:0>2}M{d:0>2}", .{ hours, minutes, seconds });

@@ -1,23 +1,29 @@
 //! test timezone from a users's perspective (no internal functionality)
+const builtin = @import("builtin");
 const std = @import("std");
 const testing = std.testing;
 const print = std.debug.print;
 
-const datetime = @import("datetime.zig");
+const Datetime = @import("Datetime.zig");
 const Duration = @import("Duration.zig");
-const tz = @import("timezone.zig");
+const Tz = @import("Timezone.zig");
+const ZdtError = @import("errors.zig").ZdtError;
+const TzError = @import("errors.zig").TzError;
 const str = @import("stringIO.zig");
+
+const log = std.log.scoped(.test_timezone);
 
 // if (true) return error.SkipZigTest;
 
 test "utc" {
-    const utc = tz.UTC;
+    const utc = Tz.UTC;
     try std.testing.expect(utc.tzOffset.?.seconds_east == 0);
     try std.testing.expect(std.mem.eql(u8, utc.name, "UTC"));
+    try std.testing.expect(std.mem.eql(u8, utc.abbreviation, "Z"));
 }
 
 test "offset tz never changes offset" {
-    var tzinfo = tz.TZ{};
+    var tzinfo = Tz{};
     try tzinfo.loadOffset(999, "hello world");
     try std.testing.expect(std.mem.eql(u8, tzinfo.name, "hello world"));
 
@@ -27,20 +33,20 @@ test "offset tz never changes offset" {
     try std.testing.expect(tzinfo.tzOffset.?.seconds_east == 999);
 
     var err = tzinfo.loadOffset(-99999, "invalid");
-    try std.testing.expectError(tz.TzError.InvalidOffset, err);
+    try std.testing.expectError(TzError.InvalidOffset, err);
     err = tzinfo.loadOffset(99999, "invalid");
-    try std.testing.expectError(tz.TzError.InvalidOffset, err);
+    try std.testing.expectError(TzError.InvalidOffset, err);
 }
 
 test "offset manifests in Unix time" {
-    var tzinfo = tz.TZ{};
+    var tzinfo = Tz{};
     try tzinfo.loadOffset(3600, "UTC+1");
     // all fields zero, so Unix time has to be adjusted:
-    const dt = try datetime.Datetime.fromFields(.{ .year = 1970, .tzinfo = tzinfo });
+    const dt = try Datetime.fromFields(.{ .year = 1970, .tzinfo = tzinfo });
     try std.testing.expect(dt.__unix == -3600);
     try std.testing.expect(dt.hour == 0);
     // Unix time zero, so fields have to be adjusted
-    const dt_unix = try datetime.Datetime.fromUnix(0, Duration.Resolution.second, tzinfo);
+    const dt_unix = try Datetime.fromUnix(0, Duration.Resolution.second, tzinfo);
     try std.testing.expect(dt_unix.__unix == 0);
     try std.testing.expect(dt_unix.hour == 1);
 
@@ -53,37 +59,37 @@ test "offset manifests in Unix time" {
 }
 
 test "invalid tzfile name" {
-    var err = tz.fromTzfile("this is not a tzname", std.testing.allocator);
+    var err = Tz.fromTzfile("this is not a tzname", std.testing.allocator);
     try std.testing.expectError(error.FileNotFound, err);
-    err = tz.fromTzfile("../test", std.testing.allocator);
+    err = Tz.fromTzfile("../test", std.testing.allocator);
     try std.testing.expectError(error.FileNotFound, err);
-    err = tz.fromTzfile("*=!?:.", std.testing.allocator);
+    err = Tz.fromTzfile("*=!?:.", std.testing.allocator);
     try std.testing.expectError(error.FileNotFound, err);
 }
 
 test "mem error" {
     const allocator = std.testing.failing_allocator;
-    const err = tz.fromTzfile("UTC", allocator);
+    const err = Tz.fromTzfile("UTC", allocator);
     try std.testing.expectError(error.OutOfMemory, err);
 }
 
 test "tzfile tz manifests in Unix time" {
-    var tzinfo = try tz.fromTzfile("Europe/Berlin", std.testing.allocator);
+    var tzinfo = try Tz.fromTzfile("Europe/Berlin", std.testing.allocator);
     defer _ = tzinfo.deinit();
 
-    const dt = try datetime.Datetime.fromFields(.{ .year = 1970, .nanosecond = 1, .tzinfo = tzinfo });
+    const dt = try Datetime.fromFields(.{ .year = 1970, .nanosecond = 1, .tzinfo = tzinfo });
     try std.testing.expect(dt.__unix == -3600);
     try std.testing.expect(dt.hour == 0);
     try std.testing.expect(dt.nanosecond == 1); // don't forget the nanoseconds...
 }
 
 test "DST transitions" {
-    var tzinfo = try tz.fromTzfile("Europe/Berlin", std.testing.allocator);
+    var tzinfo = try Tz.fromTzfile("Europe/Berlin", std.testing.allocator);
     defer _ = tzinfo.deinit();
 
     // DST off --> DST on (missing datetime), 2023-03-26
-    var dt_std = try datetime.Datetime.fromUnix(1679792399, Duration.Resolution.second, tzinfo);
-    var dt_dst = try datetime.Datetime.fromUnix(1679792400, Duration.Resolution.second, tzinfo);
+    var dt_std = try Datetime.fromUnix(1679792399, Duration.Resolution.second, tzinfo);
+    var dt_dst = try Datetime.fromUnix(1679792400, Duration.Resolution.second, tzinfo);
     try std.testing.expect(dt_dst.tzinfo.?.is_dst);
     try std.testing.expect(!dt_std.tzinfo.?.is_dst);
 
@@ -98,8 +104,8 @@ test "DST transitions" {
     s.deinit();
 
     // DST on --> DST off (duplicate datetime), 2023-10-29
-    dt_dst = try datetime.Datetime.fromUnix(1698541199, Duration.Resolution.second, tzinfo);
-    dt_std = try datetime.Datetime.fromUnix(1698541200, Duration.Resolution.second, tzinfo);
+    dt_dst = try Datetime.fromUnix(1698541199, Duration.Resolution.second, tzinfo);
+    dt_std = try Datetime.fromUnix(1698541200, Duration.Resolution.second, tzinfo);
     try std.testing.expect(dt_dst.tzinfo.?.is_dst);
     try std.testing.expect(!dt_std.tzinfo.?.is_dst);
 
@@ -114,65 +120,142 @@ test "DST transitions" {
     s.deinit();
 }
 
-test "early LMT, late CET" {
-    var tzinfo = try tz.fromTzfile("Europe/Berlin", std.testing.allocator);
+test "tz has name and abbreviation" {
+    var tzinfo = try Tz.fromTzfile("Europe/Berlin", std.testing.allocator);
     defer _ = tzinfo.deinit();
 
-    var dt = try datetime.Datetime.fromFields(.{ .year = 1880, .tzinfo = tzinfo });
-    var have = @as([]const u8, dt.tzinfo.?.abbreviation[0..3]);
-    try std.testing.expectEqualStrings("LMT", have);
+    var dt = try Datetime.fromFields(.{ .year = 2023, .month = 2, .tzinfo = tzinfo });
+    try std.testing.expectEqualStrings("Europe/Berlin", dt.tzinfo.?.name);
+    try std.testing.expectEqualStrings("CET", dt.tzinfo.?.abbreviation);
 
-    dt = try datetime.Datetime.fromFields(.{ .year = 2039, .month = 8, .tzinfo = tzinfo });
-    have = @as([]const u8, dt.tzinfo.?.abbreviation[0..3]);
-    try std.testing.expectEqualStrings("CET", have);
+    dt = try Datetime.fromFields(.{ .year = 2023, .month = 8, .tzinfo = tzinfo });
+    try std.testing.expectEqualStrings("Europe/Berlin", dt.tzinfo.?.name);
+    try std.testing.expectEqualStrings("CEST", dt.tzinfo.?.abbreviation);
+
+    dt = try Datetime.fromUnix(1672527600, Duration.Resolution.second, tzinfo);
+    try std.testing.expectEqualStrings("Europe/Berlin", dt.tzinfo.?.name);
+    try std.testing.expectEqualStrings("CET", dt.tzinfo.?.abbreviation);
+
+    dt = try Datetime.fromUnix(1690840800, Duration.Resolution.second, tzinfo);
+    try std.testing.expectEqualStrings("Europe/Berlin", dt.tzinfo.?.name);
+    try std.testing.expectEqualStrings("CEST", dt.tzinfo.?.abbreviation);
+}
+
+test "early LMT, late CET" {
+    var tzinfo = try Tz.fromTzfile("Europe/Berlin", std.testing.allocator);
+    defer _ = tzinfo.deinit();
+
+    var dt = try Datetime.fromFields(.{ .year = 1880, .tzinfo = tzinfo });
+    try std.testing.expectEqualStrings("LMT", dt.tzinfo.?.abbreviation);
+
+    dt = try Datetime.fromFields(.{ .year = 2039, .month = 8, .tzinfo = tzinfo });
+    try std.testing.expectEqualStrings("CET", dt.tzinfo.?.abbreviation);
+}
+
+test "tz name and abbr correct after localize" {
+    var tz_ny = try Tz.fromTzfile("America/New_York", std.testing.allocator);
+    defer _ = tz_ny.deinit();
+
+    var now_local: Datetime = Datetime.now(tz_ny);
+    try std.testing.expectEqualStrings("America/New_York", now_local.tzinfo.?.name);
+    try std.testing.expect(now_local.tzinfo.?.abbreviation.len > 0);
+
+    now_local = Datetime.now(null);
+    now_local = try now_local.tzLocalize(tz_ny);
+    try std.testing.expectEqualStrings("America/New_York", now_local.tzinfo.?.name);
+    try std.testing.expect(now_local.tzinfo.?.abbreviation.len > 0);
+
+    const t = std.time.nanoTimestamp();
+    now_local = try Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, tz_ny);
+    try std.testing.expectEqualStrings("America/New_York", now_local.tzinfo.?.name);
+    try std.testing.expect(now_local.tzinfo.?.abbreviation.len > 0);
+
+    const t2 = std.time.timestamp();
+    now_local = try Datetime.fromUnix(t2, Duration.Resolution.second, tz_ny);
+    try std.testing.expectEqualStrings("America/New_York", now_local.tzinfo.?.name);
+    try std.testing.expect(now_local.tzinfo.?.abbreviation.len > 0);
+
+    const t3: i32 = 0;
+    now_local = try Datetime.fromUnix(t3, Duration.Resolution.second, tz_ny);
+    try std.testing.expectEqualStrings("America/New_York", now_local.tzinfo.?.name);
+    try std.testing.expect(now_local.tzinfo.?.abbreviation.len > 0);
+    try std.testing.expectEqualStrings("EST", now_local.tzinfo.?.abbreviation);
+
+    const t4: i32 = 1690840800;
+    now_local = try Datetime.fromUnix(t4, Duration.Resolution.second, tz_ny);
+    try std.testing.expectEqualStrings("America/New_York", now_local.tzinfo.?.name);
+    try std.testing.expect(now_local.tzinfo.?.abbreviation.len > 0);
+    try std.testing.expectEqualStrings("EDT", now_local.tzinfo.?.abbreviation);
+}
+
+test "tz name and abbr correct after conversion" {
+    var tz_berlin = try Tz.fromTzfile("Europe/Berlin", std.testing.allocator);
+    defer _ = tz_berlin.deinit();
+    var tz_denver = try Tz.fromTzfile("America/Denver", std.testing.allocator);
+    defer _ = tz_denver.deinit();
+
+    var dt = try Datetime.fromFields(.{ .year = 2023, .tzinfo = tz_berlin });
+    var converted: Datetime = try dt.tzConvert(tz_denver);
+    try std.testing.expectEqualStrings("Europe/Berlin", dt.tzinfo.?.name);
+    try std.testing.expectEqualStrings("CET", dt.tzinfo.?.abbreviation);
+    try std.testing.expectEqualStrings("America/Denver", converted.tzinfo.?.name);
+    try std.testing.expectEqualStrings("MST", converted.tzinfo.?.abbreviation);
+
+    dt = try Datetime.fromFields(.{ .year = 2023, .month = 8, .tzinfo = tz_berlin });
+    converted = try dt.tzConvert(tz_denver);
+    try std.testing.expectEqualStrings("Europe/Berlin", dt.tzinfo.?.name);
+    try std.testing.expectEqualStrings("CEST", dt.tzinfo.?.abbreviation);
+    try std.testing.expectEqualStrings("America/Denver", converted.tzinfo.?.name);
+    try std.testing.expectEqualStrings("MDT", converted.tzinfo.?.abbreviation);
 }
 
 test "non-existent datetime" {
-    var tzinfo = try tz.fromTzfile("Europe/Berlin", std.testing.allocator);
+    var tzinfo = try Tz.fromTzfile("Europe/Berlin", std.testing.allocator);
     defer _ = tzinfo.deinit();
 
-    var dt = datetime.Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 26, .hour = 2, .tzinfo = tzinfo });
-    try std.testing.expectError(datetime.ZdtError.NonexistentDatetime, dt);
+    var dt = Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 26, .hour = 2, .tzinfo = tzinfo });
+    try std.testing.expectError(ZdtError.NonexistentDatetime, dt);
 
     tzinfo.deinit();
-    tzinfo = try tz.fromTzfile("America/Denver", std.testing.allocator);
-    dt = datetime.Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 12, .hour = 2, .minute = 59, .second = 59, .tzinfo = tzinfo });
-    try std.testing.expectError(datetime.ZdtError.NonexistentDatetime, dt);
+    tzinfo = try Tz.fromTzfile("America/Denver", std.testing.allocator);
+    dt = Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 12, .hour = 2, .minute = 59, .second = 59, .tzinfo = tzinfo });
+    try std.testing.expectError(ZdtError.NonexistentDatetime, dt);
 }
 
 test "ambiguous datetime" {
-    var tzinfo = try tz.fromTzfile("Europe/Berlin", std.testing.allocator);
+    var tzinfo = try Tz.fromTzfile("Europe/Berlin", std.testing.allocator);
     defer _ = tzinfo.deinit();
 
-    var dt = datetime.Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 2, .tzinfo = tzinfo });
-    try std.testing.expectError(datetime.ZdtError.AmbiguousDatetime, dt);
+    var dt = Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 2, .tzinfo = tzinfo });
+    try std.testing.expectError(ZdtError.AmbiguousDatetime, dt);
 
     tzinfo.deinit();
-    tzinfo = try tz.fromTzfile("America/Denver", std.testing.allocator);
-    dt = datetime.Datetime.fromFields(.{ .year = 2023, .month = 11, .day = 5, .hour = 1, .minute = 59, .second = 59, .tzinfo = tzinfo });
-    try std.testing.expectError(datetime.ZdtError.AmbiguousDatetime, dt);
+    tzinfo = try Tz.fromTzfile("America/Denver", std.testing.allocator);
+    dt = Datetime.fromFields(.{ .year = 2023, .month = 11, .day = 5, .hour = 1, .minute = 59, .second = 59, .tzinfo = tzinfo });
+    try std.testing.expectError(ZdtError.AmbiguousDatetime, dt);
 }
 
 test "tz without transitions at UTC+9" {
-    var tzinfo = try tz.fromTzfile("Asia/Tokyo", std.testing.allocator);
+    var tzinfo = try Tz.fromTzfile("Asia/Tokyo", std.testing.allocator);
     defer _ = tzinfo.deinit();
 
-    var dt = try datetime.Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 26, .hour = 2, .tzinfo = tzinfo });
+    var dt = try Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 26, .hour = 2, .tzinfo = tzinfo });
     try std.testing.expectEqual(@as(i20, 9 * 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
-    dt = try datetime.Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 12, .hour = 2, .minute = 59, .second = 59, .tzinfo = tzinfo });
+    dt = try Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 12, .hour = 2, .minute = 59, .second = 59, .tzinfo = tzinfo });
     try std.testing.expectEqual(@as(i20, 9 * 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
-    dt = try datetime.Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 2, .tzinfo = tzinfo });
+    dt = try Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 2, .tzinfo = tzinfo });
     try std.testing.expectEqual(@as(i20, 9 * 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
-    dt = try datetime.Datetime.fromFields(.{ .year = 2023, .month = 11, .day = 5, .hour = 1, .minute = 59, .second = 59, .tzinfo = tzinfo });
+    dt = try Datetime.fromFields(.{ .year = 2023, .month = 11, .day = 5, .hour = 1, .minute = 59, .second = 59, .tzinfo = tzinfo });
     try std.testing.expectEqual(@as(i20, 9 * 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
 }
 
 test "make datetime aware" {
-    var tzinfo = try tz.fromTzfile("Europe/Berlin", std.testing.allocator);
+    var tzinfo = try Tz.fromTzfile("Europe/Berlin", std.testing.allocator);
     defer _ = tzinfo.deinit();
 
-    const dt_naive = try datetime.Datetime.fromUnix(0, Duration.Resolution.second, null);
+    const dt_naive = try Datetime.fromUnix(0, Duration.Resolution.second, null);
     try std.testing.expect(dt_naive.tzinfo == null);
+
     const dt_aware = try dt_naive.tzLocalize(tzinfo);
     try std.testing.expect(dt_aware.tzinfo != null);
     try std.testing.expect(dt_aware.__unix != dt_naive.__unix);
@@ -182,21 +265,21 @@ test "make datetime aware" {
     try std.testing.expect(dt_aware.hour == dt_naive.hour);
 
     const err = dt_aware.tzLocalize(tzinfo);
-    try std.testing.expectError(datetime.ZdtError.TzAlreadyDefined, err);
+    try std.testing.expectError(ZdtError.TzAlreadyDefined, err);
 
     const naive_again = try dt_aware.tzLocalize(null);
     try std.testing.expect(std.meta.eql(dt_naive, naive_again));
 }
 
 test "convert time zone" {
-    var tzinfo = try tz.fromTzfile("Europe/Berlin", std.testing.allocator);
+    var tzinfo = try Tz.fromTzfile("Europe/Berlin", std.testing.allocator);
     defer _ = tzinfo.deinit();
 
-    const dt_naive = try datetime.Datetime.fromUnix(42, Duration.Resolution.nanosecond, null);
+    const dt_naive = try Datetime.fromUnix(42, Duration.Resolution.nanosecond, null);
     const err = dt_naive.tzConvert(tzinfo);
-    try std.testing.expectError(datetime.ZdtError.TzUndefined, err);
+    try std.testing.expectError(ZdtError.TzUndefined, err);
 
-    const dt_Berlin = try datetime.Datetime.fromUnix(42, Duration.Resolution.nanosecond, tzinfo);
+    const dt_Berlin = try Datetime.fromUnix(42, Duration.Resolution.nanosecond, tzinfo);
 
     tzinfo.deinit();
     _ = try tzinfo.loadTzfile("America/New_York", std.testing.allocator);
@@ -208,12 +291,12 @@ test "convert time zone" {
 }
 
 test "make TZ with convenience func" {
-    const off = try tz.fromOffset(42, "hello_world");
+    const off = try Tz.fromOffset(42, "hello_world");
     try std.testing.expect(off.tzFile == null);
     try std.testing.expect(off.tzPosix == null);
     try std.testing.expect(off.tzOffset != null);
 
-    var tzinfo = try tz.fromTzfile("Asia/Kolkata", std.testing.allocator);
+    var tzinfo = try Tz.fromTzfile("Asia/Kolkata", std.testing.allocator);
     defer _ = tzinfo.deinit();
     try std.testing.expect(tzinfo.tzFile != null);
     try std.testing.expect(tzinfo.tzPosix == null);
@@ -221,10 +304,10 @@ test "make TZ with convenience func" {
 }
 
 test "floor to date changes UTC offset" {
-    var tzinfo = try tz.fromTzfile("Europe/Berlin", std.testing.allocator);
+    var tzinfo = try Tz.fromTzfile("Europe/Berlin", std.testing.allocator);
     defer _ = tzinfo.deinit();
 
-    var dt = try datetime.Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 5, .tzinfo = tzinfo });
+    var dt = try Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 5, .tzinfo = tzinfo });
     var dt_floored = try dt.floorTo(Duration.Timespan.day);
     try std.testing.expectEqual(@as(u5, 0), dt_floored.hour);
     try std.testing.expectEqual(@as(u6, 0), dt_floored.minute);
@@ -232,7 +315,7 @@ test "floor to date changes UTC offset" {
     try std.testing.expectEqual(@as(i20, 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
     try std.testing.expectEqual(@as(i20, 7200), dt_floored.tzinfo.?.tzOffset.?.seconds_east);
 
-    dt = try datetime.Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 26, .hour = 3, .tzinfo = tzinfo });
+    dt = try Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 26, .hour = 3, .tzinfo = tzinfo });
     dt_floored = try dt.floorTo(Duration.Timespan.day);
     try std.testing.expectEqual(@as(u5, 0), dt_floored.hour);
     try std.testing.expectEqual(@as(u6, 0), dt_floored.minute);
@@ -242,9 +325,9 @@ test "floor to date changes UTC offset" {
 }
 
 test "load a lot of zones" {
-    var tz_a = tz.TZ{};
+    var tz_a = Tz{};
     defer tz_a.deinit();
-    var dt_a = datetime.Datetime{};
+    var dt_a = Datetime{};
     const zones = [_][]const u8{
         "America/La_Paz",
         "Pacific/Saipan",
@@ -847,72 +930,247 @@ test "load a lot of zones" {
     };
 
     for (zones) |zone| {
-        tz_a = try tz.fromTzfile(zone, std.testing.allocator);
-        dt_a = try datetime.Datetime.fromUnix(1, Duration.Resolution.second, tz_a);
+        tz_a = try Tz.fromTzfile(zone, std.testing.allocator);
+        dt_a = try Datetime.fromUnix(1, Duration.Resolution.second, tz_a);
         tz_a.deinit();
     }
 }
 
-// test "conversion between random time zones" {
-//     var tz_a = tz.TZ{};
-//     var tz_b = tz.TZ{};
-//     defer tz_a.deinit();
-//     defer tz_b.deinit();
-//     var dt_a = datetime.Datetime{};
-//     var dt_b = datetime.Datetime{};
-//     var dt_c = datetime.Datetime{};
-//
-//     tz_a = try tz.fromTzfile("Asia/Kolkata", std.testing.allocator);
-//     tz_b = try tz.fromTzfile("Asia/Tokyo", std.testing.allocator);
-//     dt_a = try datetime.Datetime.fromUnix(0, Duration.Resolution.second, tz_a);
-//     dt_b = try datetime.Datetime.fromUnix(0, Duration.Resolution.second, tz_b);
-//     dt_c = try dt_a.tzConvert(tz_b);
-//     print("\na: {s}", .{dt_a});
-//     print("\nb: {s}", .{dt_b});
-//     print("\nc: {s}", .{dt_c});
-//     print("\ndiff: {s}", .{dt_c.diff(dt_a)});
-//     print("\ndiff: {s}", .{try dt_c.diffWall(dt_a)});
-//     try testing.expect(std.meta.eql(dt_b, dt_c));
-// }
+test "conversion between random time zones" {
+    var tz_a = Tz{};
+    var tz_b = Tz{};
+    defer tz_a.deinit();
+    defer tz_b.deinit();
+    var dt_a = Datetime{};
+    var dt_b = Datetime{};
+    var dt_c = Datetime{};
+    var s_b = std.ArrayList(u8).init(testing.allocator);
+    var s_c = std.ArrayList(u8).init(testing.allocator);
+    defer s_b.deinit();
+    defer s_c.deinit();
 
-// test "conversion between random time zones" {
-//     var tz_a = tz.TZ{};
-//     var tz_b = tz.TZ{};
-//     defer tz_a.deinit();
-//     defer tz_b.deinit();
-//     var dt_a = datetime.Datetime{};
-//     var dt_b = datetime.Datetime{};
-//     var dt_a_str = std.ArrayList(u8).init(testing.allocator);
-//     var dt_b_str = std.ArrayList(u8).init(testing.allocator);
-//     defer dt_a_str.deinit();
-//     defer dt_b_str.deinit();
-//
-//     tz_a = try tz.fromTzfile("Etc/GMT+6", std.testing.allocator);
-//     tz_b = try tz.fromTzfile("Asia/Macau", std.testing.allocator);
-//     dt_a = try datetime.Datetime.fromUnix(-1667178601, Duration.Resolution.second, tz_a);
-//     dt_b = try datetime.Datetime.fromUnix(-1391111626, Duration.Resolution.second, tz_b);
-//
-//     // print("\n{s}", .{dt_a});
-//     print("\n{s}", .{dt_b});
-//     // try str.formatDatetime(dt_a_str.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_a);
-//     // print("\n{s}", .{dt_a_str.items});
-//     try str.formatDatetime(dt_b_str.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
-//     print("\n{s}", .{dt_b_str.items});
-//
-//     tz_a.deinit();
-//     tz_b.deinit();
-//
-//     tz_a = try tz.fromTzfile("Atlantic/Madeira", std.testing.allocator);
-//     tz_b = try tz.fromTzfile("Asia/Dacca", std.testing.allocator);
-//     dt_a = try datetime.Datetime.fromUnix(-1139903279, Duration.Resolution.second, tz_a);
-//     dt_b = try datetime.Datetime.fromUnix(-422363402, Duration.Resolution.second, tz_b);
-//     tz_a.deinit();
-//     tz_b.deinit();
-//
-//     tz_a = try tz.fromTzfile("Europe/Tiraspol", std.testing.allocator);
-//     tz_b = try tz.fromTzfile("Pacific/Johnston", std.testing.allocator);
-//     dt_a = try datetime.Datetime.fromUnix(202463633, Duration.Resolution.second, tz_a);
-//     dt_b = try datetime.Datetime.fromUnix(1669207832, Duration.Resolution.second, tz_b);
-//     tz_a.deinit();
-//     tz_b.deinit();
-// }
+    tz_a = try Tz.fromTzfile("Antarctica/DumontDUrville", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("Africa/Ceuta", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(-1667178601, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(-1391111626, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("1925-12-02T04:06:14+00:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("1917-03-03T22:49:59+00:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("America/North_Dakota/New_Salem", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("Pacific/Saipan", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(-1139903279, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(-422363402, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("1956-08-13T05:49:58-07:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("1933-11-18T01:12:01+09:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("America/Jamaica", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("Europe/Guernsey", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(202463633, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(1669207832, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("2022-11-23T07:50:32-05:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("1976-06-01T08:53:53+01:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("Atlantic/Madeira", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("America/Argentina/Rio_Gallegos", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(576423124, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(551161374, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("1987-06-20T05:22:54+01:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("1988-04-07T10:32:04-03:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("Europe/Nicosia", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("Asia/Aqtau", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(-1682852184, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(1349104459, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("2012-10-01T18:14:19+03:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("1916-09-03T16:24:40+03:21:04", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("Etc/GMT+12", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("US/Aleutian", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(1916129356, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(-1123806767, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("1934-05-22T11:27:13-12:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("2030-09-20T01:09:16-09:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("America/Bahia", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("America/Toronto", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(-1922676780, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(-1247650419, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("1930-06-19T11:26:21-03:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("1909-01-27T14:07:00-05:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("WET", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("Africa/Bamako", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(-767770882, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(1363693749, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("2013-03-19T11:49:09+00:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("1945-09-02T17:18:38-01:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("Asia/Riyadh", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("America/Rainy_River", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(1653739248, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(287718809, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("1979-02-13T04:53:29+03:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("2022-05-28T07:00:48-05:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("Africa/Sao_Tome", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("Australia/ACT", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(666154488, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(-452535075, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("1955-08-30T07:48:45+00:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("1991-02-10T13:54:48+11:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("Asia/Baghdad", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("Europe/Vatican", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(-1508560609, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(-106361335, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("1966-08-19T02:11:05+03:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("1922-03-13T20:23:11+01:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("Etc/GMT+2", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("Europe/Prague", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(1984454746, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(504113205, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("1985-12-22T13:26:45-02:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("2032-11-19T06:25:46+01:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("America/Grand_Turk", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("Europe/Tirane", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(-1319816614, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(1997132129, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("2033-04-14T18:55:29-04:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("1928-03-06T09:16:26+01:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("Pacific/Tarawa", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("EST5EDT", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(869986522, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(-1955947824, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("1908-01-09T05:09:36+12:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("1997-07-27T02:55:22-04:00", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+
+    tz_a = try Tz.fromTzfile("MET", std.testing.allocator);
+    tz_b = try Tz.fromTzfile("Asia/Kolkata", std.testing.allocator);
+    dt_a = try Datetime.fromUnix(-483354134, Duration.Resolution.second, tz_a);
+    dt_b = try Datetime.fromUnix(763622303, Duration.Resolution.second, tz_b);
+    dt_c = try dt_a.tzConvert(tz_b);
+    dt_b = try dt_b.tzConvert(tz_a);
+    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try testing.expectEqualStrings("1994-03-14T06:18:23+01:00", s_b.items);
+    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try testing.expectEqualStrings("1954-09-07T20:27:46+05:30", s_c.items);
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();
+}

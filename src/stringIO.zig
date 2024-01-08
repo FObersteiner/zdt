@@ -1,8 +1,8 @@
 //! conversion between datetime and string
 //! code is heavily inspired by chrono-zig; https://codeberg.org/geemili/chrono-zig
 const std = @import("std");
-const datetime = @import("datetime.zig");
-const tz = @import("timezone.zig");
+const Datetime = @import("Datetime.zig");
+const Tz = @import("Timezone.zig");
 
 /// directives for formatting datetime strings
 const FormatCode = enum(u8) {
@@ -19,7 +19,7 @@ const FormatCode = enum(u8) {
     pub fn formatDatetime(
         self: FormatCode,
         writer: anytype,
-        dt: datetime.Datetime,
+        dt: Datetime,
     ) !void {
         switch (self) {
             .month => try writer.print("{d:0>2}", .{dt.month}),
@@ -43,7 +43,7 @@ const Part = union(enum) {
     pub fn formatDatetime(
         self: Part,
         writer: anytype,
-        dt: datetime.Datetime,
+        dt: Datetime,
     ) !void {
         switch (self) {
             .literal => |b| try writer.writeByte(b),
@@ -105,13 +105,13 @@ fn parseFormatAlloc(allocator: std.mem.Allocator, format_str: []const u8) ![]Par
     return parts.toOwnedSlice();
 }
 
-fn formatDatetimeParts(writer: anytype, parts: []const Part, dt: datetime.Datetime) !void {
+fn formatDatetimeParts(writer: anytype, parts: []const Part, dt: Datetime) !void {
     for (parts) |part| {
         try part.formatDatetime(writer, dt);
     }
 }
 
-pub fn formatDatetime(writer: anytype, format: []const u8, dt: datetime.Datetime) !void {
+pub fn formatDatetime(writer: anytype, format: []const u8, dt: Datetime) !void {
     var next_char_is_specifier = false;
     for (format) |fc| {
         if (next_char_is_specifier) {
@@ -129,8 +129,8 @@ pub fn formatDatetime(writer: anytype, format: []const u8, dt: datetime.Datetime
 }
 
 /// string to datetime instance, with a compile-time-known format
-pub fn parseDatetime(comptime format: []const u8, dt_string: []const u8) !datetime.Datetime {
-    var fields = datetime.DatetimeFields{};
+pub fn parseDatetime(comptime format: []const u8, dt_string: []const u8) !Datetime {
+    var fields = Datetime.Fields{};
 
     comptime var next_char_is_specifier = false;
     var dt_string_idx: usize = 0;
@@ -157,10 +157,10 @@ pub fn parseDatetime(comptime format: []const u8, dt_string: []const u8) !dateti
                 // UTC offset (+|-)hh[:mm[:ss]] or Z
                 'z' => {
                     const utcoffset = try parseOffset(i20, dt_string, &dt_string_idx, 9);
-                    fields.tzinfo = try tz.fromOffset(utcoffset, "");
+                    fields.tzinfo = try Tz.fromOffset(utcoffset, "");
                     if (dt_string[dt_string_idx - 1] == 'Z') {
                         fields.tzinfo.?.name = "UTC";
-                        fields.tzinfo.?.abbreviation = [6:0]u8{ 'Z', 0x00, 0xAA, 0xAA, 0xAA, 0xAA };
+                        fields.tzinfo.?.abbreviation = "Z";
                     }
                 },
                 // literals
@@ -189,7 +189,7 @@ pub fn parseDatetime(comptime format: []const u8, dt_string: []const u8) !dateti
         return error.InvalidFormat;
     }
 
-    return datetime.Datetime.fromFields(fields);
+    return Datetime.fromFields(fields);
 }
 
 /// Parse ISO8601 formats. Format is infered at runtime.
@@ -208,7 +208,7 @@ pub fn parseDatetime(comptime format: []const u8, dt_string: []const u8) !dateti
 /// 2014-08-23 12:15:56+01         22   2014-08-23T12:15:56+01:00
 /// 2014-08-23T12:15:56-0530       24   2014-08-23T12:15:56-05:30
 /// 2014-08-23T12:15:56+02:15:30   28   2014-08-23T12:15:56+02:15:30
-pub fn parseISO8601(dt_string: []const u8) !datetime.Datetime {
+pub fn parseISO8601(dt_string: []const u8) !Datetime {
     if (dt_string.len > 38) return error.InvalidFormat;
     if (dt_string[dt_string.len - 1] != 'Z' and !std.ascii.isDigit(dt_string[dt_string.len - 1])) {
         return error.InvalidFormat;
@@ -220,7 +220,7 @@ pub fn parseISO8601(dt_string: []const u8) !datetime.Datetime {
         }
     }
 
-    var fields = datetime.DatetimeFields{};
+    var fields = Datetime.Fields{};
     var utcoffset: ?i20 = null;
 
     var dt_string_idx: usize = 0;
@@ -290,14 +290,14 @@ pub fn parseISO8601(dt_string: []const u8) !datetime.Datetime {
     }
 
     if (utcoffset != null) {
-        fields.tzinfo = try tz.fromOffset(utcoffset.?, "");
+        fields.tzinfo = try Tz.fromOffset(utcoffset.?, "");
         if (dt_string[dt_string_idx - 1] == 'Z') {
             fields.tzinfo.?.name = "UTC";
-            fields.tzinfo.?.abbreviation = [6:0]u8{ 'Z', 0x00, 0xAA, 0xAA, 0xAA, 0xAA };
+            fields.tzinfo.?.abbreviation = "Z";
         }
     }
 
-    return datetime.Datetime.fromFields(fields);
+    return Datetime.fromFields(fields);
 }
 
 // ----- String to Datetime Helpers -----------------
@@ -367,18 +367,18 @@ const u6Sorter = struct {
 
 const TestCase = struct {
     string: []const u8,
-    dt: datetime.Datetime,
+    dt: Datetime,
     directive: []const u8 = "",
 };
 
 test "format naive datetimes with parts api" {
     const cases = [_]TestCase{
         .{
-            .dt = try datetime.Datetime.naiveFromList(.{ 2021, 2, 18, 17, 0, 0, 0 }),
+            .dt = try Datetime.naiveFromList(.{ 2021, 2, 18, 17, 0, 0, 0 }),
             .string = "2021-02-18 17:00:00",
         },
         .{
-            .dt = try datetime.Datetime.naiveFromList(.{ 1970, 1, 1, 0, 0, 0, 0 }),
+            .dt = try Datetime.naiveFromList(.{ 1970, 1, 1, 0, 0, 0, 0 }),
             .string = "1970-01-01 00:00:00",
         },
     };

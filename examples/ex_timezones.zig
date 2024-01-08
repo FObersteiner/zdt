@@ -1,39 +1,45 @@
 const std = @import("std");
-const print = std.debug.print;
 
 const zdt = @import("zdt");
-const dt = zdt.datetime;
-const tz = zdt.timezone;
-const dtstr = zdt.stringIO;
+const Datetime = zdt.Datetime;
+const Tz = zdt.Timezone;
+const str = zdt.stringIO;
 
-test "time zones demo" {
-    print("\n---> time zones demo", .{});
+pub fn main() !void {
+    println("---> time zones example", .{});
+    println("", .{});
 
-    print("\n TZ type info:", .{});
-    print("size of {s}: {}\n", .{ @typeName(tz.TZ), @sizeOf(tz.TZ) });
-    inline for (std.meta.fields(tz.TZ)) |field| {
-        std.debug.print("  field {s} byte offset: {}\n", .{ field.name, @offsetOf(tz.TZ, field.name) });
+    println("TZ type info:", .{});
+    println("size of {s}: {}", .{ @typeName(Tz), @sizeOf(Tz) });
+    inline for (std.meta.fields(Tz)) |field| {
+        println("  field {s} byte offset: {}", .{ field.name, @offsetOf(Tz, field.name) });
     }
+    println("", .{});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer std.debug.print("\nGPA deinit output: {}\n", .{gpa.deinit()});
-    var logging_alloc = std.heap.loggingAllocator(gpa.allocator());
-    const allocator = logging_alloc.allocator();
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
 
-    var tzinfo = try tz.fromTzfile("localtime", allocator);
-    defer tzinfo.deinit();
+    var tz: Tz = try Tz.fromTzfile("localtime", allocator);
+    defer tz.deinit();
 
-    const now_local = dt.Datetime.now(tzinfo);
-    print("\nNow, local : {s}\n", .{now_local});
+    const now_local: Datetime = Datetime.now(tz);
+    println("Now, local : {s} ({s})", .{ now_local, now_local.tzinfo.?.abbreviation });
 
-    try tzinfo.loadTzfile("America/New_York", allocator);
-    const now_ny = try now_local.tzConvert(tzinfo);
-    print("Now in New York : {s}\n", .{now_ny});
-    print("Wall time difference, local->NY: {}\n", .{try now_ny.diffWall(now_local)});
+    try tz.loadTzfile("America/New_York", allocator);
+    const now_ny: Datetime = try now_local.tzConvert(tz);
+    println("Now in New York : {s} ({s})", .{ now_ny, now_ny.tzinfo.?.abbreviation });
+    println("Wall time difference, local vs. NY: {}", .{try now_ny.diffWall(now_local)});
 
-    print("\nNew York has DST currently? : {}\n", .{now_ny.tzinfo.?.is_dst});
-    const a_date = try dtstr.parseDatetime("%Y-%m-%d", "2023-8-9");
-    const ny_summer_2023 = try a_date.tzLocalize(tzinfo);
-    print("New York, summer : {s}\n", .{ny_summer_2023});
-    print("New York has DST in summer? : {}\n", .{ny_summer_2023.tzinfo.?.is_dst});
+    println("New York has DST currently? : {}", .{now_ny.tzinfo.?.is_dst});
+    const a_date: Datetime = try str.parseDatetime("%Y-%m-%d", "2023-8-9");
+    const ny_summer_2023: Datetime = try a_date.tzLocalize(tz);
+    println("New York, summer : {s} ({s})", .{ ny_summer_2023, ny_summer_2023.tzinfo.?.abbreviation });
+    println("New York has DST in summer? : {}", .{ny_summer_2023.tzinfo.?.is_dst});
+    std.debug.assert(std.mem.eql(u8, ny_summer_2023.tzinfo.?.abbreviation, "EDT"));
+}
+
+fn println(comptime fmt: []const u8, args: anytype) void {
+    const stdout = std.io.getStdOut().writer();
+    nosuspend stdout.print(fmt ++ "\n", args) catch return;
 }

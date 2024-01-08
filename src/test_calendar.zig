@@ -1,6 +1,7 @@
 //! test calendric calculations from a users's perspective (no internal functionality)
 const std = @import("std");
 const testing = std.testing;
+const print = std.debug.print;
 
 const cal = @import("calendar.zig");
 
@@ -93,6 +94,121 @@ test "ymd_from_unix-days" {
     want = [_]u16{ 2023, 10, 23 };
     try testing.expectEqual(want, date);
     try testing.expectEqual(want, date_);
+}
+
+// ---vv--- test generated with Python scripts ---vv---
+
+test "leap correction" {
+    var corr: u8 = cal.leapCorrection(0);
+    try testing.expectEqual(@as(u8, 10), corr);
+    corr = cal.leapCorrection(78796799);
+    try testing.expectEqual(@as(u8, 10), corr);
+    corr = cal.leapCorrection(78796800);
+    try testing.expectEqual(@as(u8, 11), corr);
+    corr = cal.leapCorrection(94694399);
+    try testing.expectEqual(@as(u8, 11), corr);
+    corr = cal.leapCorrection(94694400);
+    try testing.expectEqual(@as(u8, 12), corr);
+    corr = cal.leapCorrection(126230399);
+    try testing.expectEqual(@as(u8, 12), corr);
+    corr = cal.leapCorrection(126230400);
+    try testing.expectEqual(@as(u8, 13), corr);
+    corr = cal.leapCorrection(157766399);
+    try testing.expectEqual(@as(u8, 13), corr);
+    corr = cal.leapCorrection(157766400);
+    try testing.expectEqual(@as(u8, 14), corr);
+    corr = cal.leapCorrection(189302399);
+    try testing.expectEqual(@as(u8, 14), corr);
+    corr = cal.leapCorrection(189302400);
+    try testing.expectEqual(@as(u8, 15), corr);
+    corr = cal.leapCorrection(220924799);
+    try testing.expectEqual(@as(u8, 15), corr);
+    corr = cal.leapCorrection(220924800);
+    try testing.expectEqual(@as(u8, 16), corr);
+    corr = cal.leapCorrection(252460799);
+    try testing.expectEqual(@as(u8, 16), corr);
+    corr = cal.leapCorrection(252460800);
+    try testing.expectEqual(@as(u8, 17), corr);
+    corr = cal.leapCorrection(283996799);
+    try testing.expectEqual(@as(u8, 17), corr);
+    corr = cal.leapCorrection(283996800);
+    try testing.expectEqual(@as(u8, 18), corr);
+    corr = cal.leapCorrection(315532799);
+    try testing.expectEqual(@as(u8, 18), corr);
+    corr = cal.leapCorrection(315532800);
+    try testing.expectEqual(@as(u8, 19), corr);
+    corr = cal.leapCorrection(362793599);
+    try testing.expectEqual(@as(u8, 19), corr);
+    corr = cal.leapCorrection(362793600);
+    try testing.expectEqual(@as(u8, 20), corr);
+    corr = cal.leapCorrection(394329599);
+    try testing.expectEqual(@as(u8, 20), corr);
+    corr = cal.leapCorrection(394329600);
+    try testing.expectEqual(@as(u8, 21), corr);
+    corr = cal.leapCorrection(425865599);
+    try testing.expectEqual(@as(u8, 21), corr);
+    corr = cal.leapCorrection(425865600);
+    try testing.expectEqual(@as(u8, 22), corr);
+    corr = cal.leapCorrection(489023999);
+    try testing.expectEqual(@as(u8, 22), corr);
+    corr = cal.leapCorrection(489024000);
+    try testing.expectEqual(@as(u8, 23), corr);
+    corr = cal.leapCorrection(567993599);
+    try testing.expectEqual(@as(u8, 23), corr);
+    corr = cal.leapCorrection(567993600);
+    try testing.expectEqual(@as(u8, 24), corr);
+    corr = cal.leapCorrection(631151999);
+    try testing.expectEqual(@as(u8, 24), corr);
+    corr = cal.leapCorrection(631152000);
+    try testing.expectEqual(@as(u8, 25), corr);
+    corr = cal.leapCorrection(662687999);
+    try testing.expectEqual(@as(u8, 25), corr);
+    corr = cal.leapCorrection(662688000);
+    try testing.expectEqual(@as(u8, 26), corr);
+    corr = cal.leapCorrection(709948799);
+    try testing.expectEqual(@as(u8, 26), corr);
+    corr = cal.leapCorrection(709948800);
+    try testing.expectEqual(@as(u8, 27), corr);
+    corr = cal.leapCorrection(741484799);
+    try testing.expectEqual(@as(u8, 27), corr);
+    corr = cal.leapCorrection(741484800);
+    try testing.expectEqual(@as(u8, 28), corr);
+    corr = cal.leapCorrection(773020799);
+    try testing.expectEqual(@as(u8, 28), corr);
+    corr = cal.leapCorrection(773020800);
+    try testing.expectEqual(@as(u8, 29), corr);
+    corr = cal.leapCorrection(820454399);
+    try testing.expectEqual(@as(u8, 29), corr);
+    corr = cal.leapCorrection(820454400);
+    try testing.expectEqual(@as(u8, 30), corr);
+    corr = cal.leapCorrection(867715199);
+    try testing.expectEqual(@as(u8, 30), corr);
+    corr = cal.leapCorrection(867715200);
+    try testing.expectEqual(@as(u8, 31), corr);
+    corr = cal.leapCorrection(915148799);
+    try testing.expectEqual(@as(u8, 31), corr);
+    corr = cal.leapCorrection(915148800);
+    try testing.expectEqual(@as(u8, 32), corr);
+    corr = cal.leapCorrection(1136073599);
+    try testing.expectEqual(@as(u8, 32), corr);
+    corr = cal.leapCorrection(1136073600);
+    try testing.expectEqual(@as(u8, 33), corr);
+    corr = cal.leapCorrection(1230767999);
+    try testing.expectEqual(@as(u8, 33), corr);
+    corr = cal.leapCorrection(1230768000);
+    try testing.expectEqual(@as(u8, 34), corr);
+    corr = cal.leapCorrection(1341100799);
+    try testing.expectEqual(@as(u8, 34), corr);
+    corr = cal.leapCorrection(1341100800);
+    try testing.expectEqual(@as(u8, 35), corr);
+    corr = cal.leapCorrection(1435708799);
+    try testing.expectEqual(@as(u8, 35), corr);
+    corr = cal.leapCorrection(1435708800);
+    try testing.expectEqual(@as(u8, 36), corr);
+    corr = cal.leapCorrection(1483228799);
+    try testing.expectEqual(@as(u8, 36), corr);
+    corr = cal.leapCorrection(1483228800);
+    try testing.expectEqual(@as(u8, 37), corr);
 }
 
 test "against Pyhton ordinal" {
