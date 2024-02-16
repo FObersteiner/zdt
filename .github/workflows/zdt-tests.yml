@@ -3,7 +3,7 @@ name: zdt-tests
 on:
   push:
     # branches: [master]
-    tags:
+    tags: # run action on tag push only
       - "*"
   pull_request:
     branches: [master]
@@ -18,7 +18,7 @@ jobs:
   #       os: [ubuntu-latest]
   #   runs-on: ${{matrix.os}}
   #   steps:
-  #     - uses: actions/checkout@main
+  #     - uses: actions/checkout@v2
   #     - uses: goto-bus-stop/setup-zig@v2
   #       with:
   #         version: 0.11.0
@@ -29,7 +29,7 @@ jobs:
         os: [ubuntu-latest]
     runs-on: ${{matrix.os}}
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@v2
       - uses: goto-bus-stop/setup-zig@v2
         with:
           version: master
@@ -37,6 +37,6 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@v2
       - uses: goto-bus-stop/setup-zig@v2
-      - run: zig fmt --check build.zig src/*.zig
+      - run: zig fmt --check build.zig lib/*.zig
