@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
@@ -8,7 +9,8 @@ const str = zdt.stringIO;
 
 pub fn main() !void {
     println("---> datetime example", .{});
-    println("", .{});
+    println("OS / architecture: {s} / {s}", .{ @tagName(builtin.os.tag), @tagName(builtin.cpu.arch) });
+    println("Zig version: {s}\n", .{builtin.zig_version_string});
 
     println("datetime type info:", .{});
     println("size of {s}: {}", .{ @typeName(Datetime), @sizeOf(Datetime) });
@@ -20,9 +22,9 @@ pub fn main() !void {
     println("---> (usage) Unix epoch: datetime from timestamp", .{});
     const unix_epoch = try Datetime.fromUnix(0, Duration.Resolution.second, null);
     println("'Unix epoch', naive datetime : {s}", .{unix_epoch});
-    const unix_epoch_correct = try Datetime.fromUnix(0, Duration.Resolution.second, Tz.UTC);
+    var unix_epoch_correct = try Datetime.fromUnix(0, Duration.Resolution.second, Tz.UTC);
     println("'Unix epoch', aware datetime : {s}", .{unix_epoch_correct});
-    println("'Unix epoch', tz name : {s}", .{unix_epoch_correct.tzinfo.?.name});
+    println("'Unix epoch', tz name : {s}", .{unix_epoch_correct.tzinfo.?.name()});
 
     println("", .{});
     println("---> (usage) Now: datetime from system time", .{});

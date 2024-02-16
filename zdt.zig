@@ -1,0 +1,31 @@
+// Copyright © 2023 Florian Obersteiner <f.obersteiner@posteo.de>
+// License: see LICENSE file in the root directory of the zdt repository.
+//
+//!zig-autodoc-guide: doc/01_tldr.md
+//!zig-autodoc-guide: doc/02_intro.md
+//!zig-autodoc-guide: doc/03_advanced.md
+//! datetime in Zig
+
+pub const Datetime = @import("./lib/Datetime.zig");
+pub const Timezone = @import("./lib/Timezone.zig");
+pub const Duration = @import("./lib/Duration.zig");
+
+/// ZdtError combines RangeError and TzError
+pub const RangeError = @import("./lib/errors.zig").RangeError;
+pub const TzError = @import("./lib/errors.zig").TzError;
+pub const WinTzError = @import("./lib/errors.zig").WinTzError;
+pub const ZdtError = @import("./lib/errors.zig").ZdtError;
+
+pub const calendar = @import("./lib/calendar.zig");
+pub const stringIO = @import("./lib/stringIO.zig");
+const tzif = @import("./lib/tzif.zig");
+
+// make sure 'internal' tests are also executed:
+test {
+    _ = Datetime;
+    _ = Timezone;
+    _ = Duration;
+    _ = calendar;
+    _ = stringIO;
+    _ = tzif;
+}

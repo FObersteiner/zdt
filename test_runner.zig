@@ -48,15 +48,13 @@ pub fn main() !void {
     const out = std.io.getStdOut();
     var buf = std.io.bufferedWriter(out.writer());
     var printer = buf.writer();
-
-    //    printer.fmt("\r\x1b[0K", .{}); // beginning of line and clear to end of line
+    try printer.print("\r\x1b[0K", .{}); // beginning of line and clear to end of line
+    try printer.print("\x1b[36m{s}\x1b[0m\n", .{BORDER});
 
     var pass: usize = 0;
     var fail: usize = 0;
     var skip: usize = 0;
     var leak: usize = 0;
-
-    try printer.print("\x1b[36m{s}\x1b[0m\n", .{BORDER});
 
     for (builtin.test_functions) |t| {
         std.testing.allocator_instance = .{};
@@ -96,11 +94,12 @@ pub fn main() !void {
                 else => {
                     status = .fail;
                     fail += 1;
-                    try printer.print("\n{s}{s}\n\"{s}\" - {s}\n{s}{s}\n", .{
+                    try printer.print("\n{s}{s}\n\"{s}\" - {s} [{s}]\n{s}{s}\n", .{
                         Status.fail.code(),
                         BORDER,
                         test_name,
                         @errorName(err),
+                        @tagName(status),
                         BORDER,
                         Status.text.code(),
                     });
@@ -112,6 +111,7 @@ pub fn main() !void {
                     }
                 },
             }
+            continue; // skip printing "normal" status
         }
 
         try printer.print("{s}[{s}]{s}\n", .{ status.code(), @tagName(status), Status.text.code() });
@@ -144,6 +144,11 @@ pub fn main() !void {
         });
     }
     try printer.print("\x1b[34m{s}\x1b[0m\n\n", .{BORDER});
-    try buf.flush(); // catch @panic("flush failed ?!");
+
+    // var print_mutex = std.Thread.Mutex{};
+    // print_mutex.lock();
+    try buf.flush();
+    // print_mutex.unlock();
+
     std.os.exit(if (fail == 0) 0 else 1);
 }

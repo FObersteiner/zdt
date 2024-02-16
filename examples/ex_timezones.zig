@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
@@ -7,7 +8,8 @@ const str = zdt.stringIO;
 
 pub fn main() !void {
     println("---> time zones example", .{});
-    println("", .{});
+    println("OS / architecture: {s} / {s}", .{ @tagName(builtin.os.tag), @tagName(builtin.cpu.arch) });
+    println("Zig version: {s}\n", .{builtin.zig_version_string});
 
     println("TZ type info:", .{});
     println("size of {s}: {}", .{ @typeName(Tz), @sizeOf(Tz) });
@@ -20,23 +22,35 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    var tz: Tz = try Tz.fromTzfile("localtime", allocator);
-    defer tz.deinit();
+    println("time zone database version: {s}\n", .{Tz.tzdb_version});
 
-    const now_local: Datetime = Datetime.now(tz);
-    println("Now, local : {s} ({s})", .{ now_local, now_local.tzinfo.?.abbreviation });
+    var tz_berlin: Tz = try Tz.fromTzfile("Europe/Berlin", allocator);
+    defer tz_berlin.deinit();
+    var now_local: Datetime = Datetime.now(tz_berlin);
+    const now_utc: Datetime = Datetime.utcnow();
+    println("Now, UTC time    : {s}", .{now_utc});
+    println("Now, Berlin time : {s} ({s})\n", .{ now_local, now_local.tzinfo.?.abbreviation() });
 
-    try tz.loadTzfile("America/New_York", allocator);
-    const now_ny: Datetime = try now_local.tzConvert(tz);
-    println("Now in New York : {s} ({s})", .{ now_ny, now_ny.tzinfo.?.abbreviation });
+    var my_tz: Tz = try Tz.tzLocal(allocator);
+    defer my_tz.deinit();
+    now_local = try now_local.tzConvert(my_tz);
+    println("My time zone : {s}", .{my_tz.name()});
+
+    println("Now, my time zone : {s} ({s})", .{ now_local, now_local.tzinfo.?.abbreviation() });
+    println("", .{});
+
+    var tz_ny = try Tz.fromTzfile("America/New_York", allocator);
+    defer tz_ny.deinit();
+    var now_ny: Datetime = try now_local.tzConvert(tz_ny);
+    println("Now in New York : {s} ({s})", .{ now_ny, now_ny.tzinfo.?.abbreviation() });
     println("Wall time difference, local vs. NY: {}", .{try now_ny.diffWall(now_local)});
+    println("", .{});
 
-    println("New York has DST currently? : {}", .{now_ny.tzinfo.?.is_dst});
+    println("New York has DST currently? : {}", .{now_ny.tzinfo.?.tzOffset.?.is_dst});
     const a_date: Datetime = try str.parseDatetime("%Y-%m-%d", "2023-8-9");
-    const ny_summer_2023: Datetime = try a_date.tzLocalize(tz);
-    println("New York, summer : {s} ({s})", .{ ny_summer_2023, ny_summer_2023.tzinfo.?.abbreviation });
-    println("New York has DST in summer? : {}", .{ny_summer_2023.tzinfo.?.is_dst});
-    std.debug.assert(std.mem.eql(u8, ny_summer_2023.tzinfo.?.abbreviation, "EDT"));
+    var ny_summer_2023: Datetime = try a_date.tzLocalize(tz_ny);
+    println("New York, summer : {s} ({s})", .{ ny_summer_2023, ny_summer_2023.tzinfo.?.abbreviation() });
+    println("New York has DST in summer? : {}", .{ny_summer_2023.tzinfo.?.tzOffset.?.is_dst});
 }
 
 fn println(comptime fmt: []const u8, args: anytype) void {
