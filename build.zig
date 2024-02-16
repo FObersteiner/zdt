@@ -1,19 +1,18 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const log = std.log.scoped(.zdt_build);
+
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 18 };
 
 const example_files = [_][]const u8{
+    "ex_demo",
     "ex_datetime",
+    "ex_duration",
     "ex_offsetTz",
     "ex_timezones",
 };
 
-const bench_files = [_][]const u8{
-    "bench_calendar",
-    "bench_isoparse",
-};
-
 const test_files = [_][]const u8{
-    "zdt",
     "test_calendar",
     "test_datetime",
     "test_duration",
@@ -21,8 +20,14 @@ const test_files = [_][]const u8{
     "test_timezone",
 };
 
-const req_zig_version = "0.12.0-dev";
+// const bench_files = [_][]const u8{
+//     "bench_calendar",
+//     "bench_isoparse",
+// };
 
+const tz_submodule_dir = "tz";
+
+const req_zig_version = "0.12.0-dev";
 comptime {
     const req_zig = std.SemanticVersion.parse(req_zig_version) catch unreachable;
     if (builtin.zig_version.order(req_zig) == .lt) {
@@ -33,87 +38,169 @@ comptime {
     }
 }
 
-pub fn build(b: *std.Build) void {
-    // Standard target options allows the person running `zig build` to choose
-    // what target to build for. Here we do not override the defaults, which
-    // means any target is allowed, and the default is native. Other options
-    // for restricting supported target set are available.
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
-
-    // Standard optimization options allow the person running `zig build` to select
-    // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
-    // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    // export the module itself
+    const tzdb_prefix_default = "lib/tzdata/zoneinfo";
+    const tzdb_prefix = b.option(
+        []const u8,
+        "prefix-tzdb",
+        "Absolute path to IANA time zone database, containing TZif files",
+    ) orelse tzdb_prefix_default;
+
     const zdt_module = b.addModule("zdt", .{
-        .root_source_file = .{ .path = "src/zdt.zig" },
+        .root_source_file = .{ .path = "zdt.zig" },
     });
 
-    const lib = b.addStaticLibrary(.{
+    const zdt = b.addStaticLibrary(.{
         .name = "zdt",
-        .root_source_file = .{ .path = "src/zdt.zig" },
+        .root_source_file = .{ .path = "zdt.zig" },
+        .target = target,
+        .optimize = optimize,
+        .version = zdt_version,
+    });
+
+    b.installArtifact(zdt);
+    // --------------------------------------------------------------------------------
+
+    // --------------------------------------------------------------------------------
+    // path prefix to tz data should always be updated on install
+    const install = b.getInstallStep();
+    const tzprefix_step = b.step("tz-update-prefix", "generate timezone database prefix (path)");
+
+    var gen_tzdb_prefix = b.addExecutable(.{
+        .name = "gen_tzdb_prefix",
+        .root_source_file = .{ .path = "util/gen_tzdb_prefix.zig" },
         .target = target,
         .optimize = optimize,
     });
+    const run_gen_prefix = b.addRunArtifact(gen_tzdb_prefix);
+    run_gen_prefix.step.dependOn(&gen_tzdb_prefix.step);
+    run_gen_prefix.addArg(tzdb_prefix_default);
+    run_gen_prefix.addArg(tzdb_prefix);
 
-    // This declares intent for the library to be installed into the standard
-    // location when the user invokes the "install" step (the default step when
-    // running `zig build`).
-    b.installArtifact(lib);
+    const out_file_p = run_gen_prefix.addOutputFileArg("_tzdb_prefix.zig");
+    // since this step is run on install, we can use the prefix step as an anonymous import
+    zdt_module.addAnonymousImport("tzdb_prefix", .{ .root_source_file = out_file_p });
+
+    // the prefix step should always run since the tzdb prefix is specific to the
+    // system that the library is used on:
+    zdt.step.dependOn(tzprefix_step);
+    install.dependOn(tzprefix_step);
+    // --------------------------------------------------------------------------------
 
     // --------------------------------------------------------------------------------
-    // tests (run once only, if the source has changed)
-    // Creates a step for unit testing. This only builds the test executable
-    // but does not run it.
-    const test_step = b.step("tests", "Run library tests");
-    for (test_files) |test_name| {
-        const _test = b.addTest(.{
-            .name = test_name,
-            .root_source_file = .{ .path = b.fmt("src/{s}.zig", .{test_name}) },
+    // update tz database and version info
+    const tzdata_update_step = b.step("tz-update-db", "update timezone database");
+    {
+        var update_tzdata = b.addExecutable(.{
+            .name = "update_tzdata",
+            .root_source_file = .{ .path = "util/gen_tzdb.zig" },
             .target = target,
             .optimize = optimize,
-            // .test_runner = "./test_runner.zig",
         });
-        const run_test = b.addRunArtifact(_test);
-        // run tests without caching, but no re-compilation if source unchanged:
-        run_test.has_side_effects = true;
-        test_step.dependOn(&run_test.step);
+        const run_tzdata_update = b.addRunArtifact(update_tzdata);
+        run_tzdata_update.step.dependOn(&update_tzdata.step);
+        // where to run makefile of tzdata:
+        run_tzdata_update.addArg(tz_submodule_dir);
+        // target directory of the compilation:
+        run_tzdata_update.addArg(tzdb_prefix);
+        tzdata_update_step.dependOn(&run_tzdata_update.step);
+
+        // after updating tzdata, update version info
+        var gen_tzdb_version = b.addExecutable(.{
+            .name = "gen_tzdb_version",
+            .root_source_file = .{ .path = "util/gen_tzdb_version.zig" },
+            .target = target,
+            .optimize = optimize,
+        });
+        const run_gen_version = b.addRunArtifact(gen_tzdb_version);
+        run_gen_version.step.dependOn(&gen_tzdb_version.step);
+        run_gen_version.addPathDir("lib");
+        const out_file_v = run_gen_version.addOutputFileArg("_tzdb_version.zig");
+        const write_files_v = b.addWriteFiles();
+        write_files_v.addCopyFileToSource(out_file_v, "./lib/_tzdb_version.zig");
+        tzdata_update_step.dependOn(&write_files_v.step);
     }
+    // --------------------------------------------------------------------------------
+
+    // --------------------------------------------------------------------------------
+    // tests
+    const test_step = b.step("tests", "Run library tests");
+    {
+        for (test_files) |test_name| {
+            const _test = b.addTest(.{
+                .name = test_name,
+                .root_source_file = .{ .path = b.fmt("tests/{s}.zig", .{test_name}) },
+                .target = target,
+                .optimize = optimize,
+                // .test_runner = "./test_runner.zig",
+            });
+            const run_test = b.addRunArtifact(_test);
+            // run tests without caching, but no re-compilation if source unchanged:
+            run_test.has_side_effects = true;
+            _test.root_module.addImport("zdt", zdt_module);
+            test_step.dependOn(&run_test.step);
+        }
+    }
+    // --------------------------------------------------------------------------------
+
+    // --------------------------------------------------------------------------------
+    // generate docs
+    // FIXME : raises 'ModuleNotFound' error
+    // const docs_step = b.step("docs", "auto-generate documentation");
+    // {
+    //     const install_docs = b.addInstallDirectory(.{
+    //         .source_dir = zdt.getEmittedDocs(),
+    //         .install_dir = std.Build.InstallDir{ .custom = "../doc" },
+    //         .install_subdir = "autogen",
+    //     });
+    //     docs_step.dependOn(&install_docs.step);
+    // }
+    // --------------------------------------------------------------------------------
+
+    // --------------------------------------------------------------------------------
+    // examples
+    // - as binaries with a main() that prints stuff to stderr
+    // build via 'zig build examples'
+    // build & run via 'zig build examples && ./zig-out/bin/[example-name]'
+    const example_step = b.step("examples", "Build examples");
+    {
+        for (example_files) |example_name| {
+            const example = b.addExecutable(.{
+                .name = example_name,
+                .root_source_file = .{ .path = b.fmt("examples/{s}.zig", .{example_name}) },
+                .target = target,
+                .optimize = optimize,
+            });
+            example.root_module.addImport("zdt", zdt_module);
+            const install_example = b.addInstallArtifact(example, .{});
+            example_step.dependOn(&example.step);
+            example_step.dependOn(&install_example.step);
+        }
+    }
+    // --------------------------------------------------------------------------------
 
     // --------------------------------------------------------------------------------
     // benchmarks (as binaries 'bench_*')
     // FIXME : benchmarks currently do not work since zbench is incompatible with zig 0.12.0-dev
     // const bench_step = b.step("benchmarks", "Build benchmark");
-    // const zbench_module = b.dependency("zbench", .{ .target = target, .optimize = optimize }).module("zbench");
-    // for (bench_files) |bench_name| {
-    //     const _bench = b.addExecutable(.{
-    //         .name = bench_name,
-    //         .root_source_file = .{ .path = b.fmt("src/{s}.zig", .{bench_name}) },
-    //         .target = target,
-    //         .optimize = optimize,
-    //     });
-    //     _bench.root_module.addImport("zbench", zbench_module);
-    //     const install_bench = b.addInstallArtifact(_bench, .{});
-    //     bench_step.dependOn(&_bench.step);
-    //     bench_step.dependOn(&install_bench.step);
+    // {
+    //     const zbench_module = b.dependency("zbench", .{ .target = target, .optimize = optimize }).module("zbench");
+    //     for (bench_files) |bench_name| {
+    //         const _bench = b.addExecutable(.{
+    //             .name = bench_name,
+    //             .root_source_file = .{ .path = b.fmt("benchmarks/{s}.zig", .{bench_name}) },
+    //             .target = target,
+    //             .optimize = optimize,
+    //         });
+    //         _bench.root_module.addImport("zbench", zbench_module);
+    //         _bench.root_module.addImport("zdt", zdt_module);
+    //         const install_bench = b.addInstallArtifact(_bench, .{});
+    //         bench_step.dependOn(&_bench.step);
+    //         bench_step.dependOn(&install_bench.step);
+    //     }
     // }
-
     // --------------------------------------------------------------------------------
-    // examples (as binaries with a main() that prints stuff to stderr)
-    // build via 'zig build examples'
-    // build & run via 'zig build examples && ./zig-out/bin/[example-name]'
-    const example_step = b.step("examples", "Build examples");
-    for (example_files) |example_name| {
-        const example = b.addExecutable(.{
-            .name = example_name,
-            .root_source_file = .{ .path = b.fmt("examples/{s}.zig", .{example_name}) },
-            .target = target,
-            .optimize = optimize,
-        });
-        example.root_module.addImport("zdt", zdt_module);
-        const install_example = b.addInstallArtifact(example, .{});
-        example_step.dependOn(&example.step);
-        example_step.dependOn(&install_example.step);
-    }
 }
