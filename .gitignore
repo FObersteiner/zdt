@@ -1,2 +1,12 @@
+# zig output
 /zig-cache/
 /zig-out/
+
+# docs not needed for using the lib:
+/doc/autogen/
+
+# building tzdata temporarily creates a directory:
+/lib/tzdata/tmp/
+
+# some more private stuff
+/doc/literature/
