@@ -15,11 +15,11 @@ jobs:
   # build-tests-stable:
   #   strategy:
   #     matrix:
-  #       os: [ubuntu-latest]
+  # os: [ubuntu-latest, macos-latest, windows-latest]
   #   runs-on: ${{matrix.os}}
   #   steps:
   #     - uses: actions/checkout@main
-  #     - uses: goto-bus-stop/setup-zig@main
+  #     - uses: goto-bus-stop/setup-zig@v2
   #       with:
   #         version: 0.11.0
   #     - run: zig build tests
@@ -30,7 +30,7 @@ jobs:
     runs-on: ${{matrix.os}}
     steps:
       - uses: actions/checkout@main
-      - uses: goto-bus-stop/setup-zig@main
+      - uses: goto-bus-stop/setup-zig@v2
         with:
           version: master
       - run: zig build tests
@@ -38,5 +38,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - uses: goto-bus-stop/setup-zig@main
+      - uses: goto-bus-stop/setup-zig@v2
       - run: zig fmt --check build.zig lib/**/*.zig
