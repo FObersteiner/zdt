@@ -155,7 +155,7 @@ pub fn deinit(self: *Timezone) void {
 /// TODO : should this default to UTC ?
 pub fn tzLocal(allocator: std.mem.Allocator) !Timezone {
     switch (builtin.os.tag) {
-        .linux => {
+        .linux, .macos => {
             const demo_path = "/etc/localtime";
             // TODO : try multiple possibilities here
 
