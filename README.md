@@ -1,4 +1,8 @@
 <!-- -*- coding: utf-8 -*- -->
+
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://codeberg.org/FObersteiner/zdt/src/branch/main/LICENSE)
+[![Build Status](https://github.com/FObersteiner/zdt/actions/workflows/zdt-tests.yml/badge.svg)](https://github.com/FObersteiner/zdt/actions/workflows/zdt-tests.yml)
+
 # zdt
 
 **Exploring datetime with time zones in Zig.** I created this project to have fun with Zig, learn a new language, and tackle the "do not roll your own datetime"-challenge. Use the outcome however you like - here's an example of something you can do with `zdt`:
