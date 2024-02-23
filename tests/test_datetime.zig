@@ -300,14 +300,14 @@ test "day of year" {
     var i: u9 = 1;
     while (i < 367) : (i += 1) {
         try testing.expectEqual(i, dt.dayOfYear());
-        dt = try dt.add(Duration.fromTimespan(1, Duration.Timespan.day));
+        dt = try dt.add(Duration.fromTimespanMultiple(1, Duration.Timespan.day));
     }
     // normal year
     dt = try Datetime.fromFields(.{ .year = 2021 });
     i = 1;
     while (i < 366) : (i += 1) {
         try testing.expectEqual(i, dt.dayOfYear());
-        dt = try dt.add(Duration.fromTimespan(1, Duration.Timespan.day));
+        dt = try dt.add(Duration.fromTimespanMultiple(1, Duration.Timespan.day));
     }
 }
 
@@ -316,7 +316,7 @@ test "day of week" {
     var i: u3 = 0;
     while (i < 7) : (i += 1) {
         try testing.expectEqual(i, dt.weekdayNumber());
-        dt = try dt.add(Duration.fromTimespan(1, Duration.Timespan.day));
+        dt = try dt.add(Duration.fromTimespanMultiple(1, Duration.Timespan.day));
     }
 }
 
@@ -325,7 +325,7 @@ test "day of week, iso" {
     var i: u4 = 1;
     while (i < 8) : (i += 1) {
         try testing.expectEqual(i, @as(u4, dt.weekdayIsoNumber()));
-        dt = try dt.add(Duration.fromTimespan(1, Duration.Timespan.day));
+        dt = try dt.add(Duration.fromTimespanMultiple(1, Duration.Timespan.day));
     }
 }
 

@@ -1,4 +1,4 @@
-//! taken from Zig standard library, 0.12.0-dev.2059+42389cb9c
+//! taken from Zig standard library, 0.12.0-dev.2059+42389cb9c,
 //! modified.
 const std = @import("std");
 const builtin = @import("builtin");

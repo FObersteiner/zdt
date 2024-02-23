@@ -1,18 +1,14 @@
-//! Time zone container for:
-//! - a fixed offset from UTC (not a time zone in a geographical sense)
-//! - a tzfile, meaning a IANA database time zone file
-//! - (not implemented yet) a POSIX TZ rule such as "EST5EDT,M3.2.0/4:00,M11.1.0/3:00"
+//! a set of rules to describe date and time somewhere on earth, relative to universal time (UTC)
+
 const std = @import("std");
 const builtin = @import("builtin");
-const log = std.log.scoped(.zdt_Timezone);
+const log = std.log.scoped(.zdt__Timezone);
 
 const Datetime = @import("./Datetime.zig");
 const TzError = @import("./errors.zig").TzError;
 const tzif = @import("./tzif.zig");
 const tzwin = @import("./windows_tz.zig");
-const tzvers = @import("./_tzdb_version.zig");
-
-const tzprefix = @import("tzdb_prefix"); // anonymous import; see build.zig
+const tzvers = @import("./tzdb_version.zig");
 
 const Timezone = @This();
 
@@ -30,6 +26,7 @@ tzOffset: ?UToffset = null,
 pub const tzdb_version = tzvers.tzdb_version;
 
 /// auto-generated prefix / path of the current eggert/tz database, as shipped with zdt
+const tzprefix = @import("tzdb_prefix"); // anonymous import; see build.zig
 pub const tzdb_prefix = tzprefix.tzdb_prefix;
 
 /// Where to comptime-load IANA tz database files from

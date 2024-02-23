@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 18 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 19 };
 
 const example_files = [_][]const u8{
     "ex_demo",
@@ -80,7 +80,7 @@ pub fn build(b: *std.Build) !void {
     run_gen_prefix.addArg(tzdb_prefix_default);
     run_gen_prefix.addArg(tzdb_prefix);
 
-    const out_file_p = run_gen_prefix.addOutputFileArg("_tzdb_prefix.zig");
+    const out_file_p = run_gen_prefix.addOutputFileArg("tzdb_prefix.zig");
     // since this step is run on install, we can use the prefix step as an anonymous import
     zdt_module.addAnonymousImport("tzdb_prefix", .{ .root_source_file = out_file_p });
 
@@ -118,9 +118,9 @@ pub fn build(b: *std.Build) !void {
         const run_gen_version = b.addRunArtifact(gen_tzdb_version);
         run_gen_version.step.dependOn(&gen_tzdb_version.step);
         run_gen_version.addPathDir("lib");
-        const out_file_v = run_gen_version.addOutputFileArg("_tzdb_version.zig");
+        const out_file_v = run_gen_version.addOutputFileArg("tzdb_version.zig");
         const write_files_v = b.addWriteFiles();
-        write_files_v.addCopyFileToSource(out_file_v, "./lib/_tzdb_version.zig");
+        write_files_v.addCopyFileToSource(out_file_v, "./lib/tzdb_version.zig");
         tzdata_update_step.dependOn(&write_files_v.step);
     }
     // --------------------------------------------------------------------------------
@@ -147,20 +147,6 @@ pub fn build(b: *std.Build) !void {
     // --------------------------------------------------------------------------------
 
     // --------------------------------------------------------------------------------
-    // generate docs
-    // FIXME : raises 'ModuleNotFound' error
-    // const docs_step = b.step("docs", "auto-generate documentation");
-    // {
-    //     const install_docs = b.addInstallDirectory(.{
-    //         .source_dir = zdt.getEmittedDocs(),
-    //         .install_dir = std.Build.InstallDir{ .custom = "../doc" },
-    //         .install_subdir = "autogen",
-    //     });
-    //     docs_step.dependOn(&install_docs.step);
-    // }
-    // --------------------------------------------------------------------------------
-
-    // --------------------------------------------------------------------------------
     // examples
     // - as binaries with a main() that prints stuff to stderr
     // build via 'zig build examples'
@@ -183,8 +169,22 @@ pub fn build(b: *std.Build) !void {
     // --------------------------------------------------------------------------------
 
     // --------------------------------------------------------------------------------
+    // generate docs
+    // const docs_step = b.step("docs", "auto-generate documentation");
+    // {
+    //     //    NOTE : atm, this does not work due to anonymous import
+    //     const install_docs = b.addInstallDirectory(.{
+    //         .source_dir = zdt.getEmittedDocs(),
+    //         .install_dir = std.Build.InstallDir{ .custom = "../doc" },
+    //         .install_subdir = "autogen",
+    //     });
+    //     docs_step.dependOn(&install_docs.step);
+    // }
+    // --------------------------------------------------------------------------------
+
+    // --------------------------------------------------------------------------------
     // benchmarks (as binaries 'bench_*')
-    // FIXME : benchmarks currently do not work since zbench is incompatible with zig 0.12.0-dev
+    // NOTE : benchmarks currently do not work since zbench is incompatible with zig 0.12.0-dev
     // const bench_step = b.step("benchmarks", "Build benchmark");
     // {
     //     const zbench_module = b.dependency("zbench", .{ .target = target, .optimize = optimize }).module("zbench");

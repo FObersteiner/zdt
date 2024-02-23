@@ -1,4 +1,5 @@
-//! Duration
+//! a period in time
+
 const std = @import("std");
 
 const Duration = @This();
@@ -6,13 +7,28 @@ const Duration = @This();
 __sec: i64 = 0,
 __nsec: u30 = 0, // fraction is always positive
 
-/// Create a duration from multiples of a timespan.
-pub fn fromTimespan(n: i72, timespan: Timespan) Duration {
+/// Create a duration from multiple of specific a timespan
+pub fn fromTimespanMultiple(n: i72, timespan: Timespan) Duration {
     const ns: i72 = @as(i72, @intCast(@intFromEnum(timespan))) * n;
     return .{
         .__sec = @intCast(@divFloor(ns, 1_000_000_000)),
         .__nsec = @intCast(@mod(ns, 1_000_000_000)),
     };
+}
+
+/// Convert a Duration to the smallest multiple of the given timespan
+/// that can contain the duration
+pub fn toTimespanMultiple(self: Duration, timespan: Timespan) i72 {
+    const ns: i128 = self.asNanoseconds();
+    const divisor: u56 = @intFromEnum(timespan);
+    const result = std.math.divCeil(i128, ns, @as(i128, divisor)) catch 0;
+    return @intCast(result);
+}
+
+/// Representation with fractional seconds
+pub fn totalSeconds(self: Duration) f64 {
+    const ns = self.asNanoseconds();
+    return @floatCast(@as(f128, @floatFromInt(ns)) / 1_000_000_000);
 }
 
 /// Add a duration to another. Makes a new Duration.

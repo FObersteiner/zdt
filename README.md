@@ -1,6 +1,7 @@
+<!-- -*- coding: utf-8 -*- -->
 # zdt
 
-Exploring datetime with time zones in Zig.
+**Exploring datetime with time zones in Zig.** I created this project to have fun with Zig, learn a new language, and tackle the "do not roll your own datetime"-challenge. Use the outcome however you like - here's an example of something you can do with `zdt`:
 
 ```zig
   var tz_LA = try zdt.Timezone.fromTzfile("America/Los_Angeles", allocator);
@@ -36,6 +37,16 @@ You can find more examples in the `./examples` directory. There is a build-step 
 zig build examples && ./zig-out/bin/ex_datetime
 ```
 
+## Documentation
+
+- TODO : [Introduction](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/01_intro.md)
+- TODO : [Usage](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/02_usage.md)
+- TODO : [Code documentation (autodoc)](TODO : add link)
+
+## Development
+
+Ongoing. Expect breaking changes. Recent changes: see the [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/Change.log).
+
 ## Zig version
 
 This library is developed with Zig `0.12.0-dev`, mostly at the bleeding edge. Zig is evolving - the code likely won't compile with older versions.
@@ -44,34 +55,12 @@ This library is developed with Zig `0.12.0-dev`, mostly at the bleeding edge. Zi
 
 `zdt` comes with [eggert/tz](https://github.com/eggert/tz). The database is compiled and shipped with `zdt`. If you wish to use your own version of the [IANA time zone db](https://www.iana.org/time-zones), you can set a path to it using the `-Dprefix-tzdb="path/to/your/tzdb"` option. See also `zig build --help`
 
-## Development status
-
-Ongoing. Recent changes: see [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/Change.log).
-
-### Features
-
-- datetime to / from Unix time, datetime from fields (year, month, day, etc.)
-- time zone handling, fixed offset and IANA-db "tzfile" (TZif format)
-- setting, changing and removing time zone information from datetime
-- basic parsing, from string to datetime and vice versa
-- ISO8601 parser
-- duration arithmetic
-
-### Planned
-
-See [issues](https://codeberg.org/FObersteiner/zdt/issues).
-
-## Limitations
-
-- leap second support is limited to it being accepted as a datetime field (seconds = 60)
-- non-ASCII characters (e.g. Unicode hyphen U+2010) aren't supported in datetime strings
-- duration arithmetic does not support wall-time (addition, subtraction)
-
 ## Credits
 
-- influenced (and motivated) by: Python's datetime and zoneinfo modules, datetime implementation in the pandas package
-- calendric calculations: Howard Hinnant's 'date' algorithms, <https://howardhinnant.github.io/date_algorithms.html>, Cassio Neri's talk on "Euclidean affine functions", <https://github.com/cassioneri/eaf>, and Travis Staloch's translation to Zig, <https://github.com/travisstaloch/date-zig/>
-- string input/output: parser adapted from LeRoyce Pearson's chrono-zig, <https://codeberg.org/geemili/chrono-zig>
+- influenced and motivated by: Python's datetime and zoneinfo modules as well as the datetime implementation in the pandas and polars packages
+- calendric calculations: Howard Hinnant's ['date' algorithms](https://howardhinnant.github.io/date_algorithms.html), [Cassio Neri's talk](https://github.com/cassioneri/eaf) on "Euclidean affine functions", and Travis Staloch's translation to Zig, [date-zig](https://github.com/travisstaloch/date-zig/)
+- string input/output: parser heavily inspired by LeRoyce Pearson's [chrono-zig](https://codeberg.org/geemili/chrono-zig)
+- the folks over at [ziggit.dev](https://ziggit.dev/), helping me with my technical struggles ;-)
 
 ---
 

@@ -1,22 +1,47 @@
 //! test duration from a users's perspective (no internal functionality)
 const std = @import("std");
 const testing = std.testing;
-const print = std.debug.print;
 
 const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
 const Duration = zdt.Duration;
 
+const log = std.log.scoped(.test_duration);
+
 test "from timespan" {
-    var td = Duration.fromTimespan(5, Duration.Timespan.nanosecond);
+    var td = Duration.fromTimespanMultiple(5, Duration.Timespan.nanosecond);
     try testing.expectEqual(@as(i128, 5), td.asNanoseconds());
 
-    td = Duration.fromTimespan(32, Duration.Timespan.second);
+    td = Duration.fromTimespanMultiple(32, Duration.Timespan.second);
     try testing.expectEqual(@as(i128, 32E9), td.asNanoseconds());
     try testing.expectEqual(@as(i64, 32), td.asSeconds());
 
-    td = Duration.fromTimespan(1, Duration.Timespan.week);
+    td = Duration.fromTimespanMultiple(1, Duration.Timespan.week);
     try testing.expectEqual(@as(i64, 7 * 24 * 60 * 60), td.asSeconds());
+}
+
+test "to timespan" {
+    var td = Duration.fromTimespanMultiple(5, Duration.Timespan.nanosecond);
+    try testing.expectEqual(@as(i128, 5), td.asNanoseconds());
+
+    const ns = td.toTimespanMultiple(Duration.Timespan.nanosecond);
+    try testing.expectEqual(@as(i72, 5), ns);
+
+    const weeks = td.toTimespanMultiple(Duration.Timespan.week);
+    try testing.expectEqual(@as(i72, 1), weeks);
+
+    td = Duration.fromTimespanMultiple(5500, Duration.Timespan.microsecond);
+    var ms = td.toTimespanMultiple(Duration.Timespan.millisecond);
+    try testing.expectEqual(@as(i72, 6), ms);
+
+    td = Duration.fromTimespanMultiple(5501, Duration.Timespan.microsecond);
+    ms = td.toTimespanMultiple(Duration.Timespan.millisecond);
+    try testing.expectEqual(@as(i72, 6), ms);
+}
+
+test "total seconds" {
+    const td = Duration.fromTimespanMultiple(3141592653, Duration.Timespan.nanosecond);
+    try testing.expectEqual(3.141592653, td.totalSeconds());
 }
 
 test "add durations" {
@@ -71,7 +96,7 @@ test "add duration to datetime" {
     try testing.expectEqual(@as(i40, 42), dt.__unix);
     try testing.expectEqual(@as(u30, 0), dt.nanosecond);
 
-    dt = try dt.add(Duration.fromTimespan(1, Duration.Timespan.week));
+    dt = try dt.add(Duration.fromTimespanMultiple(1, Duration.Timespan.week));
     try testing.expectEqual(@as(u6, 8), dt.day);
 }
 

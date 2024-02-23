@@ -1,9 +1,8 @@
-//! Datetime
-//! A representation of date and time. By default, it is naive, meaning no
-//! time zone information (tzinfo) is specified (null).
+//! an instant in time
+
 const std = @import("std");
 
-const log = std.log.scoped(.zdt_Datetime);
+const log = std.log.scoped(.zdt__Datetime);
 
 const cal = @import("./calendar.zig");
 const Duration = @import("./Duration.zig");
@@ -103,7 +102,7 @@ pub const ISOCalendar = struct {
     }
 };
 
-/// A helper struct to provide default values for a datetime instance.
+/// the fields of a datetime instance
 pub const Fields = struct {
     year: u14 = 1, // [1, 9999]
     // u7 because we need to cover potential invalid input from a datetime string,
@@ -478,7 +477,7 @@ pub fn nextWeekday(self: Datetime, d: Weekday) Datetime {
         daysdiff = cal.weekdayDifference(@intFromEnum(d), self.weekdayNumber());
         if (daysdiff < 0) daysdiff += 7; // ensure a positive shift since we want 'next'
     }
-    const offset = Duration.fromTimespan(daysdiff, Duration.Timespan.day);
+    const offset = Duration.fromTimespanMultiple(daysdiff, Duration.Timespan.day);
     return self.add(offset) catch self; // return unmodified copy on error
 }
 
@@ -491,7 +490,7 @@ pub fn previousWeekday(self: Datetime, d: Weekday) Datetime {
         daysdiff = cal.weekdayDifference(@intFromEnum(d), self.weekdayNumber());
         if (daysdiff > 0) daysdiff -= 7;
     }
-    const offset = Duration.fromTimespan(daysdiff, Duration.Timespan.day);
+    const offset = Duration.fromTimespanMultiple(daysdiff, Duration.Timespan.day);
     return self.add(offset) catch self; // return unmodified copy on error
 }
 
@@ -502,7 +501,7 @@ pub fn nthWeekday(year: u14, month: u4, wd: Weekday, nth: u5) ZdtError!Datetime 
     var dt = try Datetime.fromFields(.{ .year = year, .month = month });
     if (dt.weekday() != wd) dt = dt.nextWeekday(wd);
     if (nth == 1) return dt;
-    dt = try dt.add(Duration.fromTimespan(7 * (nth - 1), Duration.Timespan.day));
+    dt = try dt.add(Duration.fromTimespanMultiple(7 * (nth - 1), Duration.Timespan.day));
     if (dt.month != month) return RangeError.DayOutOfRange;
     return dt;
 }

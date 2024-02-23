@@ -1,5 +1,5 @@
-//! conversion between datetime and string
-//! code is heavily inspired by chrono-zig; https://codeberg.org/geemili/chrono-zig
+//! conversion between datetime and string representation
+
 const std = @import("std");
 const Datetime = @import("./Datetime.zig");
 const Tz = @import("./Timezone.zig");

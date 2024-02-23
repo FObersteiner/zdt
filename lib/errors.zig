@@ -1,4 +1,4 @@
-//! zdt errors
+//! errors
 
 pub const ZdtError = RangeError || TzError || WinTzError;
 

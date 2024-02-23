@@ -117,7 +117,7 @@ test "format with Z" {
     try str.formatDatetime(s_std.writer(), directive_us, dt_std);
     try testing.expectEqualStrings(string_std, s_std.items);
 
-    const dt_dst = try dt_std.add(td.fromTimespan(6 * 4, td.Timespan.week));
+    const dt_dst = try dt_std.add(td.fromTimespanMultiple(6 * 4, td.Timespan.week));
     var s_dst = std.ArrayList(u8).init(testing.allocator);
     defer s_dst.deinit();
     const string_dst = "2024-05-24T18:02:03-07:00 PDT";

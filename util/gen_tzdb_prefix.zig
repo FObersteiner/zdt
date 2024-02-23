@@ -1,6 +1,6 @@
 //! Update the path to the IANA time zone database shipped with zdt.
 const std = @import("std");
-const log = std.log.scoped(.gen_tz_prefix);
+const log = std.log.scoped(.zdt__gen_tzprefix);
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

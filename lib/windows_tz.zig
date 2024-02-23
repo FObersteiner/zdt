@@ -3,7 +3,7 @@ const std = @import("std");
 const iana_names = @import("./windows/windows_tznames.zig").iana_names;
 const windows_names = @import("./windows/windows_tznames.zig").windows_names;
 
-const log = std.log.scoped(.zdt_windows_tz);
+const log = std.log.scoped(.zdt__windows_tz);
 
 const WinTzError = @import("./errors.zig").WinTzError;
 
