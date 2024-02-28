@@ -46,7 +46,7 @@ zig build examples && ./zig-out/bin/ex_datetime
 - [Introduction](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/01_intro.md)
 - [Usage](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/02_usage.md)
 - [Misc & Advanced](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/03_misc_advanced.md)
-- TODO : [Code documentation (autodoc)](TODO : add link)
+- [TODO : API documentation (autodoc - experimental!)](TODO : add link)
 
 ## Development
 
