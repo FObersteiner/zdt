@@ -43,13 +43,14 @@ zig build examples && ./zig-out/bin/ex_datetime
 
 ## Documentation
 
-- TODO : [Introduction](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/01_intro.md)
-- TODO : [Usage](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/02_usage.md)
+- [Introduction](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/01_intro.md)
+- [Usage](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/02_usage.md)
+- [Misc & Advanced](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/03_misc_advanced.md)
 - TODO : [Code documentation (autodoc)](TODO : add link)
 
 ## Development
 
-Ongoing. Expect breaking changes. Recent changes: see the [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/Change.log).
+Ongoing. Expect breaking changes. Recent changes: see the [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/change.log).
 
 ## Zig version
 

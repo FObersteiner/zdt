@@ -5,6 +5,9 @@
 //!zig-autodoc-guide: doc/02_usage.md
 //!zig-autodoc-guide: doc/03_advanced.md
 
+const std = @import("std");
+const log = std.log.scoped(.zdt__root);
+
 pub const Datetime = @import("./lib/Datetime.zig");
 pub const Timezone = @import("./lib/Timezone.zig");
 pub const Duration = @import("./lib/Duration.zig");

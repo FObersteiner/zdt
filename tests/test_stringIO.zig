@@ -1,7 +1,14 @@
 //! test stringIO from a users's perspective (no internal functionality)
 const std = @import("std");
+const builtin = @import("builtin");
 const testing = std.testing;
 const log = std.log.scoped(.zdt_test_stringIO);
+
+const c_locale = @cImport(@cInclude("locale.h"));
+const time_mask = switch (builtin.os.tag) {
+    .linux => c_locale.LC_TIME_MASK,
+    else => c_locale.LC_TIME,
+};
 
 const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
@@ -14,6 +21,22 @@ const TestCase = struct {
     dt: Datetime,
     directive: []const u8 = "",
 };
+
+// locale-specific tests only for English
+fn locale_ok() bool {
+    const loc = c_locale.setlocale(time_mask, "");
+    const env_locale: [:0]const u8 = std.mem.span(loc);
+    // log.warn("got locale: {s}\n", .{env_locale});
+    if (!(std.mem.eql(u8, env_locale, "en_US.UTF-8") or
+        std.mem.eql(u8, env_locale, "English_United States.utf8") or
+        std.mem.eql(u8, env_locale, "en_GB.UTF-8") or
+        std.mem.eql(u8, env_locale, "C")))
+    {
+        log.warn("can only run test with English locale; got {s}\n", .{env_locale});
+        return false;
+    }
+    return true;
+}
 
 // ---- Datetime to String ----
 
@@ -124,6 +147,55 @@ test "format with Z" {
     try str.formatDatetime(s_dst.writer(), directive_us, dt_dst);
     try testing.expectEqualStrings(string_dst, s_dst.items);
 }
+
+test "format with abbreviated day name" {
+    if (!locale_ok()) return error.SkipZigTest;
+
+    var s = std.ArrayList(u8).init(testing.allocator);
+    defer s.deinit();
+    const dt = Datetime.epoch;
+    const string = "Thu";
+    const directive = "%a";
+    try str.formatDatetime(s.writer(), directive, dt);
+    try testing.expectEqualStrings(string, s.items);
+}
+
+test "format with day name" {
+    if (!locale_ok()) return error.SkipZigTest;
+
+    var s = std.ArrayList(u8).init(testing.allocator);
+    defer s.deinit();
+    const dt = Datetime.epoch;
+    const string = "Thursday";
+    const directive = "%A";
+    try str.formatDatetime(s.writer(), directive, dt);
+    try testing.expectEqualStrings(string, s.items);
+}
+
+test "format with abbreviated month name" {
+    if (!locale_ok()) return error.SkipZigTest;
+
+    var s = std.ArrayList(u8).init(testing.allocator);
+    defer s.deinit();
+    const dt = Datetime.epoch;
+    const string = "Jan";
+    const directive = "%b";
+    try str.formatDatetime(s.writer(), directive, dt);
+    try testing.expectEqualStrings(string, s.items);
+}
+
+test "format with month name" {
+    if (!locale_ok()) return error.SkipZigTest;
+
+    var s = std.ArrayList(u8).init(testing.allocator);
+    defer s.deinit();
+    const dt = Datetime.epoch;
+    const string = "January";
+    const directive = "%B";
+    try str.formatDatetime(s.writer(), directive, dt);
+    try testing.expectEqualStrings(string, s.items);
+}
+
 // ---- String to Datetime ----
 
 test "comptime parse with comptime format string" {

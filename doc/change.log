@@ -1,7 +1,14 @@
 # CHANGELOG
 
+## 2024-02-28, v0.1.20
+
+- documentation updates
+- add locale specific formatting directives %a, %A, %b and %B (datetime to string)
+- tzLocalize: accept aware datetime (creates new datetime with same fields but different time zone)
+
 ## 2024-02-23, v0.1.19
 
+- mirror of the repo on codeberg.org is public on github.com
 - add documentation (most of it still in preparation), update doc-comments
 - refine duration methods, 'fromTimespanMultiple' and 'toTimespanMultiple'
 - add duration example

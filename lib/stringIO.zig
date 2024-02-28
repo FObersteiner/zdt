@@ -1,8 +1,56 @@
 //! conversion between datetime and string representation
 
+const builtin = @import("builtin");
 const std = @import("std");
+const log = std.log.scoped(.zdt__stringIO);
+
 const Datetime = @import("./Datetime.zig");
 const Tz = @import("./Timezone.zig");
+const unix_specific = @import("./unix/unix_mdnames.zig");
+const windows_specific = @import("./windows/windows_mdnames.zig");
+
+const sz_abbr: usize = 32;
+const sz_normal: usize = 64;
+
+fn getDayNameAbbr(n: u8) [sz_abbr]u8 {
+    var dummy: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
+    dummy[0] = 63;
+    return switch (builtin.os.tag) {
+        .linux, .macos => unix_specific.getDayNameAbbr_(n),
+        .windows => windows_specific.getDayNameAbbr_(n),
+        else => dummy,
+    };
+}
+
+fn getDayName(n: u8) [sz_normal]u8 {
+    var dummy: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
+    dummy[0] = 63;
+    return switch (builtin.os.tag) {
+        .linux, .macos => unix_specific.getDayName_(n),
+        .windows => windows_specific.getDayName_(n),
+        else => dummy,
+    };
+}
+
+fn getMonthNameAbbr(n: u8) [sz_abbr]u8 {
+    var dummy: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
+    dummy[0] = 63;
+    return switch (builtin.os.tag) {
+        .linux, .macos => unix_specific.getMonthNameAbbr_(n),
+        .windows => windows_specific.getMonthNameAbbr_(n),
+        else => dummy,
+    };
+}
+
+fn getMonthName(n: u8) [sz_normal]u8 {
+    var dummy: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
+    dummy[0] = 63;
+    return switch (builtin.os.tag) {
+        .linux, .macos => unix_specific.getMonthName_(n),
+        .windows => windows_specific.getMonthName_(n),
+        else => dummy,
+    };
+}
 
 /// directives for formatting datetime strings
 const FormatCode = enum(u8) {
@@ -16,6 +64,11 @@ const FormatCode = enum(u8) {
     offset = 'z',
     tz_abbrev = 'Z', // time zone abbreviation
     percent_lit = '%',
+    // locale-specific:
+    day_name_abbr = 'a',
+    day_name = 'A',
+    month_name_abbr = 'b',
+    month_name = 'B',
 
     pub fn formatDatetime(
         self: FormatCode,
@@ -36,6 +89,23 @@ const FormatCode = enum(u8) {
                 .{std.mem.sliceTo(dt.tzinfo.?.tzOffset.?.__abbrev_data[0..], 0)},
             ),
             .percent_lit => try writer.print("%", .{}),
+            // locale-specific:
+            .day_name_abbr => try writer.print(
+                "{s}",
+                .{std.mem.sliceTo(getDayNameAbbr(dt.weekdayNumber())[0..], 0)},
+            ),
+            .day_name => try writer.print(
+                "{s}",
+                .{std.mem.sliceTo(getDayName(dt.weekdayNumber())[0..], 0)},
+            ),
+            .month_name_abbr => try writer.print(
+                "{s}",
+                .{std.mem.sliceTo(getMonthNameAbbr(dt.month - 1)[0..], 0)},
+            ),
+            .month_name => try writer.print(
+                "{s}",
+                .{std.mem.sliceTo(getMonthName(dt.month - 1)[0..], 0)},
+            ),
         }
     }
 };
@@ -373,11 +443,11 @@ const TestCase = struct {
 test "format naive datetimes with parts api" {
     const cases = [_]TestCase{
         .{
-            .dt = try Datetime.naiveFromList(.{ 2021, 2, 18, 17, 0, 0, 0 }),
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17 }),
             .string = "2021-02-18 17:00:00",
         },
         .{
-            .dt = try Datetime.naiveFromList(.{ 1970, 1, 1, 0, 0, 0, 0 }),
+            .dt = try Datetime.fromFields(.{ .year = 1970 }),
             .string = "1970-01-01 00:00:00",
         },
     };

@@ -3,7 +3,7 @@
 //
 // --- Do not edit ---
 //
-// latest referesh: 2024-02-16T13:43:55+00:00
+// latest referesh: 2024-02-24T10:55:34+00:00
 // windows_names are sorted alphabetically so we can do binary search (later)
 pub const windows_names = [_][]const u8{
     "AUS Central Standard Time",
@@ -45,7 +45,6 @@ pub const windows_names = [_][]const u8{
     "E. Australia Standard Time",
     "E. Europe Standard Time",
     "E. South America Standard Time",
-
     "Easter Island Standard Time",
     "Eastern Standard Time",
     "Eastern Standard Time (Mexico)",

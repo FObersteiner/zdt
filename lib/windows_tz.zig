@@ -13,6 +13,11 @@ pub fn getTzName() ![]const u8 {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
+    // TODO : replace shell call with system lib call (or read registry):
+    // https://stackoverflow.com/q/16074815/10197418
+    // https://stackoverflow.com/q/7062984/10197418
+    // https://learn.microsoft.com/en-us/windows/win32/api/timezoneapi/nf-timezoneapi-gettimezoneinformation
+    // Python, via reg key: https://github.com/regebro/tzlocal/blob/master/tzlocal/win32.py#L48
     const argv = [_][]const u8{ "tzutil", "/g" };
     const proc = try std.ChildProcess.run(.{
         .allocator = allocator,

@@ -289,11 +289,10 @@ pub fn toUnix(self: Datetime, resolution: Duration.Resolution) i72 {
     }
 }
 
-/// Make a naive datetime local to a given time zone.
-/// Checks for non-existent and ambiguous datetime.
+/// Make a datetime local to a given time zone.
+///
 /// 'null' can be supplied to make an aware datetime naive.
 pub fn tzLocalize(self: Datetime, tzinfo: ?Timezone) ZdtError!Datetime {
-    if (self.tzinfo != null and tzinfo != null) return ZdtError.TzAlreadyDefined;
     return Datetime.fromFields(.{
         .year = self.year,
         .month = self.month,
@@ -306,7 +305,8 @@ pub fn tzLocalize(self: Datetime, tzinfo: ?Timezone) ZdtError!Datetime {
     });
 }
 
-/// Convert datetime to another timezone. The datetime must be aware.
+/// Convert datetime to another time zone. The datetime must be aware;
+/// can only convert to another time zone if initial time zone is defined
 pub fn tzConvert(self: Datetime, new_tz: Timezone) ZdtError!Datetime {
     if (self.tzinfo == null) return ZdtError.TzUndefined;
     return Datetime.fromUnix(
@@ -375,6 +375,7 @@ pub fn nowLocal(allocator: std.mem.Allocator) !Datetime {
 
 /// Now-in-UTC. Homage to the Python method with the same name,
 /// which is now deprecated. This one actually returns UTC ;-)
+/// TODO : remove ? Datetime.now(Timezone.UTC) is a bit more verbose but also more explicit...
 pub fn utcnow() Datetime {
     const t = std.time.nanoTimestamp();
     return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, Timezone.UTC) catch Datetime{};

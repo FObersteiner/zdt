@@ -74,8 +74,11 @@ test "tzfile tz manifests in Unix time" {
 }
 
 test "local tz db, from specified or default prefix" {
+    // NOTE : Windows does not use the IANA db, so we cannot test a 'local' prefix
     if (builtin.os.tag != .linux) return error.SkipZigTest;
-    const db = Tz.tzdb_prefix;
+
+    // NOTE : I am not sure if that would work on Mac:
+    const db = "/usr/share/zoneinfo";
     var tzinfo = try Tz.runtimeFromTzfile("Europe/Berlin", db, std.testing.allocator);
     defer tzinfo.deinit();
 
@@ -90,6 +93,7 @@ test "local tz db, from specified or default prefix" {
 
 test "invalid tzfile name" {
     if (builtin.os.tag != .linux) return error.SkipZigTest;
+    // FIXME: this should work on Windows as well. Add check function for input ?
     const db = Tz.tzdb_prefix;
     var err = Tz.runtimeFromTzfile("this is not a tzname", db, std.testing.allocator);
     try std.testing.expectError(error.FileNotFound, err);
@@ -105,7 +109,7 @@ test "local tz" {
     try std.testing.expect(now.tzinfo != null);
     try std.testing.expect(!std.mem.eql(u8, now.tzinfo.?.name(), ""));
     try std.testing.expect(!std.mem.eql(u8, now.tzinfo.?.abbreviation(), ""));
-    // log.warn("{s}, {s}, {s}", .{ now, now.tzinfo.?.name(), now.tzinfo.?.abbreviation() });
+    //log.warn("{s}, {s}, {s}", .{ now, now.tzinfo.?.name(), now.tzinfo.?.abbreviation() });
 }
 
 test "DST transitions" {
@@ -296,11 +300,33 @@ test "make datetime aware" {
     try std.testing.expect(dt_aware.day == dt_naive.day);
     try std.testing.expect(dt_aware.hour == dt_naive.hour);
 
-    const err = dt_aware.tzLocalize(tzinfo);
-    try std.testing.expectError(ZdtError.TzAlreadyDefined, err);
-
     const naive_again = try dt_aware.tzLocalize(null);
     try std.testing.expect(std.meta.eql(dt_naive, naive_again));
+}
+
+test "replace tz in aware datetime" {
+    var tz_Berlin = try Tz.fromTzfile("Europe/Berlin", std.testing.allocator);
+    defer _ = tz_Berlin.deinit();
+
+    const dt_utc = Datetime.epoch;
+    const dt_berlin = try dt_utc.tzLocalize(tz_Berlin);
+
+    try std.testing.expect(dt_berlin.tzinfo != null);
+    try std.testing.expect(dt_berlin.__unix != dt_utc.__unix);
+    try std.testing.expect(dt_berlin.__unix == -3600);
+    try std.testing.expect(dt_berlin.year == dt_utc.year);
+    try std.testing.expect(dt_berlin.day == dt_utc.day);
+    try std.testing.expect(dt_berlin.hour == dt_utc.hour);
+}
+
+test "replace tz fails for non-existent datetime in target tz" {
+    var tz_Berlin = try Tz.fromTzfile("Europe/Berlin", std.testing.allocator);
+    defer _ = tz_Berlin.deinit();
+
+    const dt_utc = try Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 26, .hour = 2, .tzinfo = Tz.UTC });
+    const err = dt_utc.tzLocalize(tz_Berlin);
+
+    try std.testing.expectError(ZdtError.NonexistentDatetime, err);
 }
 
 test "convert time zone" {

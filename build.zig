@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 19 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 20 };
 
 const example_files = [_][]const u8{
     "ex_demo",
@@ -61,6 +61,7 @@ pub fn build(b: *std.Build) !void {
         .version = zdt_version,
     });
 
+    zdt.linkLibC();
     b.installArtifact(zdt);
     // --------------------------------------------------------------------------------
 
@@ -129,6 +130,20 @@ pub fn build(b: *std.Build) !void {
     // tests
     const test_step = b.step("tests", "Run library tests");
     {
+        // unit tests in lib/*.zig files
+        const root_test = b.addTest(.{
+            .name = "zdt_root",
+            .root_source_file = .{ .path = "zdt.zig" },
+            .target = target,
+            .optimize = optimize,
+            // .test_runner = "./test_runner.zig",
+        });
+        root_test.linkLibC(); // stringIO has libc dependency
+        const run_test_root = b.addRunArtifact(root_test);
+        // run_test_root.has_side_effects = true;
+        root_test.root_module.addImport("zdt", zdt_module);
+        test_step.dependOn(&run_test_root.step);
+
         for (test_files) |test_name| {
             const _test = b.addTest(.{
                 .name = test_name,
@@ -137,9 +152,9 @@ pub fn build(b: *std.Build) !void {
                 .optimize = optimize,
                 // .test_runner = "./test_runner.zig",
             });
+            _test.linkLibC(); // stringIO has libc dependency
             const run_test = b.addRunArtifact(_test);
-            // run tests without caching, but no re-compilation if source unchanged:
-            run_test.has_side_effects = true;
+            // run_test.has_side_effects = true;
             _test.root_module.addImport("zdt", zdt_module);
             test_step.dependOn(&run_test.step);
         }
@@ -160,6 +175,7 @@ pub fn build(b: *std.Build) !void {
                 .target = target,
                 .optimize = optimize,
             });
+            example.linkLibC();
             example.root_module.addImport("zdt", zdt_module);
             const install_example = b.addInstallArtifact(example, .{});
             example_step.dependOn(&example.step);

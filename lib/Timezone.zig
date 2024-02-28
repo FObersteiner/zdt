@@ -86,8 +86,8 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
     var fba = std.heap.FixedBufferAllocator.init(&path_buffer);
     const fb_alloc = fba.allocator();
     const p = try std.fs.path.join(fb_alloc, &[_][]const u8{ db_path, identifier });
-    const path = try std.fs.realpath(p, &path_buffer);
-    const file = try std.fs.openFileAbsolute(path, .{});
+
+    const file = try std.fs.openFileAbsolute(p, .{});
     defer file.close();
     const tzif_tz = try tzif.Tz.parse(allocator, file.reader());
     // ensure that there is a footer: requires v2+ TZif files.
@@ -100,7 +100,7 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
     // if db_path is empty: assume identifier is a path
     // --> look for 'zoneinfo' substring in identifier, remove if found
     if (std.mem.eql(u8, db_path, "")) {
-        var pathname_iterator = std.mem.split(u8, path, "zoneinfo" ++ std.fs.path.sep_str);
+        var pathname_iterator = std.mem.split(u8, p, "zoneinfo" ++ std.fs.path.sep_str);
         const part = pathname_iterator.next() orelse identifier;
         if (!std.mem.eql(u8, identifier, part)) {
             const tmp_name = pathname_iterator.next() orelse "?";
@@ -149,12 +149,15 @@ pub fn deinit(self: *Timezone) void {
 }
 
 /// Try to obtain the system's local time zone
-/// TODO : should this default to UTC ?
+///
+/// Note, Windows OS: Windows does not use the IANA time zone database;
+/// a mapping from Windows db to IANA db is prone to errors.
+/// Use with caution.
 pub fn tzLocal(allocator: std.mem.Allocator) !Timezone {
     switch (builtin.os.tag) {
         .linux, .macos => {
             const demo_path = "/etc/localtime";
-            // TODO : try multiple possibilities here
+            // TODO : try multiple possibilities here?
 
             var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
             const path = try std.fs.realpath(demo_path, &path_buffer);
