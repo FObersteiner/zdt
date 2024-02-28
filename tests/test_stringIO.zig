@@ -30,6 +30,8 @@ fn locale_ok() bool {
     if (!(std.mem.eql(u8, env_locale, "en_US.UTF-8") or
         std.mem.eql(u8, env_locale, "English_United States.utf8") or
         std.mem.eql(u8, env_locale, "en_GB.UTF-8") or
+        std.mem.eql(u8, env_locale, "C.UTF-8") or
+        std.mem.eql(u8, env_locale, "English_United States.1252") or // TODO : does this work ?!
         std.mem.eql(u8, env_locale, "C")))
     {
         log.warn("can only run test with English locale; got {s}\n", .{env_locale});
