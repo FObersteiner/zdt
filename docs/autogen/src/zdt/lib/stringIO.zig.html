@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">    <title>lib/stringIO.zig - source view</title>
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAgklEQVR4AWMYWuD7EllJIM4G4g4g5oIJ/odhOJ8wToOxSTXgNxDHoeiBMfA4+wGShjyYOCkG/IGqWQziEzYAoUAeiF9D5U+DxEg14DRU7jWIT5IBIOdCxf+A+CQZAAoopEB7QJwBCBwHiip8UYmRdrAlDpIMgApwQZNnNii5Dq0MBgCxxycBnwEd+wAAAABJRU5ErkJggg==">
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTMgMTQwIj48ZyBmaWxsPSIjRjdBNDFEIj48Zz48cG9seWdvbiBwb2ludHM9IjQ2LDIyIDI4LDQ0IDE5LDMwIi8+PHBvbHlnb24gcG9pbnRzPSI0NiwyMiAzMywzMyAyOCw0NCAyMiw0NCAyMiw5NSAzMSw5NSAyMCwxMDAgMTIsMTE3IDAsMTE3IDAsMjIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMzEsOTUgMTIsMTE3IDQsMTA2Ii8+PC9nPjxnPjxwb2x5Z29uIHBvaW50cz0iNTYsMjIgNjIsMzYgMzcsNDQiLz48cG9seWdvbiBwb2ludHM9IjU2LDIyIDExMSwyMiAxMTEsNDQgMzcsNDQgNTYsMzIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMTE2LDk1IDk3LDExNyA5MCwxMDQiLz48cG9seWdvbiBwb2ludHM9IjExNiw5NSAxMDAsMTA0IDk3LDExNyA0MiwxMTcgNDIsOTUiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMTUwLDAgNTIsMTE3IDMsMTQwIDEwMSwyMiIvPjwvZz48Zz48cG9seWdvbiBwb2ludHM9IjE0MSwyMiAxNDAsNDAgMTIyLDQ1Ii8+PHBvbHlnb24gcG9pbnRzPSIxNTMsMjIgMTUzLDExNyAxMDYsMTE3IDEyMCwxMDUgMTI1LDk1IDEzMSw5NSAxMzEsNDUgMTIyLDQ1IDEzMiwzNiAxNDEsMjIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMTI1LDk1IDEzMCwxMTAgMTA2LDExNyIvPjwvZz48L2c+PC9zdmc+">
+    <style>
+      body{
+        font-family: system-ui, -apple-system, Roboto, "Segoe UI", sans-serif;
+        margin: 0;
+        line-height: 1.5;
+      }
+
+      pre > code {
+        display: block;
+        overflow: auto;
+        line-height: normal;
+        margin: 0em;
+      }
+      .tok-kw {
+          color: #333;
+          font-weight: bold;
+      }
+      .tok-str {
+          color: #d14;
+      }
+      .tok-builtin {
+          color: #005C7A;
+      }
+      .tok-comment {
+          color: #545454;
+          font-style: italic;
+      }
+      .tok-fn {
+          color: #900;
+          font-weight: bold;
+      }
+      .tok-null {
+          color: #005C5C;
+      }
+      .tok-number {
+          color: #005C5C;
+      }
+      .tok-type {
+          color: #458;
+          font-weight: bold;
+      }
+      pre {
+        counter-reset: line;
+      }
+      pre .line:before {
+        counter-increment: line;
+        content: counter(line);
+        display: inline-block;
+        padding-right: 1em;
+        width: 2em;
+        text-align: right;
+        color: #999;
+      }
+      
+      .line {
+        width: 100%;
+        display: inline-block;
+      }
+      .line:target {
+        border-top: 1px solid #ccc;
+        border-bottom: 1px solid #ccc;
+        background: #fafafa;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body{
+            background:#222;
+            color: #ccc;
+        }
+        pre > code {
+            color: #ccc;
+            background: #222;
+            border: unset;
+        }
+        .line:target {
+            border-top: 1px solid #444;
+            border-bottom: 1px solid #444;
+            background: #333;
+        }
+        .tok-kw {
+            color: #eee;
+        }
+        .tok-str {
+            color: #2e5;
+        }
+        .tok-builtin {
+            color: #ff894c;
+        }
+        .tok-comment {
+            color: #aa7;
+        }
+        .tok-fn {
+            color: #B1A0F8;
+        }
+        .tok-null {
+            color: #ff8080;
+        }
+        .tok-number {
+            color: #ff8080;
+        }
+        .tok-type {
+            color: #68f;
+        }
+      }
+    </style>
+</head>
+<body>
+<pre><code><span class="line" id="L1"><span class="tok-comment">//! conversion between datetime and string representation</span></span>
+<span class="line" id="L2"></span>
+<span class="line" id="L3"><span class="tok-kw">const</span> builtin = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;builtin&quot;</span>);</span>
+<span class="line" id="L4"><span class="tok-kw">const</span> std = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;std&quot;</span>);</span>
+<span class="line" id="L5"><span class="tok-kw">const</span> log = std.log.scoped(.zdt__stringIO);</span>
+<span class="line" id="L6"></span>
+<span class="line" id="L7"><span class="tok-kw">const</span> Datetime = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./Datetime.zig&quot;</span>);</span>
+<span class="line" id="L8"><span class="tok-kw">const</span> Tz = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./Timezone.zig&quot;</span>);</span>
+<span class="line" id="L9"><span class="tok-kw">const</span> unix_specific = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./unix/unix_mdnames.zig&quot;</span>);</span>
+<span class="line" id="L10"><span class="tok-kw">const</span> windows_specific = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./windows/windows_mdnames.zig&quot;</span>);</span>
+<span class="line" id="L11"></span>
+<span class="line" id="L12"><span class="tok-kw">const</span> sz_abbr: <span class="tok-type">usize</span> = <span class="tok-number">32</span>;</span>
+<span class="line" id="L13"><span class="tok-kw">const</span> sz_normal: <span class="tok-type">usize</span> = <span class="tok-number">64</span>;</span>
+<span class="line" id="L14"></span>
+<span class="line" id="L15"><span class="tok-kw">fn</span> <span class="tok-fn">getDayNameAbbr</span>(n: <span class="tok-type">u8</span>) [sz_abbr]<span class="tok-type">u8</span> {</span>
+<span class="line" id="L16">    <span class="tok-kw">var</span> dummy: [sz_abbr]<span class="tok-type">u8</span> = std.mem.zeroes([sz_abbr]<span class="tok-type">u8</span>);</span>
+<span class="line" id="L17">    dummy[<span class="tok-number">0</span>] = <span class="tok-number">63</span>;</span>
+<span class="line" id="L18">    <span class="tok-kw">return</span> <span class="tok-kw">switch</span> (builtin.os.tag) {</span>
+<span class="line" id="L19">        .linux, .macos =&gt; unix_specific.getDayNameAbbr_(n),</span>
+<span class="line" id="L20">        .windows =&gt; windows_specific.getDayNameAbbr_(n),</span>
+<span class="line" id="L21">        <span class="tok-kw">else</span> =&gt; dummy,</span>
+<span class="line" id="L22">    };</span>
+<span class="line" id="L23">}</span>
+<span class="line" id="L24"></span>
+<span class="line" id="L25"><span class="tok-kw">fn</span> <span class="tok-fn">getDayName</span>(n: <span class="tok-type">u8</span>) [sz_normal]<span class="tok-type">u8</span> {</span>
+<span class="line" id="L26">    <span class="tok-kw">var</span> dummy: [sz_normal]<span class="tok-type">u8</span> = std.mem.zeroes([sz_normal]<span class="tok-type">u8</span>);</span>
+<span class="line" id="L27">    dummy[<span class="tok-number">0</span>] = <span class="tok-number">63</span>;</span>
+<span class="line" id="L28">    <span class="tok-kw">return</span> <span class="tok-kw">switch</span> (builtin.os.tag) {</span>
+<span class="line" id="L29">        .linux, .macos =&gt; unix_specific.getDayName_(n),</span>
+<span class="line" id="L30">        .windows =&gt; windows_specific.getDayName_(n),</span>
+<span class="line" id="L31">        <span class="tok-kw">else</span> =&gt; dummy,</span>
+<span class="line" id="L32">    };</span>
+<span class="line" id="L33">}</span>
+<span class="line" id="L34"></span>
+<span class="line" id="L35"><span class="tok-kw">fn</span> <span class="tok-fn">getMonthNameAbbr</span>(n: <span class="tok-type">u8</span>) [sz_abbr]<span class="tok-type">u8</span> {</span>
+<span class="line" id="L36">    <span class="tok-kw">var</span> dummy: [sz_abbr]<span class="tok-type">u8</span> = std.mem.zeroes([sz_abbr]<span class="tok-type">u8</span>);</span>
+<span class="line" id="L37">    dummy[<span class="tok-number">0</span>] = <span class="tok-number">63</span>;</span>
+<span class="line" id="L38">    <span class="tok-kw">return</span> <span class="tok-kw">switch</span> (builtin.os.tag) {</span>
+<span class="line" id="L39">        .linux, .macos =&gt; unix_specific.getMonthNameAbbr_(n),</span>
+<span class="line" id="L40">        .windows =&gt; windows_specific.getMonthNameAbbr_(n),</span>
+<span class="line" id="L41">        <span class="tok-kw">else</span> =&gt; dummy,</span>
+<span class="line" id="L42">    };</span>
+<span class="line" id="L43">}</span>
+<span class="line" id="L44"></span>
+<span class="line" id="L45"><span class="tok-kw">fn</span> <span class="tok-fn">getMonthName</span>(n: <span class="tok-type">u8</span>) [sz_normal]<span class="tok-type">u8</span> {</span>
+<span class="line" id="L46">    <span class="tok-kw">var</span> dummy: [sz_normal]<span class="tok-type">u8</span> = std.mem.zeroes([sz_normal]<span class="tok-type">u8</span>);</span>
+<span class="line" id="L47">    dummy[<span class="tok-number">0</span>] = <span class="tok-number">63</span>;</span>
+<span class="line" id="L48">    <span class="tok-kw">return</span> <span class="tok-kw">switch</span> (builtin.os.tag) {</span>
+<span class="line" id="L49">        .linux, .macos =&gt; unix_specific.getMonthName_(n),</span>
+<span class="line" id="L50">        .windows =&gt; windows_specific.getMonthName_(n),</span>
+<span class="line" id="L51">        <span class="tok-kw">else</span> =&gt; dummy,</span>
+<span class="line" id="L52">    };</span>
+<span class="line" id="L53">}</span>
+<span class="line" id="L54"></span>
+<span class="line" id="L55"><span class="tok-comment">/// directives for formatting datetime strings</span></span>
+<span class="line" id="L56"><span class="tok-kw">const</span> FormatCode = <span class="tok-kw">enum</span>(<span class="tok-type">u8</span>) {</span>
+<span class="line" id="L57">    year = <span class="tok-str">'Y'</span>,</span>
+<span class="line" id="L58">    month = <span class="tok-str">'m'</span>,</span>
+<span class="line" id="L59">    day = <span class="tok-str">'d'</span>,</span>
+<span class="line" id="L60">    hour = <span class="tok-str">'H'</span>,</span>
+<span class="line" id="L61">    min = <span class="tok-str">'M'</span>,</span>
+<span class="line" id="L62">    sec = <span class="tok-str">'S'</span>,</span>
+<span class="line" id="L63">    nanos = <span class="tok-str">'f'</span>,</span>
+<span class="line" id="L64">    offset = <span class="tok-str">'z'</span>,</span>
+<span class="line" id="L65">    tz_abbrev = <span class="tok-str">'Z'</span>, <span class="tok-comment">// time zone abbreviation</span>
+</span>
+<span class="line" id="L66">    percent_lit = <span class="tok-str">'%'</span>,</span>
+<span class="line" id="L67">    <span class="tok-comment">// locale-specific:</span>
+</span>
+<span class="line" id="L68">    day_name_abbr = <span class="tok-str">'a'</span>,</span>
+<span class="line" id="L69">    day_name = <span class="tok-str">'A'</span>,</span>
+<span class="line" id="L70">    month_name_abbr = <span class="tok-str">'b'</span>,</span>
+<span class="line" id="L71">    month_name = <span class="tok-str">'B'</span>,</span>
+<span class="line" id="L72"></span>
+<span class="line" id="L73">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">formatDatetime</span>(</span>
+<span class="line" id="L74">        self: FormatCode,</span>
+<span class="line" id="L75">        writer: <span class="tok-kw">anytype</span>,</span>
+<span class="line" id="L76">        dt: Datetime,</span>
+<span class="line" id="L77">    ) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L78">        <span class="tok-kw">switch</span> (self) {</span>
+<span class="line" id="L79">            .month =&gt; <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{d:0&gt;2}&quot;</span>, .{dt.month}),</span>
+<span class="line" id="L80">            .year =&gt; <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{d}&quot;</span>, .{dt.year}),</span>
+<span class="line" id="L81">            .day =&gt; <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{d:0&gt;2}&quot;</span>, .{dt.day}),</span>
+<span class="line" id="L82">            .hour =&gt; <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{d:0&gt;2}&quot;</span>, .{dt.hour}),</span>
+<span class="line" id="L83">            .min =&gt; <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{d:0&gt;2}&quot;</span>, .{dt.minute}),</span>
+<span class="line" id="L84">            .sec =&gt; <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{d:0&gt;2}&quot;</span>, .{dt.second}),</span>
+<span class="line" id="L85">            .nanos =&gt; <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{d:0&gt;9}&quot;</span>, .{dt.nanosecond}),</span>
+<span class="line" id="L86">            .offset =&gt; <span class="tok-kw">try</span> dt.formatOffset(writer),</span>
+<span class="line" id="L87">            .tz_abbrev =&gt; <span class="tok-kw">try</span> writer.print(</span>
+<span class="line" id="L88">                <span class="tok-str">&quot;{s}&quot;</span>, <span class="tok-comment">// use __abbrev_data directly since we have a copy of dt:</span>
+</span>
+<span class="line" id="L89">                .{std.mem.sliceTo(dt.tzinfo.?.tzOffset.?.__abbrev_data[<span class="tok-number">0</span>..], <span class="tok-number">0</span>)},</span>
+<span class="line" id="L90">            ),</span>
+<span class="line" id="L91">            .percent_lit =&gt; <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;%&quot;</span>, .{}),</span>
+<span class="line" id="L92">            <span class="tok-comment">// locale-specific:</span>
+</span>
+<span class="line" id="L93">            .day_name_abbr =&gt; <span class="tok-kw">try</span> writer.print(</span>
+<span class="line" id="L94">                <span class="tok-str">&quot;{s}&quot;</span>,</span>
+<span class="line" id="L95">                .{std.mem.sliceTo(getDayNameAbbr(dt.weekdayNumber())[<span class="tok-number">0</span>..], <span class="tok-number">0</span>)},</span>
+<span class="line" id="L96">            ),</span>
+<span class="line" id="L97">            .day_name =&gt; <span class="tok-kw">try</span> writer.print(</span>
+<span class="line" id="L98">                <span class="tok-str">&quot;{s}&quot;</span>,</span>
+<span class="line" id="L99">                .{std.mem.sliceTo(getDayName(dt.weekdayNumber())[<span class="tok-number">0</span>..], <span class="tok-number">0</span>)},</span>
+<span class="line" id="L100">            ),</span>
+<span class="line" id="L101">            .month_name_abbr =&gt; <span class="tok-kw">try</span> writer.print(</span>
+<span class="line" id="L102">                <span class="tok-str">&quot;{s}&quot;</span>,</span>
+<span class="line" id="L103">                .{std.mem.sliceTo(getMonthNameAbbr(dt.month - <span class="tok-number">1</span>)[<span class="tok-number">0</span>..], <span class="tok-number">0</span>)},</span>
+<span class="line" id="L104">            ),</span>
+<span class="line" id="L105">            .month_name =&gt; <span class="tok-kw">try</span> writer.print(</span>
+<span class="line" id="L106">                <span class="tok-str">&quot;{s}&quot;</span>,</span>
+<span class="line" id="L107">                .{std.mem.sliceTo(getMonthName(dt.month - <span class="tok-number">1</span>)[<span class="tok-number">0</span>..], <span class="tok-number">0</span>)},</span>
+<span class="line" id="L108">            ),</span>
+<span class="line" id="L109">        }</span>
+<span class="line" id="L110">    }</span>
+<span class="line" id="L111">};</span>
+<span class="line" id="L112"></span>
+<span class="line" id="L113"><span class="tok-comment">// a part of a parsing/formatting directive</span>
+</span>
+<span class="line" id="L114"><span class="tok-kw">const</span> Part = <span class="tok-kw">union</span>(<span class="tok-kw">enum</span>) {</span>
+<span class="line" id="L115">    literal: <span class="tok-type">u8</span>,</span>
+<span class="line" id="L116">    specifier: FormatCode,</span>
+<span class="line" id="L117"></span>
+<span class="line" id="L118">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">formatDatetime</span>(</span>
+<span class="line" id="L119">        self: Part,</span>
+<span class="line" id="L120">        writer: <span class="tok-kw">anytype</span>,</span>
+<span class="line" id="L121">        dt: Datetime,</span>
+<span class="line" id="L122">    ) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L123">        <span class="tok-kw">switch</span> (self) {</span>
+<span class="line" id="L124">            .literal =&gt; |b| <span class="tok-kw">try</span> writer.writeByte(b),</span>
+<span class="line" id="L125">            .specifier =&gt; |s| <span class="tok-kw">try</span> s.formatDatetime(writer, dt),</span>
+<span class="line" id="L126">        }</span>
+<span class="line" id="L127">    }</span>
+<span class="line" id="L128">};</span>
+<span class="line" id="L129"></span>
+<span class="line" id="L130"><span class="tok-comment">// parse a string with format codes to a list of Part</span>
+</span>
+<span class="line" id="L131"><span class="tok-kw">fn</span> <span class="tok-fn">parseFormatBuf</span>(buf: []Part, format_str: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>) ![]Part {</span>
+<span class="line" id="L132">    <span class="tok-kw">var</span> parts_idx: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L133"></span>
+<span class="line" id="L134">    <span class="tok-kw">var</span> next_char_is_specifier = <span class="tok-null">false</span>;</span>
+<span class="line" id="L135">    <span class="tok-kw">for</span> (format_str) |fc| {</span>
+<span class="line" id="L136">        <span class="tok-kw">if</span> (next_char_is_specifier) {</span>
+<span class="line" id="L137">            <span class="tok-kw">if</span> (fc == <span class="tok-str">'%'</span>) {</span>
+<span class="line" id="L138">                next_char_is_specifier = <span class="tok-null">false</span>;</span>
+<span class="line" id="L139">                buf[parts_idx] = .{ .literal = fc };</span>
+<span class="line" id="L140">                parts_idx += <span class="tok-number">1</span>;</span>
+<span class="line" id="L141">                <span class="tok-kw">continue</span>;</span>
+<span class="line" id="L142">            }</span>
+<span class="line" id="L143">            buf[parts_idx] = .{</span>
+<span class="line" id="L144">                .specifier = std.meta.intToEnum(FormatCode, fc) <span class="tok-kw">catch</span> <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidSpecifier,</span>
+<span class="line" id="L145">            };</span>
+<span class="line" id="L146">            parts_idx += <span class="tok-number">1</span>;</span>
+<span class="line" id="L147">            next_char_is_specifier = <span class="tok-null">false</span>;</span>
+<span class="line" id="L148">        } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L149">            <span class="tok-kw">if</span> (fc == <span class="tok-str">'%'</span>) {</span>
+<span class="line" id="L150">                next_char_is_specifier = <span class="tok-null">true</span>;</span>
+<span class="line" id="L151">            } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L152">                buf[parts_idx] = .{ .literal = fc };</span>
+<span class="line" id="L153">                parts_idx += <span class="tok-number">1</span>;</span>
+<span class="line" id="L154">            }</span>
+<span class="line" id="L155">        }</span>
+<span class="line" id="L156">    }</span>
+<span class="line" id="L157"></span>
+<span class="line" id="L158">    <span class="tok-kw">return</span> buf[<span class="tok-number">0</span>..parts_idx];</span>
+<span class="line" id="L159">}</span>
+<span class="line" id="L160"></span>
+<span class="line" id="L161"><span class="tok-kw">fn</span> <span class="tok-fn">parseFormatAlloc</span>(allocator: std.mem.Allocator, format_str: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>) ![]Part {</span>
+<span class="line" id="L162">    <span class="tok-kw">var</span> parts = std.ArrayList(Part).init(allocator);</span>
+<span class="line" id="L163">    <span class="tok-kw">errdefer</span> parts.deinit();</span>
+<span class="line" id="L164"></span>
+<span class="line" id="L165">    <span class="tok-kw">var</span> next_char_is_specifier = <span class="tok-null">false</span>;</span>
+<span class="line" id="L166">    <span class="tok-kw">for</span> (format_str) |fc| {</span>
+<span class="line" id="L167">        <span class="tok-kw">if</span> (next_char_is_specifier) {</span>
+<span class="line" id="L168">            <span class="tok-kw">const</span> specifier = std.meta.intToEnum(FormatCode, fc) <span class="tok-kw">catch</span> <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidSpecifier;</span>
+<span class="line" id="L169">            <span class="tok-kw">try</span> parts.append(.{ .specifier = specifier });</span>
+<span class="line" id="L170">            next_char_is_specifier = <span class="tok-null">false</span>;</span>
+<span class="line" id="L171">        } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L172">            <span class="tok-kw">if</span> (fc == <span class="tok-str">'%'</span>) {</span>
+<span class="line" id="L173">                next_char_is_specifier = <span class="tok-null">true</span>;</span>
+<span class="line" id="L174">            } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L175">                <span class="tok-kw">try</span> parts.append(.{ .literal = fc });</span>
+<span class="line" id="L176">            }</span>
+<span class="line" id="L177">        }</span>
+<span class="line" id="L178">    }</span>
+<span class="line" id="L179"></span>
+<span class="line" id="L180">    <span class="tok-kw">return</span> parts.toOwnedSlice();</span>
+<span class="line" id="L181">}</span>
+<span class="line" id="L182"></span>
+<span class="line" id="L183"><span class="tok-kw">fn</span> <span class="tok-fn">formatDatetimeParts</span>(writer: <span class="tok-kw">anytype</span>, parts: []<span class="tok-kw">const</span> Part, dt: Datetime) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L184">    <span class="tok-kw">for</span> (parts) |part| {</span>
+<span class="line" id="L185">        <span class="tok-kw">try</span> part.formatDatetime(writer, dt);</span>
+<span class="line" id="L186">    }</span>
+<span class="line" id="L187">}</span>
+<span class="line" id="L188"></span>
+<span class="line" id="L189"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">formatDatetime</span>(writer: <span class="tok-kw">anytype</span>, format: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>, dt: Datetime) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L190">    <span class="tok-kw">var</span> next_char_is_specifier = <span class="tok-null">false</span>;</span>
+<span class="line" id="L191">    <span class="tok-kw">for</span> (format) |fc| {</span>
+<span class="line" id="L192">        <span class="tok-kw">if</span> (next_char_is_specifier) {</span>
+<span class="line" id="L193">            <span class="tok-kw">const</span> specifier = std.meta.intToEnum(FormatCode, fc) <span class="tok-kw">catch</span> <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidSpecifier;</span>
+<span class="line" id="L194">            <span class="tok-kw">try</span> specifier.formatDatetime(writer, dt);</span>
+<span class="line" id="L195">            next_char_is_specifier = <span class="tok-null">false</span>;</span>
+<span class="line" id="L196">        } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L197">            <span class="tok-kw">if</span> (fc == <span class="tok-str">'%'</span>) {</span>
+<span class="line" id="L198">                next_char_is_specifier = <span class="tok-null">true</span>;</span>
+<span class="line" id="L199">            } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L200">                <span class="tok-kw">try</span> writer.writeByte(fc);</span>
+<span class="line" id="L201">            }</span>
+<span class="line" id="L202">        }</span>
+<span class="line" id="L203">    }</span>
+<span class="line" id="L204">}</span>
+<span class="line" id="L205"></span>
+<span class="line" id="L206"><span class="tok-comment">/// string to datetime instance, with a compile-time-known format</span></span>
+<span class="line" id="L207"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">parseDatetime</span>(<span class="tok-kw">comptime</span> format: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>, dt_string: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>) !Datetime {</span>
+<span class="line" id="L208">    <span class="tok-kw">var</span> fields = Datetime.Fields{};</span>
+<span class="line" id="L209"></span>
+<span class="line" id="L210">    <span class="tok-kw">comptime</span> <span class="tok-kw">var</span> next_char_is_specifier = <span class="tok-null">false</span>;</span>
+<span class="line" id="L211">    <span class="tok-kw">var</span> dt_string_idx: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L212">    <span class="tok-kw">inline</span> <span class="tok-kw">for</span> (format) |fc| {</span>
+<span class="line" id="L213">        <span class="tok-kw">if</span> (next_char_is_specifier) {</span>
+<span class="line" id="L214">            <span class="tok-kw">switch</span> (fc) {</span>
+<span class="line" id="L215">                <span class="tok-comment">// Date specifiers</span>
+</span>
+<span class="line" id="L216">                <span class="tok-str">'Y'</span> =&gt; fields.year = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u14</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">4</span>),</span>
+<span class="line" id="L217">                <span class="tok-str">'m'</span> =&gt; fields.month = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u7</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">2</span>),</span>
+<span class="line" id="L218">                <span class="tok-str">'d'</span> =&gt; fields.day = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u7</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">2</span>),</span>
+<span class="line" id="L219">                <span class="tok-comment">// Time specifiers</span>
+</span>
+<span class="line" id="L220">                <span class="tok-str">'H'</span> =&gt; fields.hour = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u7</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">2</span>),</span>
+<span class="line" id="L221">                <span class="tok-str">'M'</span> =&gt; fields.minute = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u7</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">2</span>),</span>
+<span class="line" id="L222">                <span class="tok-str">'S'</span> =&gt; fields.second = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u7</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">2</span>),</span>
+<span class="line" id="L223">                <span class="tok-str">'f'</span> =&gt; {</span>
+<span class="line" id="L224">                    <span class="tok-comment">// if we only parse n digits out of 9, we have to multiply the result by</span>
+</span>
+<span class="line" id="L225">                    <span class="tok-comment">// 10^n to get nanoseconds</span>
+</span>
+<span class="line" id="L226">                    <span class="tok-kw">const</span> tmp_idx = dt_string_idx;</span>
+<span class="line" id="L227">                    fields.nanosecond = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u30</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">9</span>);</span>
+<span class="line" id="L228">                    <span class="tok-kw">const</span> missing = <span class="tok-number">9</span> - (dt_string_idx - tmp_idx);</span>
+<span class="line" id="L229">                    <span class="tok-kw">const</span> f: <span class="tok-type">u30</span> = <span class="tok-kw">try</span> std.math.powi(<span class="tok-type">u30</span>, <span class="tok-number">10</span>, <span class="tok-builtin">@as</span>(<span class="tok-type">u30</span>, <span class="tok-builtin">@intCast</span>(missing)));</span>
+<span class="line" id="L230">                    fields.nanosecond *= f;</span>
+<span class="line" id="L231">                },</span>
+<span class="line" id="L232">                <span class="tok-comment">// UTC offset (+|-)hh[:mm[:ss]] or Z</span>
+</span>
+<span class="line" id="L233">                <span class="tok-str">'z'</span> =&gt; {</span>
+<span class="line" id="L234">                    <span class="tok-kw">const</span> utcoffset = <span class="tok-kw">try</span> parseOffset(<span class="tok-type">i20</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">9</span>);</span>
+<span class="line" id="L235">                    <span class="tok-kw">if</span> (dt_string[dt_string_idx - <span class="tok-number">1</span>] == <span class="tok-str">'Z'</span>) {</span>
+<span class="line" id="L236">                        fields.tzinfo = Tz.UTC;</span>
+<span class="line" id="L237">                    } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L238">                        fields.tzinfo = <span class="tok-kw">try</span> Tz.fromOffset(utcoffset, <span class="tok-str">&quot;&quot;</span>);</span>
+<span class="line" id="L239">                    }</span>
+<span class="line" id="L240">                },</span>
+<span class="line" id="L241">                <span class="tok-comment">// literals</span>
+</span>
+<span class="line" id="L242">                <span class="tok-str">'%'</span> =&gt; {</span>
+<span class="line" id="L243">                    <span class="tok-kw">if</span> (dt_string[dt_string_idx] != fc) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L244">                    dt_string_idx += <span class="tok-number">1</span>;</span>
+<span class="line" id="L245">                },</span>
+<span class="line" id="L246"></span>
+<span class="line" id="L247">                <span class="tok-kw">else</span> =&gt; <span class="tok-builtin">@compileError</span>(<span class="tok-str">&quot;Invalid format specifier '&quot;</span> ++ [_]<span class="tok-type">u8</span>{fc} ++ <span class="tok-str">&quot;'&quot;</span>),</span>
+<span class="line" id="L248">            }</span>
+<span class="line" id="L249">            next_char_is_specifier = <span class="tok-null">false</span>;</span>
+<span class="line" id="L250">        } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L251">            <span class="tok-kw">if</span> (fc == <span class="tok-str">'%'</span>) {</span>
+<span class="line" id="L252">                next_char_is_specifier = <span class="tok-null">true</span>;</span>
+<span class="line" id="L253">            } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L254">                <span class="tok-kw">if</span> (dt_string[dt_string_idx] != fc) {</span>
+<span class="line" id="L255">                    <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L256">                }</span>
+<span class="line" id="L257">                dt_string_idx += <span class="tok-number">1</span>;</span>
+<span class="line" id="L258">            }</span>
+<span class="line" id="L259">        }</span>
+<span class="line" id="L260">    }</span>
+<span class="line" id="L261"></span>
+<span class="line" id="L262">    <span class="tok-comment">// if we come here, the string must be completely consumed</span>
+</span>
+<span class="line" id="L263">    <span class="tok-kw">if</span> (dt_string_idx != dt_string.len) {</span>
+<span class="line" id="L264">        <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L265">    }</span>
+<span class="line" id="L266"></span>
+<span class="line" id="L267">    <span class="tok-kw">return</span> Datetime.fromFields(fields);</span>
+<span class="line" id="L268">}</span>
+<span class="line" id="L269"></span>
+<span class="line" id="L270"><span class="tok-comment">/// Parse ISO8601 formats. Format is infered at runtime.</span></span>
+<span class="line" id="L271"><span class="tok-comment">/// Required is at least a year and a month, separated by ASCII minus.</span></span>
+<span class="line" id="L272"><span class="tok-comment">/// Date and time separator is either 'T' or ASCII space.</span></span>
+<span class="line" id="L273"><span class="tok-comment">///</span></span>
+<span class="line" id="L274"><span class="tok-comment">/// ## examples</span></span>
+<span class="line" id="L275"><span class="tok-comment">///</span></span>
+<span class="line" id="L276"><span class="tok-comment">/// string                         len  datetime, normlized ISO8601</span></span>
+<span class="line" id="L277"><span class="tok-comment">/// -----------------------------|----|------------------------------------</span></span>
+<span class="line" id="L278"><span class="tok-comment">/// 2014-08                        7    2014-08-01T00:00:00</span></span>
+<span class="line" id="L279"><span class="tok-comment">/// 2014-08-23                     10   2014-08-23T00:00:00</span></span>
+<span class="line" id="L280"><span class="tok-comment">/// 2014-08-23 12:15               16   2014-08-23T12:15:00</span></span>
+<span class="line" id="L281"><span class="tok-comment">/// 2014-08-23T12:15:56            19   2014-08-23T12:15:56</span></span>
+<span class="line" id="L282"><span class="tok-comment">/// 2014-08-23T12:15:56.999999999Z 30   2014-08-23T12:15:56.999999999+00:00</span></span>
+<span class="line" id="L283"><span class="tok-comment">/// 2014-08-23 12:15:56+01         22   2014-08-23T12:15:56+01:00</span></span>
+<span class="line" id="L284"><span class="tok-comment">/// 2014-08-23T12:15:56-0530       24   2014-08-23T12:15:56-05:30</span></span>
+<span class="line" id="L285"><span class="tok-comment">/// 2014-08-23T12:15:56+02:15:30   28   2014-08-23T12:15:56+02:15:30</span></span>
+<span class="line" id="L286"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">parseISO8601</span>(dt_string: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>) !Datetime {</span>
+<span class="line" id="L287">    <span class="tok-kw">if</span> (dt_string.len &gt; <span class="tok-number">38</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L288">    <span class="tok-kw">if</span> (dt_string[dt_string.len - <span class="tok-number">1</span>] != <span class="tok-str">'Z'</span> <span class="tok-kw">and</span> !std.ascii.isDigit(dt_string[dt_string.len - <span class="tok-number">1</span>])) {</span>
+<span class="line" id="L289">        <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L290">    }</span>
+<span class="line" id="L291">    <span class="tok-kw">if</span> (dt_string.len &lt; <span class="tok-number">20</span>) {</span>
+<span class="line" id="L292">        <span class="tok-kw">switch</span> (dt_string.len) {</span>
+<span class="line" id="L293">            <span class="tok-number">7</span>, <span class="tok-number">10</span>, <span class="tok-number">16</span>, <span class="tok-number">19</span> =&gt; {},</span>
+<span class="line" id="L294">            <span class="tok-kw">else</span> =&gt; <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat,</span>
+<span class="line" id="L295">        }</span>
+<span class="line" id="L296">    }</span>
+<span class="line" id="L297"></span>
+<span class="line" id="L298">    <span class="tok-kw">var</span> fields = Datetime.Fields{};</span>
+<span class="line" id="L299">    <span class="tok-kw">var</span> utcoffset: ?<span class="tok-type">i20</span> = <span class="tok-null">null</span>;</span>
+<span class="line" id="L300"></span>
+<span class="line" id="L301">    <span class="tok-kw">var</span> dt_string_idx: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L302">    parseblock: {</span>
+<span class="line" id="L303">        <span class="tok-comment">// yyyy-mm</span>
+</span>
+<span class="line" id="L304">        fields.year = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u14</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">4</span>);</span>
+<span class="line" id="L305">        <span class="tok-kw">if</span> (dt_string_idx != <span class="tok-number">4</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat; <span class="tok-comment">// 2-digit year not allowed</span>
+</span>
+<span class="line" id="L306">        <span class="tok-kw">if</span> (dt_string[dt_string_idx] != <span class="tok-str">'-'</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L307">        dt_string_idx += <span class="tok-number">1</span>;</span>
+<span class="line" id="L308">        fields.month = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u7</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">2</span>);</span>
+<span class="line" id="L309">        <span class="tok-kw">if</span> (dt_string_idx != <span class="tok-number">7</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat; <span class="tok-comment">// 1-digit month not allowed</span>
+</span>
+<span class="line" id="L310">        <span class="tok-kw">if</span> (dt_string_idx == dt_string.len) <span class="tok-kw">break</span> :parseblock;</span>
+<span class="line" id="L311"></span>
+<span class="line" id="L312">        <span class="tok-comment">// yyyy-mm-dd</span>
+</span>
+<span class="line" id="L313">        <span class="tok-kw">if</span> (dt_string[dt_string_idx] != <span class="tok-str">'-'</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L314">        dt_string_idx += <span class="tok-number">1</span>;</span>
+<span class="line" id="L315">        fields.day = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u7</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">2</span>);</span>
+<span class="line" id="L316">        <span class="tok-kw">if</span> (dt_string_idx != <span class="tok-number">10</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat; <span class="tok-comment">// 1-digit day not allowed</span>
+</span>
+<span class="line" id="L317">        <span class="tok-kw">if</span> (dt_string_idx == dt_string.len) <span class="tok-kw">break</span> :parseblock;</span>
+<span class="line" id="L318"></span>
+<span class="line" id="L319">        <span class="tok-comment">// yyyy-mm-ddTHH:MM</span>
+</span>
+<span class="line" id="L320">        <span class="tok-kw">if</span> (!(dt_string[dt_string_idx] == <span class="tok-str">'T'</span> <span class="tok-kw">or</span> dt_string[dt_string_idx] == <span class="tok-str">' '</span>)) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L321">        dt_string_idx += <span class="tok-number">1</span>;</span>
+<span class="line" id="L322">        fields.hour = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u7</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">2</span>);</span>
+<span class="line" id="L323">        <span class="tok-kw">if</span> (dt_string_idx != <span class="tok-number">13</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat; <span class="tok-comment">// 1-digit hour not allowed</span>
+</span>
+<span class="line" id="L324">        <span class="tok-kw">if</span> (dt_string[dt_string_idx] != <span class="tok-str">':'</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L325">        dt_string_idx += <span class="tok-number">1</span>;</span>
+<span class="line" id="L326">        fields.minute = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u7</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">2</span>);</span>
+<span class="line" id="L327">        <span class="tok-kw">if</span> (dt_string_idx != <span class="tok-number">16</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat; <span class="tok-comment">// 1-digit minute not allowed</span>
+</span>
+<span class="line" id="L328">        <span class="tok-kw">if</span> (dt_string_idx == dt_string.len) <span class="tok-kw">break</span> :parseblock;</span>
+<span class="line" id="L329"></span>
+<span class="line" id="L330">        <span class="tok-comment">// yyyy-mm-ddTHH:MM:SS</span>
+</span>
+<span class="line" id="L331">        <span class="tok-kw">if</span> (dt_string[dt_string_idx] != <span class="tok-str">':'</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L332">        dt_string_idx += <span class="tok-number">1</span>;</span>
+<span class="line" id="L333">        fields.second = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u7</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">2</span>);</span>
+<span class="line" id="L334">        <span class="tok-kw">if</span> (dt_string_idx != <span class="tok-number">19</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat; <span class="tok-comment">// 1-digit minute not allowed</span>
+</span>
+<span class="line" id="L335">        <span class="tok-kw">if</span> (dt_string_idx == dt_string.len) <span class="tok-kw">break</span> :parseblock;</span>
+<span class="line" id="L336"></span>
+<span class="line" id="L337">        <span class="tok-comment">// yyyy-mm-ddTHH:MM:SS[+-](offset or Z)</span>
+</span>
+<span class="line" id="L338">        <span class="tok-kw">if</span> (dt_string[dt_string_idx] == <span class="tok-str">'+'</span> <span class="tok-kw">or</span></span>
+<span class="line" id="L339">            dt_string[dt_string_idx] == <span class="tok-str">'-'</span> <span class="tok-kw">or</span></span>
+<span class="line" id="L340">            dt_string[dt_string_idx] == <span class="tok-str">'Z'</span>)</span>
+<span class="line" id="L341">        {</span>
+<span class="line" id="L342">            utcoffset = <span class="tok-kw">try</span> parseOffset(<span class="tok-type">i20</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">9</span>);</span>
+<span class="line" id="L343">            <span class="tok-kw">if</span> (dt_string_idx == dt_string.len) <span class="tok-kw">break</span> :parseblock;</span>
+<span class="line" id="L344">            <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat; <span class="tok-comment">// offset must not befollowed by other fields</span>
+</span>
+<span class="line" id="L345">        }</span>
+<span class="line" id="L346"></span>
+<span class="line" id="L347">        <span class="tok-comment">// yyyy-mm-ddTHH:MM:SS.fff (fractional seconds separator can either be '.' or ',')</span>
+</span>
+<span class="line" id="L348">        <span class="tok-kw">if</span> (!(dt_string[dt_string_idx] == <span class="tok-str">'.'</span> <span class="tok-kw">or</span> dt_string[dt_string_idx] == <span class="tok-str">','</span>)) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L349">        dt_string_idx += <span class="tok-number">1</span>;</span>
+<span class="line" id="L350">        <span class="tok-comment">// parse any number of fractional seconds up to 9</span>
+</span>
+<span class="line" id="L351">        <span class="tok-kw">const</span> tmp_idx = dt_string_idx;</span>
+<span class="line" id="L352">        fields.nanosecond = <span class="tok-kw">try</span> parseDigits(<span class="tok-type">u30</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">9</span>);</span>
+<span class="line" id="L353">        <span class="tok-kw">const</span> missing = <span class="tok-number">9</span> - (dt_string_idx - tmp_idx);</span>
+<span class="line" id="L354">        <span class="tok-kw">const</span> f: <span class="tok-type">u30</span> = <span class="tok-kw">try</span> std.math.powi(<span class="tok-type">u30</span>, <span class="tok-number">10</span>, <span class="tok-builtin">@as</span>(<span class="tok-type">u30</span>, <span class="tok-builtin">@intCast</span>(missing)));</span>
+<span class="line" id="L355">        fields.nanosecond *= f;</span>
+<span class="line" id="L356">        <span class="tok-kw">if</span> (dt_string_idx == dt_string.len) <span class="tok-kw">break</span> :parseblock;</span>
+<span class="line" id="L357"></span>
+<span class="line" id="L358">        <span class="tok-comment">// trailing UTC offset</span>
+</span>
+<span class="line" id="L359">        utcoffset = <span class="tok-kw">try</span> parseOffset(<span class="tok-type">i20</span>, dt_string, &amp;dt_string_idx, <span class="tok-number">9</span>);</span>
+<span class="line" id="L360">    }</span>
+<span class="line" id="L361"></span>
+<span class="line" id="L362">    <span class="tok-comment">// if we come here, the string must be completely consumed</span>
+</span>
+<span class="line" id="L363">    <span class="tok-kw">if</span> (dt_string_idx != dt_string.len) {</span>
+<span class="line" id="L364">        <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L365">    }</span>
+<span class="line" id="L366"></span>
+<span class="line" id="L367">    <span class="tok-kw">if</span> (utcoffset != <span class="tok-null">null</span>) {</span>
+<span class="line" id="L368">        <span class="tok-kw">if</span> (dt_string[dt_string_idx - <span class="tok-number">1</span>] == <span class="tok-str">'Z'</span>) {</span>
+<span class="line" id="L369">            fields.tzinfo = Tz.UTC;</span>
+<span class="line" id="L370">        } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L371">            fields.tzinfo = <span class="tok-kw">try</span> Tz.fromOffset(utcoffset.?, <span class="tok-str">&quot;&quot;</span>);</span>
+<span class="line" id="L372">        }</span>
+<span class="line" id="L373">    }</span>
+<span class="line" id="L374"></span>
+<span class="line" id="L375">    <span class="tok-kw">return</span> Datetime.fromFields(fields);</span>
+<span class="line" id="L376">}</span>
+<span class="line" id="L377"></span>
+<span class="line" id="L378"><span class="tok-comment">// ----- String to Datetime Helpers -----------------</span>
+</span>
+<span class="line" id="L379"></span>
+<span class="line" id="L380"><span class="tok-comment">// for any numeric quantity</span>
+</span>
+<span class="line" id="L381"><span class="tok-kw">fn</span> <span class="tok-fn">parseDigits</span>(<span class="tok-kw">comptime</span> T: <span class="tok-type">type</span>, dt_string: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>, idx: *<span class="tok-type">usize</span>, maxDigits: <span class="tok-type">usize</span>) !T {</span>
+<span class="line" id="L382">    <span class="tok-kw">const</span> start_idx = idx.*;</span>
+<span class="line" id="L383">    <span class="tok-kw">if</span> (!std.ascii.isDigit(dt_string[start_idx])) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L384"></span>
+<span class="line" id="L385">    idx.* += <span class="tok-number">1</span>;</span>
+<span class="line" id="L386">    <span class="tok-kw">while</span> (idx.* &lt; dt_string.len <span class="tok-kw">and</span> <span class="tok-comment">// check first if dt_string depleted</span>
+</span>
+<span class="line" id="L387">        idx.* &lt; start_idx + maxDigits <span class="tok-kw">and</span></span>
+<span class="line" id="L388">        std.ascii.isDigit(dt_string[idx.*])) : (idx.* += <span class="tok-number">1</span>)</span>
+<span class="line" id="L389">    {}</span>
+<span class="line" id="L390"></span>
+<span class="line" id="L391">    <span class="tok-kw">return</span> <span class="tok-kw">try</span> std.fmt.parseInt(T, dt_string[start_idx..idx.*], <span class="tok-number">10</span>);</span>
+<span class="line" id="L392">}</span>
+<span class="line" id="L393"></span>
+<span class="line" id="L394"><span class="tok-comment">// offset UTC in the from of (+|-)hh[:mm[:ss]] or Z</span>
+</span>
+<span class="line" id="L395"><span class="tok-kw">fn</span> <span class="tok-fn">parseOffset</span>(<span class="tok-kw">comptime</span> T: <span class="tok-type">type</span>, dt_string: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>, idx: *<span class="tok-type">usize</span>, maxDigits: <span class="tok-type">usize</span>) !T {</span>
+<span class="line" id="L396">    <span class="tok-kw">const</span> start_idx = idx.*;</span>
+<span class="line" id="L397"></span>
+<span class="line" id="L398">    <span class="tok-kw">var</span> sign: <span class="tok-type">i2</span> = <span class="tok-number">1</span>;</span>
+<span class="line" id="L399">    <span class="tok-kw">switch</span> (dt_string[start_idx]) {</span>
+<span class="line" id="L400">        <span class="tok-str">'+'</span> =&gt; sign = <span class="tok-number">1</span>,</span>
+<span class="line" id="L401">        <span class="tok-str">'-'</span> =&gt; sign = -<span class="tok-number">1</span>,</span>
+<span class="line" id="L402">        <span class="tok-str">'Z'</span> =&gt; {</span>
+<span class="line" id="L403">            idx.* += <span class="tok-number">1</span>;</span>
+<span class="line" id="L404">            <span class="tok-kw">return</span> <span class="tok-number">0</span>;</span>
+<span class="line" id="L405">        },</span>
+<span class="line" id="L406">        <span class="tok-kw">else</span> =&gt; <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat, <span class="tok-comment">// must start with sign</span>
+</span>
+<span class="line" id="L407">    }</span>
+<span class="line" id="L408"></span>
+<span class="line" id="L409">    idx.* += <span class="tok-number">1</span>;</span>
+<span class="line" id="L410">    <span class="tok-kw">while</span> (idx.* &lt; dt_string.len <span class="tok-kw">and</span> <span class="tok-comment">// check first if dt_string depleted</span>
+</span>
+<span class="line" id="L411">        idx.* &lt; start_idx + maxDigits <span class="tok-kw">and</span></span>
+<span class="line" id="L412">        (std.ascii.isDigit(dt_string[idx.*]) <span class="tok-kw">or</span> dt_string[idx.*] == <span class="tok-str">':'</span>)) : (idx.* += <span class="tok-number">1</span>)</span>
+<span class="line" id="L413">    {}</span>
+<span class="line" id="L414"></span>
+<span class="line" id="L415">    <span class="tok-comment">// clean offset string:</span>
+</span>
+<span class="line" id="L416">    <span class="tok-kw">var</span> index: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L417">    <span class="tok-kw">var</span> offset_chars = [<span class="tok-number">6</span>]<span class="tok-type">u8</span>{ <span class="tok-number">48</span>, <span class="tok-number">48</span>, <span class="tok-number">48</span>, <span class="tok-number">48</span>, <span class="tok-number">48</span>, <span class="tok-number">48</span> }; <span class="tok-comment">// start with 000000;</span>
+</span>
+<span class="line" id="L418">    <span class="tok-kw">for</span> (dt_string[start_idx + <span class="tok-number">1</span> .. idx.*]) |c| { <span class="tok-comment">//                   hhmmss</span>
+</span>
+<span class="line" id="L419">        <span class="tok-kw">if</span> (c != <span class="tok-str">':'</span>) {</span>
+<span class="line" id="L420">            offset_chars[index] = c;</span>
+<span class="line" id="L421">            index += <span class="tok-number">1</span>;</span>
+<span class="line" id="L422">        }</span>
+<span class="line" id="L423">        <span class="tok-kw">if</span> (index == <span class="tok-number">6</span>) <span class="tok-kw">break</span>;</span>
+<span class="line" id="L424">    }</span>
+<span class="line" id="L425">    <span class="tok-kw">if</span> (index &lt; <span class="tok-number">2</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat; <span class="tok-comment">// offset must be at least 2 chars</span>
+</span>
+<span class="line" id="L426"></span>
+<span class="line" id="L427">    <span class="tok-kw">const</span> i = std.fmt.parseInt(T, &amp;offset_chars, <span class="tok-number">10</span>) <span class="tok-kw">catch</span> <span class="tok-kw">return</span> <span class="tok-kw">error</span>.InvalidFormat;</span>
+<span class="line" id="L428">    <span class="tok-kw">const</span> hours = <span class="tok-builtin">@divFloor</span>(i, <span class="tok-number">10000</span>);</span>
+<span class="line" id="L429">    <span class="tok-kw">const</span> remainder = <span class="tok-builtin">@mod</span>(i, <span class="tok-number">10000</span>);</span>
+<span class="line" id="L430">    <span class="tok-kw">const</span> minutes = <span class="tok-builtin">@divFloor</span>(remainder, <span class="tok-number">100</span>);</span>
+<span class="line" id="L431">    <span class="tok-kw">const</span> seconds = <span class="tok-builtin">@mod</span>(remainder, <span class="tok-number">100</span>);</span>
+<span class="line" id="L432">    <span class="tok-kw">return</span> sign * (hours * <span class="tok-number">3600</span> + minutes * <span class="tok-number">60</span> + seconds);</span>
+<span class="line" id="L433">}</span>
+<span class="line" id="L434"></span>
+<span class="line" id="L435"><span class="tok-comment">// --- internal tests</span>
+</span>
+<span class="line" id="L436"></span>
+<span class="line" id="L437"><span class="tok-kw">const</span> TestCase = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L438">    string: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
+<span class="line" id="L439">    dt: Datetime,</span>
+<span class="line" id="L440">    directive: []<span class="tok-kw">const</span> <span class="tok-type">u8</span> = <span class="tok-str">&quot;&quot;</span>,</span>
+<span class="line" id="L441">};</span>
+<span class="line" id="L442"></span>
+<span class="line" id="L443"><span class="tok-kw">test</span> <span class="tok-str">&quot;format naive datetimes with parts api&quot;</span> {</span>
+<span class="line" id="L444">    <span class="tok-kw">const</span> cases = [_]TestCase{</span>
+<span class="line" id="L445">        .{</span>
+<span class="line" id="L446">            .dt = <span class="tok-kw">try</span> Datetime.fromFields(.{ .year = <span class="tok-number">2021</span>, .month = <span class="tok-number">2</span>, .day = <span class="tok-number">18</span>, .hour = <span class="tok-number">17</span> }),</span>
+<span class="line" id="L447">            .string = <span class="tok-str">&quot;2021-02-18 17:00:00&quot;</span>,</span>
+<span class="line" id="L448">        },</span>
+<span class="line" id="L449">        .{</span>
+<span class="line" id="L450">            .dt = <span class="tok-kw">try</span> Datetime.fromFields(.{ .year = <span class="tok-number">1970</span> }),</span>
+<span class="line" id="L451">            .string = <span class="tok-str">&quot;1970-01-01 00:00:00&quot;</span>,</span>
+<span class="line" id="L452">        },</span>
+<span class="line" id="L453">    };</span>
+<span class="line" id="L454"></span>
+<span class="line" id="L455">    <span class="tok-kw">const</span> parts = <span class="tok-kw">try</span> parseFormatAlloc(std.testing.allocator, <span class="tok-str">&quot;%Y-%m-%d %H:%M:%S&quot;</span>);</span>
+<span class="line" id="L456">    <span class="tok-kw">defer</span> std.testing.allocator.free(parts);</span>
+<span class="line" id="L457"></span>
+<span class="line" id="L458">    <span class="tok-kw">for</span> (cases) |case| {</span>
+<span class="line" id="L459">        <span class="tok-kw">var</span> s = std.ArrayList(<span class="tok-type">u8</span>).init(std.testing.allocator);</span>
+<span class="line" id="L460">        <span class="tok-kw">defer</span> s.deinit();</span>
+<span class="line" id="L461">        <span class="tok-kw">try</span> formatDatetimeParts(s.writer(), parts, case.dt);</span>
+<span class="line" id="L462">        <span class="tok-kw">try</span> std.testing.expectEqualStrings(case.string, s.items);</span>
+<span class="line" id="L463">    }</span>
+<span class="line" id="L464">}</span>
+<span class="line" id="L465"></span>
+<span class="line" id="L466"><span class="tok-kw">test</span> <span class="tok-str">&quot;parse format string&quot;</span> {</span>
+<span class="line" id="L467">    <span class="tok-kw">const</span> parts = <span class="tok-kw">try</span> parseFormatAlloc(std.testing.allocator, <span class="tok-str">&quot;%Y-%m-%d %H:%M:%S.%f&quot;</span>);</span>
+<span class="line" id="L468">    <span class="tok-kw">defer</span> std.testing.allocator.free(parts);</span>
+<span class="line" id="L469">    <span class="tok-kw">try</span> std.testing.expectEqualSlices(Part, &amp;[_]Part{</span>
+<span class="line" id="L470">        .{ .specifier = .year },</span>
+<span class="line" id="L471">        .{ .literal = <span class="tok-str">'-'</span> },</span>
+<span class="line" id="L472">        .{ .specifier = .month },</span>
+<span class="line" id="L473">        .{ .literal = <span class="tok-str">'-'</span> },</span>
+<span class="line" id="L474">        .{ .specifier = .day },</span>
+<span class="line" id="L475">        .{ .literal = <span class="tok-str">' '</span> },</span>
+<span class="line" id="L476">        .{ .specifier = .hour },</span>
+<span class="line" id="L477">        .{ .literal = <span class="tok-str">':'</span> },</span>
+<span class="line" id="L478">        .{ .specifier = .min },</span>
+<span class="line" id="L479">        .{ .literal = <span class="tok-str">':'</span> },</span>
+<span class="line" id="L480">        .{ .specifier = .sec },</span>
+<span class="line" id="L481">        .{ .literal = <span class="tok-str">'.'</span> },</span>
+<span class="line" id="L482">        .{ .specifier = .nanos },</span>
+<span class="line" id="L483">    }, parts);</span>
+<span class="line" id="L484">}</span>
+<span class="line" id="L485"></span>
+</code></pre></body>
+</html>

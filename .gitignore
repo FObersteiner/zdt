@@ -2,11 +2,6 @@
 /zig-cache/
 /zig-out/
 
-# docs not needed for using the lib:
-/doc/autogen/
-# some more private stuff
-/doc/literature/
-
 # tz submodule
 /tz/*
 /tz/**

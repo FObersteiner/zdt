@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">    <title>lib/Datetime.zig - source view</title>
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAgklEQVR4AWMYWuD7EllJIM4G4g4g5oIJ/odhOJ8wToOxSTXgNxDHoeiBMfA4+wGShjyYOCkG/IGqWQziEzYAoUAeiF9D5U+DxEg14DRU7jWIT5IBIOdCxf+A+CQZAAoopEB7QJwBCBwHiip8UYmRdrAlDpIMgApwQZNnNii5Dq0MBgCxxycBnwEd+wAAAABJRU5ErkJggg==">
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTMgMTQwIj48ZyBmaWxsPSIjRjdBNDFEIj48Zz48cG9seWdvbiBwb2ludHM9IjQ2LDIyIDI4LDQ0IDE5LDMwIi8+PHBvbHlnb24gcG9pbnRzPSI0NiwyMiAzMywzMyAyOCw0NCAyMiw0NCAyMiw5NSAzMSw5NSAyMCwxMDAgMTIsMTE3IDAsMTE3IDAsMjIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMzEsOTUgMTIsMTE3IDQsMTA2Ii8+PC9nPjxnPjxwb2x5Z29uIHBvaW50cz0iNTYsMjIgNjIsMzYgMzcsNDQiLz48cG9seWdvbiBwb2ludHM9IjU2LDIyIDExMSwyMiAxMTEsNDQgMzcsNDQgNTYsMzIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMTE2LDk1IDk3LDExNyA5MCwxMDQiLz48cG9seWdvbiBwb2ludHM9IjExNiw5NSAxMDAsMTA0IDk3LDExNyA0MiwxMTcgNDIsOTUiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMTUwLDAgNTIsMTE3IDMsMTQwIDEwMSwyMiIvPjwvZz48Zz48cG9seWdvbiBwb2ludHM9IjE0MSwyMiAxNDAsNDAgMTIyLDQ1Ii8+PHBvbHlnb24gcG9pbnRzPSIxNTMsMjIgMTUzLDExNyAxMDYsMTE3IDEyMCwxMDUgMTI1LDk1IDEzMSw5NSAxMzEsNDUgMTIyLDQ1IDEzMiwzNiAxNDEsMjIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMTI1LDk1IDEzMCwxMTAgMTA2LDExNyIvPjwvZz48L2c+PC9zdmc+">
+    <style>
+      body{
+        font-family: system-ui, -apple-system, Roboto, "Segoe UI", sans-serif;
+        margin: 0;
+        line-height: 1.5;
+      }
+
+      pre > code {
+        display: block;
+        overflow: auto;
+        line-height: normal;
+        margin: 0em;
+      }
+      .tok-kw {
+          color: #333;
+          font-weight: bold;
+      }
+      .tok-str {
+          color: #d14;
+      }
+      .tok-builtin {
+          color: #005C7A;
+      }
+      .tok-comment {
+          color: #545454;
+          font-style: italic;
+      }
+      .tok-fn {
+          color: #900;
+          font-weight: bold;
+      }
+      .tok-null {
+          color: #005C5C;
+      }
+      .tok-number {
+          color: #005C5C;
+      }
+      .tok-type {
+          color: #458;
+          font-weight: bold;
+      }
+      pre {
+        counter-reset: line;
+      }
+      pre .line:before {
+        counter-increment: line;
+        content: counter(line);
+        display: inline-block;
+        padding-right: 1em;
+        width: 2em;
+        text-align: right;
+        color: #999;
+      }
+      
+      .line {
+        width: 100%;
+        display: inline-block;
+      }
+      .line:target {
+        border-top: 1px solid #ccc;
+        border-bottom: 1px solid #ccc;
+        background: #fafafa;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body{
+            background:#222;
+            color: #ccc;
+        }
+        pre > code {
+            color: #ccc;
+            background: #222;
+            border: unset;
+        }
+        .line:target {
+            border-top: 1px solid #444;
+            border-bottom: 1px solid #444;
+            background: #333;
+        }
+        .tok-kw {
+            color: #eee;
+        }
+        .tok-str {
+            color: #2e5;
+        }
+        .tok-builtin {
+            color: #ff894c;
+        }
+        .tok-comment {
+            color: #aa7;
+        }
+        .tok-fn {
+            color: #B1A0F8;
+        }
+        .tok-null {
+            color: #ff8080;
+        }
+        .tok-number {
+            color: #ff8080;
+        }
+        .tok-type {
+            color: #68f;
+        }
+      }
+    </style>
+</head>
+<body>
+<pre><code><span class="line" id="L1"><span class="tok-comment">//! an instant in time</span></span>
+<span class="line" id="L2"></span>
+<span class="line" id="L3"><span class="tok-kw">const</span> std = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;std&quot;</span>);</span>
+<span class="line" id="L4"></span>
+<span class="line" id="L5"><span class="tok-kw">const</span> log = std.log.scoped(.zdt__Datetime);</span>
+<span class="line" id="L6"></span>
+<span class="line" id="L7"><span class="tok-kw">const</span> cal = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./calendar.zig&quot;</span>);</span>
+<span class="line" id="L8"><span class="tok-kw">const</span> Duration = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./Duration.zig&quot;</span>);</span>
+<span class="line" id="L9"><span class="tok-kw">const</span> Timezone = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./Timezone.zig&quot;</span>);</span>
+<span class="line" id="L10"><span class="tok-kw">const</span> tzif = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./tzif.zig&quot;</span>);</span>
+<span class="line" id="L11"><span class="tok-kw">const</span> RangeError = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./errors.zig&quot;</span>).RangeError;</span>
+<span class="line" id="L12"><span class="tok-kw">const</span> TzError = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./errors.zig&quot;</span>).TzError;</span>
+<span class="line" id="L13"><span class="tok-kw">const</span> ZdtError = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./errors.zig&quot;</span>).ZdtError;</span>
+<span class="line" id="L14"></span>
+<span class="line" id="L15"><span class="tok-kw">const</span> Datetime = <span class="tok-builtin">@This</span>();</span>
+<span class="line" id="L16"></span>
+<span class="line" id="L17">year: <span class="tok-type">u14</span> = <span class="tok-number">1</span>, <span class="tok-comment">// [1, 9999]</span>
+</span>
+<span class="line" id="L18">month: <span class="tok-type">u4</span> = <span class="tok-number">1</span>, <span class="tok-comment">// [1, 12]</span>
+</span>
+<span class="line" id="L19">day: <span class="tok-type">u5</span> = <span class="tok-number">1</span>, <span class="tok-comment">// [1, 32]</span>
+</span>
+<span class="line" id="L20">hour: <span class="tok-type">u5</span> = <span class="tok-number">0</span>, <span class="tok-comment">// [0, 23]</span>
+</span>
+<span class="line" id="L21">minute: <span class="tok-type">u6</span> = <span class="tok-number">0</span>, <span class="tok-comment">// [0, 59]</span>
+</span>
+<span class="line" id="L22">second: <span class="tok-type">u6</span> = <span class="tok-number">0</span>, <span class="tok-comment">// [0, 60]</span>
+</span>
+<span class="line" id="L23">nanosecond: <span class="tok-type">u30</span> = <span class="tok-number">0</span>, <span class="tok-comment">// [0, 999999999]</span>
+</span>
+<span class="line" id="L24">tzinfo: ?Timezone = <span class="tok-null">null</span>,</span>
+<span class="line" id="L25"></span>
+<span class="line" id="L26"><span class="tok-comment">// Seconds since the Unix epoch as incremental time (&quot;serial&quot; time).</span>
+</span>
+<span class="line" id="L27"><span class="tok-comment">// This must always refer to 1970-01-01T00:00:00Z, not counting leap seconds</span>
+</span>
+<span class="line" id="L28">__unix: <span class="tok-type">i40</span> = unix_s_min, <span class="tok-comment">// [unix_s_min, unix_s_max]</span>
+</span>
+<span class="line" id="L29"></span>
+<span class="line" id="L30"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> min_year: <span class="tok-type">u14</span> = <span class="tok-number">1</span>; <span class="tok-comment">// r.d.; 0001-01-01</span>
+</span>
+<span class="line" id="L31"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> max_year: <span class="tok-type">u14</span> = <span class="tok-number">9999</span>;</span>
+<span class="line" id="L32"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> unix_s_min: <span class="tok-type">i40</span> = -<span class="tok-number">62135596800</span>;</span>
+<span class="line" id="L33"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> unix_s_max: <span class="tok-type">i40</span> = <span class="tok-number">253402300799</span>;</span>
+<span class="line" id="L34"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> epoch = Datetime{ .year = <span class="tok-number">1970</span>, .__unix = <span class="tok-number">0</span>, .tzinfo = Timezone.UTC };</span>
+<span class="line" id="L35"></span>
+<span class="line" id="L36"><span class="tok-comment">// constants with the number of bits limited to what is required</span>
+</span>
+<span class="line" id="L37"><span class="tok-kw">const</span> s_per_minute: <span class="tok-type">u6</span> = <span class="tok-number">60</span>;</span>
+<span class="line" id="L38"><span class="tok-kw">const</span> s_per_hour: <span class="tok-type">u12</span> = <span class="tok-number">3600</span>;</span>
+<span class="line" id="L39"><span class="tok-kw">const</span> s_per_day: <span class="tok-type">u17</span> = <span class="tok-number">86400</span>;</span>
+<span class="line" id="L40"><span class="tok-kw">const</span> ms_per_s: <span class="tok-type">u10</span> = <span class="tok-number">1_000</span>;</span>
+<span class="line" id="L41"><span class="tok-kw">const</span> us_per_s: <span class="tok-type">u20</span> = <span class="tok-number">1_000_000</span>;</span>
+<span class="line" id="L42"><span class="tok-kw">const</span> ns_per_s: <span class="tok-type">u30</span> = <span class="tok-number">1_000_000_000</span>;</span>
+<span class="line" id="L43"></span>
+<span class="line" id="L44"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Weekday = <span class="tok-kw">enum</span>(<span class="tok-type">u3</span>) {</span>
+<span class="line" id="L45">    Sunday = <span class="tok-number">0</span>,</span>
+<span class="line" id="L46">    Monday = <span class="tok-number">1</span>,</span>
+<span class="line" id="L47">    Tuesday = <span class="tok-number">2</span>,</span>
+<span class="line" id="L48">    Wednesday = <span class="tok-number">3</span>,</span>
+<span class="line" id="L49">    Thursday = <span class="tok-number">4</span>,</span>
+<span class="line" id="L50">    Friday = <span class="tok-number">5</span>,</span>
+<span class="line" id="L51">    Saturday = <span class="tok-number">6</span>,</span>
+<span class="line" id="L52"></span>
+<span class="line" id="L53">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">shortName</span>(w: Weekday) []<span class="tok-kw">const</span> <span class="tok-type">u8</span> {</span>
+<span class="line" id="L54">        <span class="tok-kw">return</span> <span class="tok-builtin">@tagName</span>(w)[<span class="tok-number">0</span>..<span class="tok-number">3</span>];</span>
+<span class="line" id="L55">    }</span>
+<span class="line" id="L56"></span>
+<span class="line" id="L57">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">longName</span>(w: Weekday) []<span class="tok-kw">const</span> <span class="tok-type">u8</span> {</span>
+<span class="line" id="L58">        <span class="tok-kw">return</span> <span class="tok-builtin">@tagName</span>(w);</span>
+<span class="line" id="L59">    }</span>
+<span class="line" id="L60">};</span>
+<span class="line" id="L61"></span>
+<span class="line" id="L62"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Month = <span class="tok-kw">enum</span>(<span class="tok-type">u4</span>) {</span>
+<span class="line" id="L63">    January = <span class="tok-number">1</span>,</span>
+<span class="line" id="L64">    February = <span class="tok-number">2</span>,</span>
+<span class="line" id="L65">    March = <span class="tok-number">3</span>,</span>
+<span class="line" id="L66">    April = <span class="tok-number">4</span>,</span>
+<span class="line" id="L67">    May = <span class="tok-number">5</span>,</span>
+<span class="line" id="L68">    June = <span class="tok-number">6</span>,</span>
+<span class="line" id="L69">    July = <span class="tok-number">7</span>,</span>
+<span class="line" id="L70">    August = <span class="tok-number">8</span>,</span>
+<span class="line" id="L71">    September = <span class="tok-number">9</span>,</span>
+<span class="line" id="L72">    October = <span class="tok-number">10</span>,</span>
+<span class="line" id="L73">    November = <span class="tok-number">11</span>,</span>
+<span class="line" id="L74">    December = <span class="tok-number">12</span>,</span>
+<span class="line" id="L75"></span>
+<span class="line" id="L76">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">shortName</span>(m: Month) []<span class="tok-kw">const</span> <span class="tok-type">u8</span> {</span>
+<span class="line" id="L77">        <span class="tok-kw">return</span> <span class="tok-builtin">@tagName</span>(m)[<span class="tok-number">0</span>..<span class="tok-number">3</span>];</span>
+<span class="line" id="L78">    }</span>
+<span class="line" id="L79"></span>
+<span class="line" id="L80">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">longName</span>(m: Month) []<span class="tok-kw">const</span> <span class="tok-type">u8</span> {</span>
+<span class="line" id="L81">        <span class="tok-kw">return</span> <span class="tok-builtin">@tagName</span>(m);</span>
+<span class="line" id="L82">    }</span>
+<span class="line" id="L83">};</span>
+<span class="line" id="L84"></span>
+<span class="line" id="L85"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> ISOCalendar = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L86">    year: <span class="tok-type">u14</span>, <span class="tok-comment">// [1, 9999]</span>
+</span>
+<span class="line" id="L87">    isoweek: <span class="tok-type">u6</span>, <span class="tok-comment">// [1, 53]</span>
+</span>
+<span class="line" id="L88">    isoweekday: <span class="tok-type">u3</span>, <span class="tok-comment">// [1, 7]</span>
+</span>
+<span class="line" id="L89"></span>
+<span class="line" id="L90">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">format</span>(</span>
+<span class="line" id="L91">        self: ISOCalendar,</span>
+<span class="line" id="L92">        <span class="tok-kw">comptime</span> fmt: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
+<span class="line" id="L93">        options: std.fmt.FormatOptions,</span>
+<span class="line" id="L94">        writer: <span class="tok-kw">anytype</span>,</span>
+<span class="line" id="L95">    ) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L96">        _ = fmt;</span>
+<span class="line" id="L97">        _ = options;</span>
+<span class="line" id="L98">        <span class="tok-kw">try</span> writer.print(</span>
+<span class="line" id="L99">            <span class="tok-str">&quot;{d:0&gt;4}-W{d:0&gt;2}-{d}T{d:0&gt;2}:{d:0&gt;2}:{d:0&gt;2}&quot;</span>,</span>
+<span class="line" id="L100">            .{ self.year, self.isoweek, self.isoweekday },</span>
+<span class="line" id="L101">        );</span>
+<span class="line" id="L102">    }</span>
+<span class="line" id="L103">};</span>
+<span class="line" id="L104"></span>
+<span class="line" id="L105"><span class="tok-comment">/// the fields of a datetime instance</span></span>
+<span class="line" id="L106"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Fields = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L107">    year: <span class="tok-type">u14</span> = <span class="tok-number">1</span>, <span class="tok-comment">// [1, 9999]</span>
+</span>
+<span class="line" id="L108">    <span class="tok-comment">// u7 because we need to cover potential invalid input from a datetime string,</span>
+</span>
+<span class="line" id="L109">    <span class="tok-comment">// e.g.'99' for the hour field</span>
+</span>
+<span class="line" id="L110">    month: <span class="tok-type">u7</span> = <span class="tok-number">1</span>, <span class="tok-comment">// [1, 12]</span>
+</span>
+<span class="line" id="L111">    day: <span class="tok-type">u7</span> = <span class="tok-number">1</span>, <span class="tok-comment">// [1, 32]</span>
+</span>
+<span class="line" id="L112">    hour: <span class="tok-type">u7</span> = <span class="tok-number">0</span>, <span class="tok-comment">// [0, 23]</span>
+</span>
+<span class="line" id="L113">    minute: <span class="tok-type">u7</span> = <span class="tok-number">0</span>, <span class="tok-comment">// [0, 59]</span>
+</span>
+<span class="line" id="L114">    second: <span class="tok-type">u7</span> = <span class="tok-number">0</span>, <span class="tok-comment">// [0, 60]</span>
+</span>
+<span class="line" id="L115">    nanosecond: <span class="tok-type">u30</span> = <span class="tok-number">0</span>, <span class="tok-comment">// [0, 999999999]</span>
+</span>
+<span class="line" id="L116">    tzinfo: ?Timezone = <span class="tok-null">null</span>,</span>
+<span class="line" id="L117"></span>
+<span class="line" id="L118">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">validate</span>(self: Fields) ZdtError!<span class="tok-type">void</span> {</span>
+<span class="line" id="L119">        <span class="tok-kw">if</span> (self.year &gt; max_year <span class="tok-kw">or</span> self.year &lt; min_year) <span class="tok-kw">return</span> ZdtError.YearOutOfRange;</span>
+<span class="line" id="L120">        <span class="tok-kw">if</span> (self.month &gt; <span class="tok-number">12</span> <span class="tok-kw">or</span> self.month &lt; <span class="tok-number">1</span>) <span class="tok-kw">return</span> ZdtError.MonthOutOfRange;</span>
+<span class="line" id="L121">        <span class="tok-kw">const</span> max_days = cal.daysInMonth(<span class="tok-builtin">@truncate</span>(self.month), cal.isLeapYear(self.year));</span>
+<span class="line" id="L122">        <span class="tok-kw">if</span> (self.day &gt; max_days <span class="tok-kw">or</span> self.day &lt; <span class="tok-number">1</span>) <span class="tok-kw">return</span> ZdtError.DayOutOfRange;</span>
+<span class="line" id="L123">        <span class="tok-kw">if</span> (self.hour &gt; <span class="tok-number">23</span>) <span class="tok-kw">return</span> ZdtError.HourOutOfRange;</span>
+<span class="line" id="L124">        <span class="tok-kw">if</span> (self.minute &gt; <span class="tok-number">59</span>) <span class="tok-kw">return</span> ZdtError.MinuteOutOfRange;</span>
+<span class="line" id="L125">        <span class="tok-kw">if</span> (self.second &gt; <span class="tok-number">60</span>) <span class="tok-kw">return</span> ZdtError.SecondOutOfRange;</span>
+<span class="line" id="L126">        <span class="tok-kw">if</span> (self.nanosecond &gt; <span class="tok-number">999999999</span>) <span class="tok-kw">return</span> ZdtError.NanosecondOutOfRange;</span>
+<span class="line" id="L127"></span>
+<span class="line" id="L128">        <span class="tok-comment">// if a tz is provided, it must allow offset calculation, which requires</span>
+</span>
+<span class="line" id="L129">        <span class="tok-comment">// one of the types to be not-null:</span>
+</span>
+<span class="line" id="L130">        <span class="tok-kw">if</span> (self.tzinfo != <span class="tok-null">null</span>) {</span>
+<span class="line" id="L131">            <span class="tok-kw">if</span> (self.tzinfo.?.tzFile == <span class="tok-null">null</span> <span class="tok-kw">and</span></span>
+<span class="line" id="L132">                self.tzinfo.?.tzOffset == <span class="tok-null">null</span> <span class="tok-kw">and</span></span>
+<span class="line" id="L133">                self.tzinfo.?.tzPosix == <span class="tok-null">null</span>)</span>
+<span class="line" id="L134">            {</span>
+<span class="line" id="L135">                <span class="tok-kw">return</span> ZdtError.AllTZRulesUndefined;</span>
+<span class="line" id="L136">            }</span>
+<span class="line" id="L137">        }</span>
+<span class="line" id="L138">    }</span>
+<span class="line" id="L139">};</span>
+<span class="line" id="L140"></span>
+<span class="line" id="L141"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">fromFields</span>(fields: Fields) ZdtError!Datetime {</span>
+<span class="line" id="L142">    _ = <span class="tok-kw">try</span> fields.validate();</span>
+<span class="line" id="L143">    <span class="tok-kw">const</span> d = cal.dateToRD([_]<span class="tok-type">u16</span>{ fields.year, fields.month, fields.day });</span>
+<span class="line" id="L144">    <span class="tok-comment">// Note : need to truncate seconds to 59 so that Unix time is correct</span>
+</span>
+<span class="line" id="L145">    <span class="tok-kw">const</span> s = <span class="tok-kw">if</span> (fields.second == <span class="tok-number">60</span>) <span class="tok-number">59</span> <span class="tok-kw">else</span> fields.second;</span>
+<span class="line" id="L146">    <span class="tok-kw">var</span> dt = Datetime{</span>
+<span class="line" id="L147">        .year = fields.year,</span>
+<span class="line" id="L148">        .month = <span class="tok-builtin">@truncate</span>(fields.month),</span>
+<span class="line" id="L149">        .day = <span class="tok-builtin">@truncate</span>(fields.day),</span>
+<span class="line" id="L150">        .hour = <span class="tok-builtin">@truncate</span>(fields.hour),</span>
+<span class="line" id="L151">        .minute = <span class="tok-builtin">@truncate</span>(fields.minute),</span>
+<span class="line" id="L152">        .second = <span class="tok-builtin">@truncate</span>(fields.second),</span>
+<span class="line" id="L153">        .nanosecond = fields.nanosecond,</span>
+<span class="line" id="L154">        .tzinfo = fields.tzinfo,</span>
+<span class="line" id="L155">        .__unix = ( <span class="tok-comment">//</span>
+</span>
+<span class="line" id="L156">            <span class="tok-builtin">@as</span>(<span class="tok-type">i40</span>, d) * s_per_day +</span>
+<span class="line" id="L157">            <span class="tok-builtin">@as</span>(<span class="tok-type">u17</span>, fields.hour) * s_per_hour +</span>
+<span class="line" id="L158">            <span class="tok-builtin">@as</span>(<span class="tok-type">u12</span>, fields.minute) * s_per_minute + s <span class="tok-comment">//</span>
+</span>
+<span class="line" id="L159">        ),</span>
+<span class="line" id="L160">    };</span>
+<span class="line" id="L161"></span>
+<span class="line" id="L162">    <span class="tok-comment">// Shortcut #1: if tzinfo is null, make and return naive datetime</span>
+</span>
+<span class="line" id="L163">    <span class="tok-kw">if</span> (fields.tzinfo == <span class="tok-null">null</span>) {</span>
+<span class="line" id="L164">        <span class="tok-kw">return</span> dt;</span>
+<span class="line" id="L165">    }</span>
+<span class="line" id="L166"></span>
+<span class="line" id="L167">    <span class="tok-comment">// Shortcut #2: if we have a fixed offset tz, we can calculate Unix time easily</span>
+</span>
+<span class="line" id="L168">    <span class="tok-kw">if</span> (fields.tzinfo.?.tzOffset != <span class="tok-null">null</span> <span class="tok-kw">and</span> fields.tzinfo.?.tzFile == <span class="tok-null">null</span>) {</span>
+<span class="line" id="L169">        dt.__unix -= fields.tzinfo.?.tzOffset.?.seconds_east;</span>
+<span class="line" id="L170">        <span class="tok-kw">return</span> dt;</span>
+<span class="line" id="L171">    }</span>
+<span class="line" id="L172"></span>
+<span class="line" id="L173">    <span class="tok-comment">// A &quot;real&quot; time zone is more complicated. We have already calculated a</span>
+</span>
+<span class="line" id="L174">    <span class="tok-comment">// 'localized' Unix time, as dt.__unix.</span>
+</span>
+<span class="line" id="L175">    <span class="tok-comment">// For that, We can obtain a UTC offset, subtract it and see if we get the same datetime.</span>
+</span>
+<span class="line" id="L176">    <span class="tok-kw">const</span> local_tz = <span class="tok-kw">try</span> fields.tzinfo.?.atUnixtime(dt.__unix);</span>
+<span class="line" id="L177">    <span class="tok-kw">const</span> unix_guess_1 = dt.__unix - local_tz.seconds_east;</span>
+<span class="line" id="L178">    <span class="tok-kw">var</span> dt_guess_1 = <span class="tok-kw">try</span> Datetime.fromUnix(unix_guess_1, Duration.Resolution.second, fields.tzinfo);</span>
+<span class="line" id="L179">    dt_guess_1.nanosecond = fields.nanosecond;</span>
+<span class="line" id="L180"></span>
+<span class="line" id="L181">    <span class="tok-comment">// However, we could still have an ambiguous datetime or a datetime in a gap of</span>
+</span>
+<span class="line" id="L182">    <span class="tok-comment">// a DST transition. To exclude that, we need the surrounding timetypes of the current one.</span>
+</span>
+<span class="line" id="L183">    <span class="tok-kw">const</span> sts = __getSurroundingTimetypes(local_tz.__transition_index, &amp;fields.tzinfo.?.tzFile.?);</span>
+<span class="line" id="L184"></span>
+<span class="line" id="L185">    <span class="tok-comment">// #1 - if there are no surrounding timetypes, we can only use the first guessed datetime</span>
+</span>
+<span class="line" id="L186">    <span class="tok-comment">// to compare to.</span>
+</span>
+<span class="line" id="L187">    <span class="tok-kw">if</span> (sts[<span class="tok-number">0</span>] == <span class="tok-null">null</span> <span class="tok-kw">and</span> sts[<span class="tok-number">2</span>] == <span class="tok-null">null</span>) {</span>
+<span class="line" id="L188">        <span class="tok-kw">if</span> (Datetime.__equalFields(dt, dt_guess_1)) {</span>
+<span class="line" id="L189">            <span class="tok-kw">return</span> dt_guess_1;</span>
+<span class="line" id="L190">        }</span>
+<span class="line" id="L191">        <span class="tok-kw">return</span> ZdtError.NotImplemented; <span class="tok-comment">// something went totally wrong...</span>
+</span>
+<span class="line" id="L192">    }</span>
+<span class="line" id="L193"></span>
+<span class="line" id="L194">    <span class="tok-comment">// #2 - now we have either a preceding or a following timetype or both.</span>
+</span>
+<span class="line" id="L195">    <span class="tok-comment">// Let's try to use the preceding timetype first; if it is null, use the following.</span>
+</span>
+<span class="line" id="L196">    <span class="tok-comment">// Note : this is a bit optimistic since it assumes both &quot;bracketing&quot; timetypes</span>
+</span>
+<span class="line" id="L197">    <span class="tok-comment">//        share the same UTC offset.</span>
+</span>
+<span class="line" id="L198">    <span class="tok-kw">const</span> tt_guess = <span class="tok-kw">if</span> (sts[<span class="tok-number">0</span>] != <span class="tok-null">null</span>) sts[<span class="tok-number">0</span>] <span class="tok-kw">else</span> sts[<span class="tok-number">2</span>];</span>
+<span class="line" id="L199">    <span class="tok-kw">const</span> unix_guess_2 = dt.__unix - <span class="tok-builtin">@as</span>(<span class="tok-type">i48</span>, <span class="tok-builtin">@intCast</span>(tt_guess.?.offset));</span>
+<span class="line" id="L200">    <span class="tok-kw">var</span> dt_guess_2 = <span class="tok-kw">try</span> Datetime.fromUnix(unix_guess_2, Duration.Resolution.second, fields.tzinfo);</span>
+<span class="line" id="L201">    dt_guess_2.nanosecond = fields.nanosecond;</span>
+<span class="line" id="L202"></span>
+<span class="line" id="L203">    <span class="tok-comment">// Now we have</span>
+</span>
+<span class="line" id="L204">    <span class="tok-comment">// - dt         : the original fields</span>
+</span>
+<span class="line" id="L205">    <span class="tok-comment">// - dt_guess_1 : fields based on the initial guess of the UTC offset</span>
+</span>
+<span class="line" id="L206">    <span class="tok-comment">// - dt_guess_2 : fields based on the previous (or next) UTC offset of given time zone</span>
+</span>
+<span class="line" id="L207">    <span class="tok-comment">// This allows 3 outcomes:</span>
+</span>
+<span class="line" id="L208">    <span class="tok-comment">// dt neither matches dt_guess_1 nor dt_guess_2 =&gt; non-existent datetime</span>
+</span>
+<span class="line" id="L209">    <span class="tok-comment">// dt matches dt_guess_1 and dt_guess_2 =&gt; ambiguous datetime</span>
+</span>
+<span class="line" id="L210">    <span class="tok-comment">// dt matches either dt_guess_1 or dt_guess_2 =&gt; normal datetime</span>
+</span>
+<span class="line" id="L211">    <span class="tok-kw">const</span> dt_eq_guess_1 = Datetime.__equalFields(dt, dt_guess_1);</span>
+<span class="line" id="L212">    <span class="tok-kw">const</span> dt_eq_guess_2 = Datetime.__equalFields(dt, dt_guess_2);</span>
+<span class="line" id="L213">    <span class="tok-kw">if</span> (dt_eq_guess_1 <span class="tok-kw">and</span> dt_eq_guess_2) <span class="tok-kw">return</span> ZdtError.AmbiguousDatetime;</span>
+<span class="line" id="L214">    <span class="tok-kw">if</span> (!dt_eq_guess_1 <span class="tok-kw">and</span> !dt_eq_guess_2) <span class="tok-kw">return</span> ZdtError.NonexistentDatetime;</span>
+<span class="line" id="L215">    <span class="tok-kw">if</span> (dt_eq_guess_1) <span class="tok-kw">return</span> dt_guess_1;</span>
+<span class="line" id="L216">    <span class="tok-kw">return</span> dt_guess_2;</span>
+<span class="line" id="L217">}</span>
+<span class="line" id="L218"></span>
+<span class="line" id="L219"><span class="tok-comment">/// A helper to compare datetime fields, excluding nanosecond field.</span></span>
+<span class="line" id="L220"><span class="tok-comment">/// Used for determination of correct UTC offset with a time zone.</span></span>
+<span class="line" id="L221"><span class="tok-kw">fn</span> <span class="tok-fn">__equalFields</span>(this: Datetime, other: Datetime) <span class="tok-type">bool</span> {</span>
+<span class="line" id="L222">    <span class="tok-kw">return</span> ( <span class="tok-comment">//</span>
+</span>
+<span class="line" id="L223">        this.year == other.year <span class="tok-kw">and</span></span>
+<span class="line" id="L224">        this.month == other.month <span class="tok-kw">and</span></span>
+<span class="line" id="L225">        this.day == other.day <span class="tok-kw">and</span></span>
+<span class="line" id="L226">        this.hour == other.hour <span class="tok-kw">and</span></span>
+<span class="line" id="L227">        this.minute == other.minute <span class="tok-kw">and</span></span>
+<span class="line" id="L228">        this.second == other.second <span class="tok-comment">//</span>
+</span>
+<span class="line" id="L229">    );</span>
+<span class="line" id="L230">}</span>
+<span class="line" id="L231"></span>
+<span class="line" id="L232"><span class="tok-comment">/// Construct a datetime from Unix time with a specific precision (time unit)</span></span>
+<span class="line" id="L233"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">fromUnix</span>(n: <span class="tok-type">i72</span>, resolution: Duration.Resolution, tzinfo: ?Timezone) ZdtError!Datetime {</span>
+<span class="line" id="L234">    <span class="tok-kw">if</span> (n &gt; <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, unix_s_max) * <span class="tok-builtin">@intFromEnum</span>(resolution) <span class="tok-kw">or</span></span>
+<span class="line" id="L235">        n &lt; <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, unix_s_min) * <span class="tok-builtin">@intFromEnum</span>(resolution))</span>
+<span class="line" id="L236">    {</span>
+<span class="line" id="L237">        <span class="tok-kw">return</span> ZdtError.UnixOutOfRange;</span>
+<span class="line" id="L238">    }</span>
+<span class="line" id="L239">    <span class="tok-kw">var</span> _dt = Datetime{ .tzinfo = tzinfo };</span>
+<span class="line" id="L240">    <span class="tok-kw">switch</span> (resolution) {</span>
+<span class="line" id="L241">        .second =&gt; {</span>
+<span class="line" id="L242">            _dt.__unix = <span class="tok-builtin">@intCast</span>(n);</span>
+<span class="line" id="L243">        },</span>
+<span class="line" id="L244">        .millisecond =&gt; {</span>
+<span class="line" id="L245">            _dt.__unix = <span class="tok-builtin">@intCast</span>(<span class="tok-builtin">@divFloor</span>(n, <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, ms_per_s)));</span>
+<span class="line" id="L246">            _dt.nanosecond = <span class="tok-builtin">@intCast</span>(<span class="tok-builtin">@mod</span>(n, <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, ms_per_s)) * us_per_s);</span>
+<span class="line" id="L247">        },</span>
+<span class="line" id="L248">        .microsecond =&gt; {</span>
+<span class="line" id="L249">            _dt.__unix = <span class="tok-builtin">@intCast</span>(<span class="tok-builtin">@divFloor</span>(n, <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, us_per_s)));</span>
+<span class="line" id="L250">            _dt.nanosecond = <span class="tok-builtin">@intCast</span>(<span class="tok-builtin">@mod</span>(n, <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, us_per_s)) * ms_per_s);</span>
+<span class="line" id="L251">        },</span>
+<span class="line" id="L252">        .nanosecond =&gt; {</span>
+<span class="line" id="L253">            _dt.__unix = <span class="tok-builtin">@intCast</span>(<span class="tok-builtin">@divFloor</span>(n, <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, ns_per_s)));</span>
+<span class="line" id="L254">            _dt.nanosecond = <span class="tok-builtin">@intCast</span>(<span class="tok-builtin">@mod</span>(n, <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, ns_per_s)));</span>
+<span class="line" id="L255">        },</span>
+<span class="line" id="L256">    }</span>
+<span class="line" id="L257"></span>
+<span class="line" id="L258">    <span class="tok-kw">try</span> _dt.__normalize();</span>
+<span class="line" id="L259">    <span class="tok-kw">return</span> _dt;</span>
+<span class="line" id="L260">}</span>
+<span class="line" id="L261"></span>
+<span class="line" id="L262"><span class="tok-comment">/// A helper to update datetime fields so that they agree with the __unix internal</span></span>
+<span class="line" id="L263"><span class="tok-comment">/// representation. Expects a &quot;local&quot; unix time, to be corrected by the</span></span>
+<span class="line" id="L264"><span class="tok-comment">/// UTC offset of the time zone (if such is supplied).</span></span>
+<span class="line" id="L265"><span class="tok-kw">fn</span> <span class="tok-fn">__normalize</span>(self: *Datetime) TzError!<span class="tok-type">void</span> {</span>
+<span class="line" id="L266">    <span class="tok-kw">var</span> fake_unix = self.__unix; <span class="tok-comment">// &quot;local&quot; Unix time to get the fields right</span>
+</span>
+<span class="line" id="L267">    <span class="tok-kw">if</span> (self.tzinfo != <span class="tok-null">null</span>) {</span>
+<span class="line" id="L268">        self.tzinfo.?.tzOffset = <span class="tok-kw">try</span> self.tzinfo.?.atUnixtime(self.__unix);</span>
+<span class="line" id="L269">        fake_unix += self.tzinfo.?.tzOffset.?.seconds_east;</span>
+<span class="line" id="L270">    }</span>
+<span class="line" id="L271">    <span class="tok-kw">const</span> s_after_midnight: <span class="tok-type">i32</span> = <span class="tok-builtin">@intCast</span>(<span class="tok-builtin">@mod</span>(fake_unix, s_per_day));</span>
+<span class="line" id="L272">    <span class="tok-kw">const</span> days: <span class="tok-type">i32</span> = <span class="tok-builtin">@intCast</span>(<span class="tok-builtin">@divFloor</span>(fake_unix, s_per_day));</span>
+<span class="line" id="L273">    <span class="tok-kw">const</span> ymd: [<span class="tok-number">3</span>]<span class="tok-type">u16</span> = cal.rdToDate(days);</span>
+<span class="line" id="L274">    self.year = <span class="tok-builtin">@intCast</span>(ymd[<span class="tok-number">0</span>]);</span>
+<span class="line" id="L275">    self.month = <span class="tok-builtin">@intCast</span>(ymd[<span class="tok-number">1</span>]);</span>
+<span class="line" id="L276">    self.day = <span class="tok-builtin">@intCast</span>(ymd[<span class="tok-number">2</span>]);</span>
+<span class="line" id="L277">    self.hour = <span class="tok-builtin">@intCast</span>(<span class="tok-builtin">@divFloor</span>(s_after_midnight, s_per_hour));</span>
+<span class="line" id="L278">    self.minute = <span class="tok-builtin">@intCast</span>(<span class="tok-builtin">@divFloor</span>(<span class="tok-builtin">@mod</span>(s_after_midnight, s_per_hour), s_per_minute));</span>
+<span class="line" id="L279">    self.second = <span class="tok-builtin">@intCast</span>(<span class="tok-builtin">@mod</span>(s_after_midnight, s_per_minute));</span>
+<span class="line" id="L280">}</span>
+<span class="line" id="L281"></span>
+<span class="line" id="L282"><span class="tok-comment">/// Return Unix time for given datetime struct</span></span>
+<span class="line" id="L283"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">toUnix</span>(self: Datetime, resolution: Duration.Resolution) <span class="tok-type">i72</span> {</span>
+<span class="line" id="L284">    <span class="tok-kw">switch</span> (resolution) {</span>
+<span class="line" id="L285">        .second =&gt; <span class="tok-kw">return</span> <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, self.__unix),</span>
+<span class="line" id="L286">        .millisecond =&gt; <span class="tok-kw">return</span> <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, self.__unix) * ms_per_s + <span class="tok-builtin">@divFloor</span>(self.nanosecond, us_per_s),</span>
+<span class="line" id="L287">        .microsecond =&gt; <span class="tok-kw">return</span> <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, self.__unix) * us_per_s + <span class="tok-builtin">@divFloor</span>(self.nanosecond, ms_per_s),</span>
+<span class="line" id="L288">        .nanosecond =&gt; <span class="tok-kw">return</span> <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, self.__unix) * ns_per_s + self.nanosecond,</span>
+<span class="line" id="L289">    }</span>
+<span class="line" id="L290">}</span>
+<span class="line" id="L291"></span>
+<span class="line" id="L292"><span class="tok-comment">/// Make a datetime local to a given time zone.</span></span>
+<span class="line" id="L293"><span class="tok-comment">///</span></span>
+<span class="line" id="L294"><span class="tok-comment">/// 'null' can be supplied to make an aware datetime naive.</span></span>
+<span class="line" id="L295"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">tzLocalize</span>(self: Datetime, tzinfo: ?Timezone) ZdtError!Datetime {</span>
+<span class="line" id="L296">    <span class="tok-kw">return</span> Datetime.fromFields(.{</span>
+<span class="line" id="L297">        .year = self.year,</span>
+<span class="line" id="L298">        .month = self.month,</span>
+<span class="line" id="L299">        .day = self.day,</span>
+<span class="line" id="L300">        .hour = self.hour,</span>
+<span class="line" id="L301">        .minute = self.minute,</span>
+<span class="line" id="L302">        .second = self.second,</span>
+<span class="line" id="L303">        .nanosecond = self.nanosecond,</span>
+<span class="line" id="L304">        .tzinfo = tzinfo,</span>
+<span class="line" id="L305">    });</span>
+<span class="line" id="L306">}</span>
+<span class="line" id="L307"></span>
+<span class="line" id="L308"><span class="tok-comment">/// Convert datetime to another time zone. The datetime must be aware;</span></span>
+<span class="line" id="L309"><span class="tok-comment">/// can only convert to another time zone if initial time zone is defined</span></span>
+<span class="line" id="L310"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">tzConvert</span>(self: Datetime, new_tz: Timezone) ZdtError!Datetime {</span>
+<span class="line" id="L311">    <span class="tok-kw">if</span> (self.tzinfo == <span class="tok-null">null</span>) <span class="tok-kw">return</span> ZdtError.TzUndefined;</span>
+<span class="line" id="L312">    <span class="tok-kw">return</span> Datetime.fromUnix(</span>
+<span class="line" id="L313">        <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, self.__unix) * ns_per_s + self.nanosecond,</span>
+<span class="line" id="L314">        Duration.Resolution.nanosecond,</span>
+<span class="line" id="L315">        new_tz,</span>
+<span class="line" id="L316">    );</span>
+<span class="line" id="L317">}</span>
+<span class="line" id="L318"></span>
+<span class="line" id="L319"><span class="tok-comment">/// Floor a datetime to a certain timespan. Creates a new datetime instance.</span></span>
+<span class="line" id="L320"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">floorTo</span>(self: Datetime, timespan: Duration.Timespan) !Datetime {</span>
+<span class="line" id="L321">    <span class="tok-comment">// any other timespan than second can lead to ambiguous or non-existent</span>
+</span>
+<span class="line" id="L322">    <span class="tok-comment">// datetime - therefore we need to make a new datetime</span>
+</span>
+<span class="line" id="L323">    <span class="tok-kw">var</span> fields = Fields{ .tzinfo = self.tzinfo };</span>
+<span class="line" id="L324">    <span class="tok-kw">if</span> (self.tzinfo != <span class="tok-null">null</span> <span class="tok-kw">and</span> self.tzinfo.?.tzFile != <span class="tok-null">null</span>) {</span>
+<span class="line" id="L325">        <span class="tok-comment">// tzOffset must be resetted so that fromFields method</span>
+</span>
+<span class="line" id="L326">        <span class="tok-comment">// re-calculates the offset for the new Unix time:</span>
+</span>
+<span class="line" id="L327">        fields.tzinfo.?.tzOffset = <span class="tok-null">null</span>;</span>
+<span class="line" id="L328">    }</span>
+<span class="line" id="L329">    <span class="tok-kw">switch</span> (timespan) {</span>
+<span class="line" id="L330">        .second =&gt; {</span>
+<span class="line" id="L331">            fields.year = self.year;</span>
+<span class="line" id="L332">            fields.month = self.month;</span>
+<span class="line" id="L333">            fields.day = self.day;</span>
+<span class="line" id="L334">            fields.hour = self.hour;</span>
+<span class="line" id="L335">            fields.minute = self.minute;</span>
+<span class="line" id="L336">            fields.second = self.second;</span>
+<span class="line" id="L337">        },</span>
+<span class="line" id="L338">        .minute =&gt; {</span>
+<span class="line" id="L339">            fields.year = self.year;</span>
+<span class="line" id="L340">            fields.month = self.month;</span>
+<span class="line" id="L341">            fields.day = self.day;</span>
+<span class="line" id="L342">            fields.hour = self.hour;</span>
+<span class="line" id="L343">            fields.minute = self.minute;</span>
+<span class="line" id="L344">        },</span>
+<span class="line" id="L345">        .hour =&gt; {</span>
+<span class="line" id="L346">            fields.year = self.year;</span>
+<span class="line" id="L347">            fields.month = self.month;</span>
+<span class="line" id="L348">            fields.day = self.day;</span>
+<span class="line" id="L349">            fields.hour = self.hour;</span>
+<span class="line" id="L350">        },</span>
+<span class="line" id="L351">        .day =&gt; {</span>
+<span class="line" id="L352">            fields.year = self.year;</span>
+<span class="line" id="L353">            fields.month = self.month;</span>
+<span class="line" id="L354">            fields.day = self.day;</span>
+<span class="line" id="L355">        },</span>
+<span class="line" id="L356">        <span class="tok-kw">else</span> =&gt; <span class="tok-kw">return</span> ZdtError.NotImplemented,</span>
+<span class="line" id="L357">    }</span>
+<span class="line" id="L358">    <span class="tok-kw">return</span> <span class="tok-kw">try</span> Datetime.fromFields(fields);</span>
+<span class="line" id="L359">}</span>
+<span class="line" id="L360"></span>
+<span class="line" id="L361"><span class="tok-comment">/// The current time with nanosecond resolution.</span></span>
+<span class="line" id="L362"><span class="tok-comment">/// If 'null' is supplied as tzinfo, naive datetime resembling UTC is returned.</span></span>
+<span class="line" id="L363"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">now</span>(tzinfo: ?Timezone) Datetime {</span>
+<span class="line" id="L364">    <span class="tok-kw">const</span> t = std.time.nanoTimestamp();</span>
+<span class="line" id="L365">    <span class="tok-kw">return</span> Datetime.fromUnix(<span class="tok-builtin">@intCast</span>(t), Duration.Resolution.nanosecond, tzinfo) <span class="tok-kw">catch</span> Datetime{};</span>
+<span class="line" id="L366">}</span>
+<span class="line" id="L367"></span>
+<span class="line" id="L368"><span class="tok-comment">/// Try to obtain datetime in the local time zone.</span></span>
+<span class="line" id="L369"><span class="tok-comment">/// Requires allocator for the time zone object; must be de-initialized by the caller.</span></span>
+<span class="line" id="L370"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">nowLocal</span>(allocator: std.mem.Allocator) !Datetime {</span>
+<span class="line" id="L371">    <span class="tok-kw">const</span> tz = <span class="tok-kw">try</span> Timezone.tzLocal(allocator);</span>
+<span class="line" id="L372">    <span class="tok-kw">const</span> t = std.time.nanoTimestamp();</span>
+<span class="line" id="L373">    <span class="tok-kw">return</span> Datetime.fromUnix(<span class="tok-builtin">@intCast</span>(t), Duration.Resolution.nanosecond, tz);</span>
+<span class="line" id="L374">}</span>
+<span class="line" id="L375"></span>
+<span class="line" id="L376"><span class="tok-comment">/// Now-in-UTC. Homage to the Python method with the same name,</span></span>
+<span class="line" id="L377"><span class="tok-comment">/// which is now deprecated. This one actually returns UTC ;-)</span></span>
+<span class="line" id="L378"><span class="tok-comment">/// TODO : remove ? Datetime.now(Timezone.UTC) is a bit more verbose but also more explicit...</span></span>
+<span class="line" id="L379"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">utcnow</span>() Datetime {</span>
+<span class="line" id="L380">    <span class="tok-kw">const</span> t = std.time.nanoTimestamp();</span>
+<span class="line" id="L381">    <span class="tok-kw">return</span> Datetime.fromUnix(<span class="tok-builtin">@intCast</span>(t), Duration.Resolution.nanosecond, Timezone.UTC) <span class="tok-kw">catch</span> Datetime{};</span>
+<span class="line" id="L382">}</span>
+<span class="line" id="L383"></span>
+<span class="line" id="L384"><span class="tok-comment">/// Compare two instances with respect to their Unix time.</span></span>
+<span class="line" id="L385"><span class="tok-comment">/// Ignores the time zone - however, both datetimes must either be aware or naive.</span></span>
+<span class="line" id="L386"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">compareUT</span>(this: Datetime, other: Datetime) ZdtError!std.math.Order {</span>
+<span class="line" id="L387">    <span class="tok-comment">// can only compare if both aware or naive, not a mix.</span>
+</span>
+<span class="line" id="L388">    <span class="tok-kw">if</span> ((this.tzinfo != <span class="tok-null">null</span> <span class="tok-kw">and</span> other.tzinfo == <span class="tok-null">null</span>) <span class="tok-kw">or</span></span>
+<span class="line" id="L389">        (this.tzinfo == <span class="tok-null">null</span> <span class="tok-kw">and</span> other.tzinfo != <span class="tok-null">null</span>)) <span class="tok-kw">return</span> ZdtError.CompareNaiveAware;</span>
+<span class="line" id="L390">    <span class="tok-kw">return</span> std.math.order(</span>
+<span class="line" id="L391">        <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, this.__unix) * ns_per_s + this.nanosecond,</span>
+<span class="line" id="L392">        <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, other.__unix) * ns_per_s + other.nanosecond,</span>
+<span class="line" id="L393">    );</span>
+<span class="line" id="L394">}</span>
+<span class="line" id="L395"></span>
+<span class="line" id="L396"><span class="tok-comment">/// Compare wall time, irrespective of the time zone.</span></span>
+<span class="line" id="L397"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">compareWall</span>(this: Datetime, other: Datetime) !std.math.Order {</span>
+<span class="line" id="L398">    <span class="tok-kw">const</span> _this = <span class="tok-kw">if</span> (this.tzinfo != <span class="tok-null">null</span>) <span class="tok-kw">try</span> this.tzLocalize(<span class="tok-null">null</span>) <span class="tok-kw">else</span> this;</span>
+<span class="line" id="L399">    <span class="tok-kw">const</span> _other = <span class="tok-kw">if</span> (other.tzinfo != <span class="tok-null">null</span>) <span class="tok-kw">try</span> other.tzLocalize(<span class="tok-null">null</span>) <span class="tok-kw">else</span> other;</span>
+<span class="line" id="L400">    <span class="tok-kw">return</span> <span class="tok-kw">try</span> Datetime.compareUT(_this, _other);</span>
+<span class="line" id="L401">}</span>
+<span class="line" id="L402"></span>
+<span class="line" id="L403"><span class="tok-comment">/// Add a duration to a datetime. Makes a new datetime.</span></span>
+<span class="line" id="L404"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">add</span>(self: Datetime, td: Duration) ZdtError!Datetime {</span>
+<span class="line" id="L405">    <span class="tok-kw">const</span> ns: <span class="tok-type">i72</span> = ( <span class="tok-comment">//</span>
+</span>
+<span class="line" id="L406">        <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, self.__unix) * ns_per_s + <span class="tok-comment">//</span>
+</span>
+<span class="line" id="L407">        <span class="tok-builtin">@as</span>(<span class="tok-type">i72</span>, self.nanosecond) + <span class="tok-comment">//</span>
+</span>
+<span class="line" id="L408">        td.__sec * ns_per_s + <span class="tok-comment">//</span>
+</span>
+<span class="line" id="L409">        td.__nsec <span class="tok-comment">//</span>
+</span>
+<span class="line" id="L410">    );</span>
+<span class="line" id="L411">    <span class="tok-kw">return</span> <span class="tok-kw">try</span> Datetime.fromUnix(ns, Duration.Resolution.nanosecond, self.tzinfo);</span>
+<span class="line" id="L412">}</span>
+<span class="line" id="L413"></span>
+<span class="line" id="L414"><span class="tok-comment">/// Subtract a duration from a datetime. Makes a new datetime.</span></span>
+<span class="line" id="L415"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">sub</span>(self: Datetime, td: Duration) ZdtError!Datetime {</span>
+<span class="line" id="L416">    <span class="tok-kw">return</span> self.add(.{ .__sec = td.__sec * -<span class="tok-number">1</span>, .__nsec = td.__nsec });</span>
+<span class="line" id="L417">}</span>
+<span class="line" id="L418"></span>
+<span class="line" id="L419"><span class="tok-comment">/// Calculate the duration between two datetimes, independent of the time zone.</span></span>
+<span class="line" id="L420"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">diff</span>(this: Datetime, other: Datetime) Duration {</span>
+<span class="line" id="L421">    <span class="tok-kw">var</span> s: <span class="tok-type">i64</span> = this.__unix - other.__unix;</span>
+<span class="line" id="L422">    <span class="tok-kw">var</span> ns: <span class="tok-type">i32</span> = <span class="tok-builtin">@as</span>(<span class="tok-type">i32</span>, this.nanosecond) - other.nanosecond;</span>
+<span class="line" id="L423">    <span class="tok-kw">if</span> (ns &lt; <span class="tok-number">0</span>) {</span>
+<span class="line" id="L424">        s -= <span class="tok-number">1</span>;</span>
+<span class="line" id="L425">        ns += <span class="tok-number">1_000_000_000</span>;</span>
+<span class="line" id="L426">    }</span>
+<span class="line" id="L427">    <span class="tok-kw">return</span> .{ .__sec = s, .__nsec = <span class="tok-builtin">@intCast</span>(ns) };</span>
+<span class="line" id="L428">}</span>
+<span class="line" id="L429"></span>
+<span class="line" id="L430"><span class="tok-comment">/// Calculate wall time difference between two timezone-aware datetimes.</span></span>
+<span class="line" id="L431"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">diffWall</span>(this: Datetime, other: Datetime) !Duration {</span>
+<span class="line" id="L432">    <span class="tok-kw">if</span> (this.tzinfo == <span class="tok-null">null</span> <span class="tok-kw">or</span> other.tzinfo == <span class="tok-null">null</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.TzUndefined;</span>
+<span class="line" id="L433">    <span class="tok-kw">if</span> (this.tzinfo.?.tzOffset == <span class="tok-null">null</span> <span class="tok-kw">or</span> other.tzinfo.?.tzOffset == <span class="tok-null">null</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.TzUndefined;</span>
+<span class="line" id="L434"></span>
+<span class="line" id="L435">    <span class="tok-kw">var</span> s: <span class="tok-type">i64</span> = ((this.__unix - other.__unix) +</span>
+<span class="line" id="L436">        (this.tzinfo.?.tzOffset.?.seconds_east - other.tzinfo.?.tzOffset.?.seconds_east));</span>
+<span class="line" id="L437"></span>
+<span class="line" id="L438">    <span class="tok-kw">var</span> ns: <span class="tok-type">i32</span> = <span class="tok-builtin">@as</span>(<span class="tok-type">i32</span>, this.nanosecond) - other.nanosecond;</span>
+<span class="line" id="L439">    <span class="tok-kw">if</span> (ns &lt; <span class="tok-number">0</span>) {</span>
+<span class="line" id="L440">        s -= <span class="tok-number">1</span>;</span>
+<span class="line" id="L441">        ns += <span class="tok-number">1_000_000_000</span>;</span>
+<span class="line" id="L442">    }</span>
+<span class="line" id="L443">    <span class="tok-kw">return</span> .{ .__sec = s, .__nsec = <span class="tok-builtin">@intCast</span>(ns) };</span>
+<span class="line" id="L444">}</span>
+<span class="line" id="L445"></span>
+<span class="line" id="L446"><span class="tok-comment">/// Day of the year starting with 1 == yyyy-01-01 (strftime/strptime: %j).</span></span>
+<span class="line" id="L447"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">dayOfYear</span>(self: Datetime) <span class="tok-type">u9</span> {</span>
+<span class="line" id="L448">    <span class="tok-kw">return</span> cal.dayOfYear(self.year, self.month, self.day);</span>
+<span class="line" id="L449">}</span>
+<span class="line" id="L450"></span>
+<span class="line" id="L451"><span class="tok-comment">/// Day of the week as an enum value; Sun as first day of the week</span></span>
+<span class="line" id="L452"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">weekday</span>(self: Datetime) Weekday {</span>
+<span class="line" id="L453">    <span class="tok-kw">return</span> std.meta.intToEnum(Weekday, self.weekdayNumber()) <span class="tok-kw">catch</span> <span class="tok-kw">unreachable</span>;</span>
+<span class="line" id="L454">}</span>
+<span class="line" id="L455"></span>
+<span class="line" id="L456"><span class="tok-comment">/// Number of the weekday starting at 0 == Sunday (strftime/strptime: %w).</span></span>
+<span class="line" id="L457"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">weekdayNumber</span>(self: Datetime) <span class="tok-type">u3</span> {</span>
+<span class="line" id="L458">    <span class="tok-kw">const</span> days = cal.dateToRD([<span class="tok-number">3</span>]<span class="tok-type">u16</span>{ self.year, self.month, self.day });</span>
+<span class="line" id="L459">    <span class="tok-kw">return</span> cal.weekdayFromUnixdays(days);</span>
+<span class="line" id="L460">}</span>
+<span class="line" id="L461"></span>
+<span class="line" id="L462"><span class="tok-comment">/// ISO-number of the weekday, starting at 1 == Monday (strftime/strptime: %u).</span></span>
+<span class="line" id="L463"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">weekdayIsoNumber</span>(self: Datetime) <span class="tok-type">u3</span> {</span>
+<span class="line" id="L464">    <span class="tok-kw">const</span> days = cal.dateToRD([<span class="tok-number">3</span>]<span class="tok-type">u16</span>{ self.year, self.month, self.day });</span>
+<span class="line" id="L465">    <span class="tok-kw">return</span> cal.ISOweekdayFromUnixdays(days);</span>
+<span class="line" id="L466">}</span>
+<span class="line" id="L467"></span>
+<span class="line" id="L468"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">monthEnum</span>(self: Datetime) Month {</span>
+<span class="line" id="L469">    <span class="tok-kw">return</span> std.meta.intToEnum(Month, self.month) <span class="tok-kw">catch</span> <span class="tok-kw">unreachable</span>;</span>
+<span class="line" id="L470">}</span>
+<span class="line" id="L471"></span>
+<span class="line" id="L472"><span class="tok-comment">/// Roll datetime forward to the specified next weekday. Makes a new datetime.</span></span>
+<span class="line" id="L473"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">nextWeekday</span>(self: Datetime, d: Weekday) Datetime {</span>
+<span class="line" id="L474">    <span class="tok-kw">var</span> daysdiff: <span class="tok-type">i4</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L475">    <span class="tok-kw">if</span> (self.weekday() == d) {</span>
+<span class="line" id="L476">        daysdiff = <span class="tok-number">7</span>;</span>
+<span class="line" id="L477">    } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L478">        daysdiff = cal.weekdayDifference(<span class="tok-builtin">@intFromEnum</span>(d), self.weekdayNumber());</span>
+<span class="line" id="L479">        <span class="tok-kw">if</span> (daysdiff &lt; <span class="tok-number">0</span>) daysdiff += <span class="tok-number">7</span>; <span class="tok-comment">// ensure a positive shift since we want 'next'</span>
+</span>
+<span class="line" id="L480">    }</span>
+<span class="line" id="L481">    <span class="tok-kw">const</span> offset = Duration.fromTimespanMultiple(daysdiff, Duration.Timespan.day);</span>
+<span class="line" id="L482">    <span class="tok-kw">return</span> self.add(offset) <span class="tok-kw">catch</span> self; <span class="tok-comment">// return unmodified copy on error</span>
+</span>
+<span class="line" id="L483">}</span>
+<span class="line" id="L484"></span>
+<span class="line" id="L485"><span class="tok-comment">/// Roll datetime backward to the specified previous weekday.</span></span>
+<span class="line" id="L486"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">previousWeekday</span>(self: Datetime, d: Weekday) Datetime {</span>
+<span class="line" id="L487">    <span class="tok-kw">var</span> daysdiff: <span class="tok-type">i4</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L488">    <span class="tok-kw">if</span> (self.weekday() == d) {</span>
+<span class="line" id="L489">        daysdiff = -<span class="tok-number">7</span>;</span>
+<span class="line" id="L490">    } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L491">        daysdiff = cal.weekdayDifference(<span class="tok-builtin">@intFromEnum</span>(d), self.weekdayNumber());</span>
+<span class="line" id="L492">        <span class="tok-kw">if</span> (daysdiff &gt; <span class="tok-number">0</span>) daysdiff -= <span class="tok-number">7</span>;</span>
+<span class="line" id="L493">    }</span>
+<span class="line" id="L494">    <span class="tok-kw">const</span> offset = Duration.fromTimespanMultiple(daysdiff, Duration.Timespan.day);</span>
+<span class="line" id="L495">    <span class="tok-kw">return</span> self.add(offset) <span class="tok-kw">catch</span> self; <span class="tok-comment">// return unmodified copy on error</span>
+</span>
+<span class="line" id="L496">}</span>
+<span class="line" id="L497"></span>
+<span class="line" id="L498"><span class="tok-comment">/// nth weekday of given month and year, returned as a Datetime.</span></span>
+<span class="line" id="L499"><span class="tok-comment">/// nth must be in range [1..5]; although 5 might return an error for certain year/month combinations.</span></span>
+<span class="line" id="L500"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">nthWeekday</span>(year: <span class="tok-type">u14</span>, month: <span class="tok-type">u4</span>, wd: Weekday, nth: <span class="tok-type">u5</span>) ZdtError!Datetime {</span>
+<span class="line" id="L501">    <span class="tok-kw">if</span> (nth &gt; <span class="tok-number">5</span> <span class="tok-kw">or</span> nth == <span class="tok-number">0</span>) <span class="tok-kw">return</span> RangeError.DayOutOfRange;</span>
+<span class="line" id="L502">    <span class="tok-kw">var</span> dt = <span class="tok-kw">try</span> Datetime.fromFields(.{ .year = year, .month = month });</span>
+<span class="line" id="L503">    <span class="tok-kw">if</span> (dt.weekday() != wd) dt = dt.nextWeekday(wd);</span>
+<span class="line" id="L504">    <span class="tok-kw">if</span> (nth == <span class="tok-number">1</span>) <span class="tok-kw">return</span> dt;</span>
+<span class="line" id="L505">    dt = <span class="tok-kw">try</span> dt.add(Duration.fromTimespanMultiple(<span class="tok-number">7</span> * (nth - <span class="tok-number">1</span>), Duration.Timespan.day));</span>
+<span class="line" id="L506">    <span class="tok-kw">if</span> (dt.month != month) <span class="tok-kw">return</span> RangeError.DayOutOfRange;</span>
+<span class="line" id="L507">    <span class="tok-kw">return</span> dt;</span>
+<span class="line" id="L508">}</span>
+<span class="line" id="L509"></span>
+<span class="line" id="L510"><span class="tok-comment">/// Week number of the year (Sunday as the first day of the week) as returned from</span></span>
+<span class="line" id="L511"><span class="tok-comment">/// strftime's %U</span></span>
+<span class="line" id="L512"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">weekOfYearSun</span>(dt: Datetime) <span class="tok-type">u6</span> {</span>
+<span class="line" id="L513">    <span class="tok-kw">const</span> doy = dt.dayOfYear();</span>
+<span class="line" id="L514">    <span class="tok-kw">const</span> dow = dt.weekdayNumber();</span>
+<span class="line" id="L515">    <span class="tok-kw">return</span> <span class="tok-builtin">@truncate</span>(<span class="tok-builtin">@divFloor</span>(doy + <span class="tok-number">7</span> - dow, <span class="tok-number">7</span>));</span>
+<span class="line" id="L516">}</span>
+<span class="line" id="L517"></span>
+<span class="line" id="L518"><span class="tok-comment">/// Week number of the year (Monday as the first day of the week) as returned from</span></span>
+<span class="line" id="L519"><span class="tok-comment">/// strftime's %W</span></span>
+<span class="line" id="L520"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">weekOfYearMon</span>(dt: Datetime) <span class="tok-type">u6</span> {</span>
+<span class="line" id="L521">    <span class="tok-kw">const</span> doy = dt.dayOfYear();</span>
+<span class="line" id="L522">    <span class="tok-kw">const</span> dow = dt.weekdayNumber();</span>
+<span class="line" id="L523">    <span class="tok-kw">return</span> <span class="tok-builtin">@truncate</span>(<span class="tok-builtin">@divFloor</span>((doy + <span class="tok-number">7</span> - <span class="tok-kw">if</span> (dow &gt; <span class="tok-number">0</span>) dow - <span class="tok-number">1</span> <span class="tok-kw">else</span> <span class="tok-number">6</span>), <span class="tok-number">7</span>));</span>
+<span class="line" id="L524">}</span>
+<span class="line" id="L525"></span>
+<span class="line" id="L526"><span class="tok-comment">/// Calculate the ISO week of the year and generate ISOCalendar.</span></span>
+<span class="line" id="L527"><span class="tok-comment">/// Algorithm from &lt;https://en.wikipedia.org/wiki/ISO_week_date&gt;.</span></span>
+<span class="line" id="L528"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">isocalendar</span>(dt: Datetime) ISOCalendar {</span>
+<span class="line" id="L529">    <span class="tok-kw">const</span> doy: <span class="tok-type">u9</span> = dt.dayOfYear();</span>
+<span class="line" id="L530">    <span class="tok-kw">const</span> dow: <span class="tok-type">u9</span> = <span class="tok-builtin">@as</span>(<span class="tok-type">u9</span>, dt.weekdayIsoNumber());</span>
+<span class="line" id="L531">    <span class="tok-kw">const</span> w: <span class="tok-type">u9</span> = <span class="tok-builtin">@divFloor</span>(<span class="tok-number">10</span> + doy - dow, <span class="tok-number">7</span>);</span>
+<span class="line" id="L532">    <span class="tok-kw">const</span> weeks: <span class="tok-type">u6</span> = cal.weeksPerYear(dt.year);</span>
+<span class="line" id="L533">    <span class="tok-kw">var</span> isocal = ISOCalendar{ .year = dt.year, .isoweek = <span class="tok-number">0</span>, .isoweekday = <span class="tok-builtin">@truncate</span>(dow) };</span>
+<span class="line" id="L534">    <span class="tok-kw">if</span> (w &gt; weeks) {</span>
+<span class="line" id="L535">        isocal.isoweek = <span class="tok-number">1</span>;</span>
+<span class="line" id="L536">        <span class="tok-kw">return</span> isocal;</span>
+<span class="line" id="L537">    }</span>
+<span class="line" id="L538">    <span class="tok-kw">if</span> (w &lt; <span class="tok-number">1</span>) {</span>
+<span class="line" id="L539">        isocal.isoweek = cal.weeksPerYear(dt.year - <span class="tok-number">1</span>);</span>
+<span class="line" id="L540">        <span class="tok-kw">return</span> isocal;</span>
+<span class="line" id="L541">    }</span>
+<span class="line" id="L542">    isocal.isoweek = <span class="tok-builtin">@truncate</span>(w);</span>
+<span class="line" id="L543">    <span class="tok-kw">return</span> isocal;</span>
+<span class="line" id="L544">}</span>
+<span class="line" id="L545"></span>
+<span class="line" id="L546"><span class="tok-comment">/// Formatted printing for UTC offset</span></span>
+<span class="line" id="L547"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">formatOffset</span>(self: Datetime, writer: <span class="tok-kw">anytype</span>) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L548">    <span class="tok-comment">// if the tzinfo or tzOffset is null, we cannot do anything:</span>
+</span>
+<span class="line" id="L549">    <span class="tok-kw">if</span> (self.tzinfo == <span class="tok-null">null</span>) <span class="tok-kw">return</span>;</span>
+<span class="line" id="L550">    <span class="tok-kw">if</span> (self.tzinfo.?.tzOffset == <span class="tok-null">null</span>) <span class="tok-kw">return</span>;</span>
+<span class="line" id="L551"></span>
+<span class="line" id="L552">    <span class="tok-comment">// If the tzinfo is defined for a specific datetime, it should contain</span>
+</span>
+<span class="line" id="L553">    <span class="tok-comment">// a fixed offset (calculated from tzfile etc.). It should not be necessary to</span>
+</span>
+<span class="line" id="L554">    <span class="tok-comment">// make the calculation here:</span>
+</span>
+<span class="line" id="L555">    <span class="tok-kw">const</span> off = self.tzinfo.?.tzOffset.?.seconds_east;</span>
+<span class="line" id="L556"></span>
+<span class="line" id="L557">    <span class="tok-kw">const</span> absoff: <span class="tok-type">u19</span> = <span class="tok-kw">if</span> (off &lt; <span class="tok-number">0</span>) <span class="tok-builtin">@intCast</span>(off * -<span class="tok-number">1</span>) <span class="tok-kw">else</span> <span class="tok-builtin">@intCast</span>(off);</span>
+<span class="line" id="L558">    <span class="tok-kw">const</span> sign = <span class="tok-kw">if</span> (off &lt; <span class="tok-number">0</span>) <span class="tok-str">&quot;-&quot;</span> <span class="tok-kw">else</span> <span class="tok-str">&quot;+&quot;</span>;</span>
+<span class="line" id="L559">    <span class="tok-kw">const</span> hours = absoff / <span class="tok-number">3600</span>;</span>
+<span class="line" id="L560">    <span class="tok-kw">const</span> minutes = (absoff % <span class="tok-number">3600</span>) / <span class="tok-number">60</span>;</span>
+<span class="line" id="L561">    <span class="tok-kw">const</span> seconds = (absoff % <span class="tok-number">3600</span>) % <span class="tok-number">60</span>;</span>
+<span class="line" id="L562"></span>
+<span class="line" id="L563">    <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{s}{d:0&gt;2}:{d:0&gt;2}&quot;</span>, .{ sign, hours, minutes });</span>
+<span class="line" id="L564">    <span class="tok-kw">if</span> (seconds &gt; <span class="tok-number">0</span>) {</span>
+<span class="line" id="L565">        <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;:{d:0&gt;2}&quot;</span>, .{seconds});</span>
+<span class="line" id="L566">    }</span>
+<span class="line" id="L567">}</span>
+<span class="line" id="L568"></span>
+<span class="line" id="L569"><span class="tok-comment">/// Formatted printing for Datetime. Defaults to ISO8601 / RFC3339nano.</span></span>
+<span class="line" id="L570"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">format</span>(</span>
+<span class="line" id="L571">    self: Datetime,</span>
+<span class="line" id="L572">    <span class="tok-kw">comptime</span> fmt: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
+<span class="line" id="L573">    options: std.fmt.FormatOptions,</span>
+<span class="line" id="L574">    writer: <span class="tok-kw">anytype</span>,</span>
+<span class="line" id="L575">) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L576">    _ = fmt;</span>
+<span class="line" id="L577">    _ = options;</span>
+<span class="line" id="L578">    <span class="tok-kw">try</span> writer.print(</span>
+<span class="line" id="L579">        <span class="tok-str">&quot;{d:0&gt;4}-{d:0&gt;2}-{d:0&gt;2}T{d:0&gt;2}:{d:0&gt;2}:{d:0&gt;2}&quot;</span>,</span>
+<span class="line" id="L580">        .{ self.year, self.month, self.day, self.hour, self.minute, self.second },</span>
+<span class="line" id="L581">    );</span>
+<span class="line" id="L582">    <span class="tok-kw">if</span> (self.nanosecond != <span class="tok-number">0</span>) <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;.{d:0&gt;9}&quot;</span>, .{self.nanosecond});</span>
+<span class="line" id="L583">    <span class="tok-kw">if</span> (self.tzinfo != <span class="tok-null">null</span>) <span class="tok-kw">try</span> self.formatOffset(writer);</span>
+<span class="line" id="L584">}</span>
+<span class="line" id="L585"></span>
+<span class="line" id="L586"><span class="tok-comment">/// Surrounding timetypes at a given transition index. This index might be</span></span>
+<span class="line" id="L587"><span class="tok-comment">/// negative to indicate out-of-range values.</span></span>
+<span class="line" id="L588"><span class="tok-kw">fn</span> <span class="tok-fn">__getSurroundingTimetypes</span>(idx: <span class="tok-type">i32</span>, _tz: *<span class="tok-kw">const</span> tzif.Tz) [<span class="tok-number">3</span>]?*tzif.Timetype {</span>
+<span class="line" id="L589">    <span class="tok-kw">var</span> surrounding = [<span class="tok-number">3</span>]?*tzif.Timetype{ <span class="tok-null">null</span>, <span class="tok-null">null</span>, <span class="tok-null">null</span> };</span>
+<span class="line" id="L590">    <span class="tok-kw">if</span> (idx &gt; <span class="tok-number">0</span>) {</span>
+<span class="line" id="L591">        surrounding[<span class="tok-number">1</span>] = _tz.transitions[<span class="tok-builtin">@as</span>(<span class="tok-type">u64</span>, <span class="tok-builtin">@intCast</span>(idx))].timetype;</span>
+<span class="line" id="L592">    }</span>
+<span class="line" id="L593">    <span class="tok-kw">if</span> (idx &gt;= <span class="tok-number">1</span>) {</span>
+<span class="line" id="L594">        surrounding[<span class="tok-number">0</span>] = _tz.transitions[<span class="tok-builtin">@as</span>(<span class="tok-type">u64</span>, <span class="tok-builtin">@intCast</span>(idx - <span class="tok-number">1</span>))].timetype;</span>
+<span class="line" id="L595">    }</span>
+<span class="line" id="L596">    <span class="tok-kw">if</span> (idx &gt; <span class="tok-number">0</span> <span class="tok-kw">and</span> idx &lt; _tz.transitions.len - <span class="tok-number">1</span>) {</span>
+<span class="line" id="L597">        surrounding[<span class="tok-number">2</span>] = _tz.transitions[<span class="tok-builtin">@as</span>(<span class="tok-type">u64</span>, <span class="tok-builtin">@intCast</span>(idx + <span class="tok-number">1</span>))].timetype;</span>
+<span class="line" id="L598">    }</span>
+<span class="line" id="L599">    <span class="tok-kw">return</span> surrounding;</span>
+<span class="line" id="L600">}</span>
+<span class="line" id="L601"></span>
+</code></pre></body>
+</html>
