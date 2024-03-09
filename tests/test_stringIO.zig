@@ -57,7 +57,7 @@ test "format naive datetimes with format string api" {
     for (cases) |case| {
         var s = std.ArrayList(u8).init(testing.allocator);
         defer s.deinit();
-        try str.formatDatetime(s.writer(), "%Y-%m-%d %H:%M:%S", case.dt);
+        try str.formatToString(s.writer(), "%Y-%m-%d %H:%M:%S", case.dt);
         try testing.expectEqualStrings(case.string, s.items);
     }
 }
@@ -84,7 +84,7 @@ test "format datetime with literal characters in format string" {
     for (cases) |case| {
         var s = std.ArrayList(u8).init(testing.allocator);
         defer s.deinit();
-        try str.formatDatetime(s.writer(), case.directive, case.dt);
+        try str.formatToString(s.writer(), case.directive, case.dt);
         try testing.expectEqualStrings(case.string, s.items);
     }
 }
@@ -96,7 +96,7 @@ test "format with z" {
     const dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
     const string = "2021-02-18T17:00:00+01:00";
     const directive = "%Y-%m-%dT%H:%M:%S%z";
-    try str.formatDatetime(s.writer(), directive, dt);
+    try str.formatToString(s.writer(), directive, dt);
     try testing.expectEqualStrings(string, s.items);
 }
 
@@ -107,7 +107,7 @@ test "format with z, full day off" {
     const dt = try Datetime.fromFields(.{ .year = 1970, .month = 2, .day = 13, .hour = 12, .tzinfo = tzinfo });
     const string = "1970-02-13T12:00:00-24:00";
     const directive = "%Y-%m-%dT%H:%M:%S%z";
-    try str.formatDatetime(s.writer(), directive, dt);
+    try str.formatToString(s.writer(), directive, dt);
     try testing.expectEqualStrings(string, s.items);
 }
 
@@ -118,7 +118,7 @@ test "format with z, strange directive" {
     const dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3, .tzinfo = tzinfo });
     const string = "% 2023-12-09 % 01:02:03 % +00:15";
     const directive = "%% %Y-%m-%d %% %H:%M:%S %% %z";
-    try str.formatDatetime(s.writer(), directive, dt);
+    try str.formatToString(s.writer(), directive, dt);
     try testing.expectEqualStrings(string, s.items);
 }
 
@@ -129,7 +129,7 @@ test "format with Z" {
     const dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3, .tzinfo = tz_utc });
     const string = "2023-12-09T01:02:03+00:00Z";
     const directive = "%Y-%m-%dT%H:%M:%S%z%Z";
-    try str.formatDatetime(s.writer(), directive, dt);
+    try str.formatToString(s.writer(), directive, dt);
     try testing.expectEqualStrings(string, s.items);
 
     var tz_pacific = try Tz.fromTzfile("America/Los_Angeles", testing.allocator);
@@ -139,14 +139,14 @@ test "format with Z" {
     defer s_std.deinit();
     const directive_us = "%Y-%m-%dT%H:%M:%S%z %Z";
     const string_std = "2023-12-08T17:02:03-08:00 PST";
-    try str.formatDatetime(s_std.writer(), directive_us, dt_std);
+    try str.formatToString(s_std.writer(), directive_us, dt_std);
     try testing.expectEqualStrings(string_std, s_std.items);
 
     const dt_dst = try dt_std.add(td.fromTimespanMultiple(6 * 4, td.Timespan.week));
     var s_dst = std.ArrayList(u8).init(testing.allocator);
     defer s_dst.deinit();
     const string_dst = "2024-05-24T18:02:03-07:00 PDT";
-    try str.formatDatetime(s_dst.writer(), directive_us, dt_dst);
+    try str.formatToString(s_dst.writer(), directive_us, dt_dst);
     try testing.expectEqualStrings(string_dst, s_dst.items);
 }
 
@@ -158,7 +158,7 @@ test "format with abbreviated day name" {
     const dt = Datetime.epoch;
     const string = "Thu";
     const directive = "%a";
-    try str.formatDatetime(s.writer(), directive, dt);
+    try str.formatToString(s.writer(), directive, dt);
     try testing.expectEqualStrings(string, s.items);
 }
 
@@ -170,7 +170,7 @@ test "format with day name" {
     const dt = Datetime.epoch;
     const string = "Thursday";
     const directive = "%A";
-    try str.formatDatetime(s.writer(), directive, dt);
+    try str.formatToString(s.writer(), directive, dt);
     try testing.expectEqualStrings(string, s.items);
 }
 
@@ -182,7 +182,7 @@ test "format with abbreviated month name" {
     const dt = Datetime.epoch;
     const string = "Jan";
     const directive = "%b";
-    try str.formatDatetime(s.writer(), directive, dt);
+    try str.formatToString(s.writer(), directive, dt);
     try testing.expectEqualStrings(string, s.items);
 }
 
@@ -194,7 +194,7 @@ test "format with month name" {
     const dt = Datetime.epoch;
     const string = "January";
     const directive = "%B";
-    try str.formatDatetime(s.writer(), directive, dt);
+    try str.formatToString(s.writer(), directive, dt);
     try testing.expectEqualStrings(string, s.items);
 }
 
@@ -213,7 +213,7 @@ test "comptime parse with comptime format string" {
     };
 
     for (cases) |case| {
-        const dt = try str.parseDatetime("%Y-%m-%d %H:%M:%S", case.string);
+        const dt = try str.parseToDatetime("%Y-%m-%d %H:%M:%S", case.string);
         try testing.expectEqual(case.dt, dt);
     }
 }
@@ -259,7 +259,7 @@ test "comptime parse with fractional part" {
     };
 
     for (cases) |case| {
-        const dt = try str.parseDatetime("%Y-%m-%dT%H:%M:%S.%f", case.string);
+        const dt = try str.parseToDatetime("%Y-%m-%dT%H:%M:%S.%f", case.string);
         try testing.expectEqual(case.dt, dt);
     }
 }
@@ -277,22 +277,22 @@ test "parse single digits" {
     };
 
     for (cases) |case| {
-        const dt = try str.parseDatetime("%Y-%m-%d %H:%M:%S", case.string);
+        const dt = try str.parseToDatetime("%Y-%m-%d %H:%M:%S", case.string);
         try testing.expectEqual(case.dt, dt);
     }
 }
 
 test "parsing directives do not match fields in string" {
-    var err = str.parseDatetime("%Y-%m-%d %H%%%M%%%S", "1970-01-01 00:00:00");
+    var err = str.parseToDatetime("%Y-%m-%d %H%%%M%%%S", "1970-01-01 00:00:00");
     try testing.expectError(error.InvalidFormat, err);
 
-    err = str.parseDatetime("%Y-%m-%dT%H:%M:%S", "1970-01-01 00:00:00");
+    err = str.parseToDatetime("%Y-%m-%dT%H:%M:%S", "1970-01-01 00:00:00");
     try testing.expectError(error.InvalidFormat, err);
 
-    err = str.parseDatetime("%", "1970-01-01 00:00:00");
+    err = str.parseToDatetime("%", "1970-01-01 00:00:00");
     try testing.expectError(error.InvalidFormat, err);
 
-    err = str.parseDatetime("%Y-%m-%d %H:%M:%S %z", "1970-01-01 00:00:00 +7");
+    err = str.parseToDatetime("%Y-%m-%d %H:%M:%S %z", "1970-01-01 00:00:00 +7");
     try testing.expectError(error.InvalidFormat, err);
 }
 
@@ -308,7 +308,7 @@ test "parse with literal characters" {
         },
     };
     for (cases) |case| {
-        const dt = try str.parseDatetime("datetime %Y-%m-%d %H:%M:%S", case.string);
+        const dt = try str.parseToDatetime("datetime %Y-%m-%d %H:%M:%S", case.string);
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
     }
@@ -324,7 +324,7 @@ test "parse with literal characters" {
         },
     };
     for (cases) |case| {
-        const dt = try str.parseDatetime("%Y-%m-%d %H:%M:%S datetime", case.string);
+        const dt = try str.parseToDatetime("%Y-%m-%d %H:%M:%S datetime", case.string);
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
     }
@@ -339,7 +339,7 @@ test "parse with literal characters" {
         },
     };
     for (cases) |case| {
-        const dt = try str.parseDatetime("%Y-%m-%d %%%% %H:%M:%S", case.string);
+        const dt = try str.parseToDatetime("%Y-%m-%d %%%% %H:%M:%S", case.string);
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
     }
@@ -354,7 +354,7 @@ test "parse with literal characters" {
         },
     };
     for (cases) |case| {
-        const dt = try str.parseDatetime("%%%Y-%m-%d %H:%M:%S", case.string);
+        const dt = try str.parseToDatetime("%%%Y-%m-%d %H:%M:%S", case.string);
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
     }
@@ -369,7 +369,7 @@ test "parse with literal characters" {
         },
     };
     for (cases) |case| {
-        const dt = try str.parseDatetime("%Y-%m-%d %H%%%M%%%S", case.string);
+        const dt = try str.parseToDatetime("%Y-%m-%d %H%%%M%%%S", case.string);
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
     }
@@ -379,7 +379,7 @@ test "parse with z" {
     var tzinfo = try Tz.fromOffset(3600, "");
     var dt_ref = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
     const s_hhmm = "2021-02-18T17:00:00+01:00";
-    var dt = try str.parseDatetime("%Y-%m-%dT%H:%M:%S%z", s_hhmm);
+    var dt = try str.parseToDatetime("%Y-%m-%dT%H:%M:%S%z", s_hhmm);
     try testing.expectEqual(dt_ref.year, dt.year);
 
     var off_want = dt_ref.tzinfo.?.tzOffset.?.seconds_east;
@@ -391,7 +391,7 @@ test "parse with z" {
     tzinfo = try Tz.fromOffset(-3601, "");
     dt_ref = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
     const s_hhmmss = "2021-02-18T17:00:00-01:00:01";
-    dt = try str.parseDatetime("%Y-%m-%dT%H:%M:%S%z", s_hhmmss);
+    dt = try str.parseToDatetime("%Y-%m-%dT%H:%M:%S%z", s_hhmmss);
     try testing.expectEqual(dt_ref.year, dt.year);
 
     off_want = dt_ref.tzinfo.?.tzOffset.?.seconds_east;
@@ -405,7 +405,7 @@ test "parse with z" {
     tzinfo = try Tz.fromOffset(0, "");
     dt_ref = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
     const Z = "2021-02-18T17:00:00Z";
-    dt = try str.parseDatetime("%Y-%m-%dT%H:%M:%S%z", Z);
+    dt = try str.parseToDatetime("%Y-%m-%dT%H:%M:%S%z", Z);
     try testing.expectEqual(dt_ref.year, dt.year);
     off_want = dt_ref.tzinfo.?.tzOffset.?.seconds_east;
     off_have = dt.tzinfo.?.tzOffset.?.seconds_east;
@@ -419,8 +419,8 @@ test "string -> datetime -> string roundtrip with offset TZ" {
     defer string_out.deinit();
     const string_in = "2023-12-09T01:02:03+09:15";
     const directive = "%Y-%m-%dT%H:%M:%S%z";
-    const dt = try str.parseDatetime(directive, string_in);
-    try str.formatDatetime(string_out.writer(), directive, dt);
+    const dt = try str.parseToDatetime(directive, string_in);
+    try str.formatToString(string_out.writer(), directive, dt);
     try testing.expectEqualStrings(string_in, string_out.items);
     // no name or abbreviation if it's only a UTC offset
     try testing.expectEqual(@as(usize, 0), dt.tzinfo.?.__name_data_len);

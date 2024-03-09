@@ -47,8 +47,12 @@ pub fn main() !void {
     println("", .{});
 
     println("New York has DST currently? : {}", .{now_ny.tzinfo.?.tzOffset.?.is_dst});
-    const a_date: Datetime = try str.parseDatetime("%Y-%m-%d", "2023-8-9");
-    var ny_summer_2023: Datetime = try a_date.tzLocalize(tz_ny);
+    var ny_summer_2023: Datetime = try Datetime.fromFields(.{
+        .year = 2023,
+        .month = 8,
+        .day = 9,
+        .tzinfo = tz_ny,
+    });
     println("New York, summer : {s} ({s})", .{ ny_summer_2023, ny_summer_2023.tzinfo.?.abbreviation() });
     println("New York has DST in summer? : {}", .{ny_summer_2023.tzinfo.?.tzOffset.?.is_dst});
 }

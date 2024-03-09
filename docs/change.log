@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2024-03-09, v0.1.21
+
+- add string input/output example
+- revise string IO methods
+- build.zig.zon: explicitly specify included files and directories
+- windows-tz: read Windows tz name from registry instead of using `tzutil`
+
 ## 2024-02-28, v0.1.20
 
 - documentation updates

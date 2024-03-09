@@ -12,6 +12,7 @@ const windows_specific = @import("./windows/windows_mdnames.zig");
 const sz_abbr: usize = 32;
 const sz_normal: usize = 64;
 
+// Get the abbreviated day name in the current locale
 fn getDayNameAbbr(n: u8) [sz_abbr]u8 {
     var dummy: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
     dummy[0] = 63;
@@ -22,6 +23,7 @@ fn getDayNameAbbr(n: u8) [sz_abbr]u8 {
     };
 }
 
+// Get the day name in the current locale
 fn getDayName(n: u8) [sz_normal]u8 {
     var dummy: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
     dummy[0] = 63;
@@ -32,6 +34,7 @@ fn getDayName(n: u8) [sz_normal]u8 {
     };
 }
 
+// Get the abbreviated month name in the current locale
 fn getMonthNameAbbr(n: u8) [sz_abbr]u8 {
     var dummy: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
     dummy[0] = 63;
@@ -42,6 +45,7 @@ fn getMonthNameAbbr(n: u8) [sz_abbr]u8 {
     };
 }
 
+// Get the month name in the current locale
 fn getMonthName(n: u8) [sz_normal]u8 {
     var dummy: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
     dummy[0] = 63;
@@ -52,7 +56,7 @@ fn getMonthName(n: u8) [sz_normal]u8 {
     };
 }
 
-/// directives for formatting datetime strings
+/// directives to create string representation of a datetime
 const FormatCode = enum(u8) {
     year = 'Y',
     month = 'm',
@@ -70,7 +74,8 @@ const FormatCode = enum(u8) {
     month_name_abbr = 'b',
     month_name = 'B',
 
-    pub fn formatDatetime(
+    /// create string representation of a datetime
+    pub fn formatToString(
         self: FormatCode,
         writer: anytype,
         dt: Datetime,
@@ -110,19 +115,19 @@ const FormatCode = enum(u8) {
     }
 };
 
-// a part of a parsing/formatting directive
+// a specific directive in a string of parsing/formatting directives
 const Part = union(enum) {
     literal: u8,
     specifier: FormatCode,
 
-    pub fn formatDatetime(
+    pub fn formatToString(
         self: Part,
         writer: anytype,
         dt: Datetime,
     ) !void {
         switch (self) {
             .literal => |b| try writer.writeByte(b),
-            .specifier => |s| try s.formatDatetime(writer, dt),
+            .specifier => |s| try s.formatToString(writer, dt),
         }
     }
 };
@@ -158,40 +163,19 @@ fn parseFormatBuf(buf: []Part, format_str: []const u8) ![]Part {
     return buf[0..parts_idx];
 }
 
-fn parseFormatAlloc(allocator: std.mem.Allocator, format_str: []const u8) ![]Part {
-    var parts = std.ArrayList(Part).init(allocator);
-    errdefer parts.deinit();
-
-    var next_char_is_specifier = false;
-    for (format_str) |fc| {
-        if (next_char_is_specifier) {
-            const specifier = std.meta.intToEnum(FormatCode, fc) catch return error.InvalidSpecifier;
-            try parts.append(.{ .specifier = specifier });
-            next_char_is_specifier = false;
-        } else {
-            if (fc == '%') {
-                next_char_is_specifier = true;
-            } else {
-                try parts.append(.{ .literal = fc });
-            }
-        }
-    }
-
-    return parts.toOwnedSlice();
-}
-
-fn formatDatetimeParts(writer: anytype, parts: []const Part, dt: Datetime) !void {
+fn formatParts(writer: anytype, parts: []const Part, dt: Datetime) !void {
     for (parts) |part| {
-        try part.formatDatetime(writer, dt);
+        try part.formatToString(writer, dt);
     }
 }
 
-pub fn formatDatetime(writer: anytype, format: []const u8, dt: Datetime) !void {
+/// Create a string representation of a Datetime
+pub fn formatToString(writer: anytype, format: []const u8, dt: Datetime) !void {
     var next_char_is_specifier = false;
     for (format) |fc| {
         if (next_char_is_specifier) {
             const specifier = std.meta.intToEnum(FormatCode, fc) catch return error.InvalidSpecifier;
-            try specifier.formatDatetime(writer, dt);
+            try specifier.formatToString(writer, dt);
             next_char_is_specifier = false;
         } else {
             if (fc == '%') {
@@ -203,8 +187,9 @@ pub fn formatDatetime(writer: anytype, format: []const u8, dt: Datetime) !void {
     }
 }
 
-/// string to datetime instance, with a compile-time-known format
-pub fn parseDatetime(comptime format: []const u8, dt_string: []const u8) !Datetime {
+/// Create a Datetime from a string, with a compile-time-known format
+// TODO : add runtime parser ?
+pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Datetime {
     var fields = Datetime.Fields{};
 
     comptime var next_char_is_specifier = false;
@@ -268,7 +253,7 @@ pub fn parseDatetime(comptime format: []const u8, dt_string: []const u8) !Dateti
 }
 
 /// Parse ISO8601 formats. Format is infered at runtime.
-/// Required is at least a year and a month, separated by ASCII minus.
+/// Requires at least a year and a month, separated by ASCII minus.
 /// Date and time separator is either 'T' or ASCII space.
 ///
 /// ## examples
@@ -299,6 +284,8 @@ pub fn parseISO8601(dt_string: []const u8) !Datetime {
     var utcoffset: ?i20 = null;
 
     var dt_string_idx: usize = 0;
+    // since this is a runtime-parser, we need to step through the input
+    // and stop doing so once we reach the end (break the 'parseblock')
     parseblock: {
         // yyyy-mm
         fields.year = try parseDigits(u14, dt_string, &dt_string_idx, 4);
@@ -430,55 +417,4 @@ fn parseOffset(comptime T: type, dt_string: []const u8, idx: *usize, maxDigits: 
     const minutes = @divFloor(remainder, 100);
     const seconds = @mod(remainder, 100);
     return sign * (hours * 3600 + minutes * 60 + seconds);
-}
-
-// --- internal tests
-
-const TestCase = struct {
-    string: []const u8,
-    dt: Datetime,
-    directive: []const u8 = "",
-};
-
-test "format naive datetimes with parts api" {
-    const cases = [_]TestCase{
-        .{
-            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17 }),
-            .string = "2021-02-18 17:00:00",
-        },
-        .{
-            .dt = try Datetime.fromFields(.{ .year = 1970 }),
-            .string = "1970-01-01 00:00:00",
-        },
-    };
-
-    const parts = try parseFormatAlloc(std.testing.allocator, "%Y-%m-%d %H:%M:%S");
-    defer std.testing.allocator.free(parts);
-
-    for (cases) |case| {
-        var s = std.ArrayList(u8).init(std.testing.allocator);
-        defer s.deinit();
-        try formatDatetimeParts(s.writer(), parts, case.dt);
-        try std.testing.expectEqualStrings(case.string, s.items);
-    }
-}
-
-test "parse format string" {
-    const parts = try parseFormatAlloc(std.testing.allocator, "%Y-%m-%d %H:%M:%S.%f");
-    defer std.testing.allocator.free(parts);
-    try std.testing.expectEqualSlices(Part, &[_]Part{
-        .{ .specifier = .year },
-        .{ .literal = '-' },
-        .{ .specifier = .month },
-        .{ .literal = '-' },
-        .{ .specifier = .day },
-        .{ .literal = ' ' },
-        .{ .specifier = .hour },
-        .{ .literal = ':' },
-        .{ .specifier = .min },
-        .{ .literal = ':' },
-        .{ .specifier = .sec },
-        .{ .literal = '.' },
-        .{ .specifier = .nanos },
-    }, parts);
 }

@@ -1,9 +1,9 @@
 // Copyright © 2023 Florian Obersteiner <f.obersteiner@posteo.de>
 // License: see LICENSE file in the root directory of the zdt repository.
 //
-//!zig-autodoc-guide: doc/01_intro.md
-//!zig-autodoc-guide: doc/02_usage.md
-//!zig-autodoc-guide: doc/03_advanced.md
+//!zig-autodoc-guide: docs/01_intro.md
+//!zig-autodoc-guide: docs/02_usage.md
+//!zig-autodoc-guide: docs/03_misc_advanced.md
 
 const std = @import("std");
 const log = std.log.scoped(.zdt__root);

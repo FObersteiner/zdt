@@ -28,4 +28,6 @@ pub const TzError = error{
 
 pub const WinTzError = error{
     TzUtilFailed,
+    ReadRegistryFailed,
+    TzNotFound,
 };

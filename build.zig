@@ -2,13 +2,14 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 20 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 21 };
 
 const example_files = [_][]const u8{
     "ex_demo",
     "ex_datetime",
     "ex_duration",
     "ex_offsetTz",
+    "ex_strings",
     "ex_timezones",
 };
 
@@ -28,6 +29,7 @@ const test_files = [_][]const u8{
 const tz_submodule_dir = "tz";
 
 const req_zig_version = "0.12.0-dev";
+
 comptime {
     const req_zig = std.SemanticVersion.parse(req_zig_version) catch unreachable;
     if (builtin.zig_version.order(req_zig) == .lt) {
@@ -191,7 +193,7 @@ pub fn build(b: *std.Build) !void {
     //     //    NOTE : atm, this does not work due to anonymous import
     //     const install_docs = b.addInstallDirectory(.{
     //         .source_dir = zdt.getEmittedDocs(),
-    //         .install_dir = std.Build.InstallDir{ .custom = "../doc" },
+    //         .install_dir = std.Build.InstallDir{ .custom = "../docs" },
     //         .install_subdir = "autogen",
     //     });
     //     docs_step.dependOn(&install_docs.step);

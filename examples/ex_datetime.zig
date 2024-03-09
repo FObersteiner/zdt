@@ -34,18 +34,6 @@ pub fn main() !void {
     println("(nanos removed) : {s}", .{now_s});
     const now_date = try now.floorTo(Duration.Timespan.day);
     println("         (date) : {s}", .{now_date});
-
-    println("", .{});
-    println("---> (usage) ISO8601: parse some allowed formats", .{});
-    const date_only = "2014-08-23";
-    var parsed = try str.parseISO8601(date_only);
-    println("parsed '{s}' to {s}", .{ date_only, parsed });
-    const datetime_with_frac = "2014-08-23 12:15:56,1234";
-    parsed = try str.parseISO8601(datetime_with_frac);
-    println("parsed '{s}' to {s}", .{ datetime_with_frac, parsed });
-    const leap_datetime = "2016-12-31T23:59:60Z";
-    parsed = try str.parseISO8601(leap_datetime);
-    println("parsed '{s}' to {s}", .{ leap_datetime, parsed });
 }
 
 fn println(comptime fmt: []const u8, args: anytype) void {

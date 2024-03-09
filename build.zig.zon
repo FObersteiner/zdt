@@ -1,7 +1,15 @@
 .{
     .name = "zdt",
-    .version = "0.1.20",
-    .paths = .{""},
+    .version = "0.1.21",
+    .paths = .{
+        "zdt.zig",
+        "lib",
+        "util",
+        "README.md",
+        "LICENSE",
+        "build.zig",
+        "build.zig.zon",
+    },
 
     // NOTE : benchmarks currently do not work since zbench is incompatible with zig 0.12.0-dev
     // .dependencies = .{

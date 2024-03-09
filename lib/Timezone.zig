@@ -7,7 +7,7 @@ const log = std.log.scoped(.zdt__Timezone);
 const Datetime = @import("./Datetime.zig");
 const TzError = @import("./errors.zig").TzError;
 const tzif = @import("./tzif.zig");
-const tzwin = @import("./windows_tz.zig");
+const tzwin = @import("./windows/windows_tz.zig");
 const tzvers = @import("./tzdb_version.zig");
 
 const Timezone = @This();
@@ -20,7 +20,7 @@ __name_data_len: usize = 0,
 // time zone rule sources:
 tzFile: ?tzif.Tz = null, // a IANA db file with transitions list etc.
 tzPosix: ?bool = null, // TODO : implement // POSIX TZ rule
-tzOffset: ?UToffset = null,
+tzOffset: ?UTCoffset = null,
 
 /// auto-generated string of the current eggert/tz version
 pub const tzdb_version = tzvers.tzdb_version;
@@ -34,10 +34,10 @@ const comptime_tzdb_prefix = "./tzdata/zoneinfo/"; // IANA db as provided by the
 
 /// offset from UTC should be in range -25h to +26h as specified by
 /// RFC8536, sect. 3.2, TZif data block.
-pub const UT_off_range = [2]i20{ -89999, 93599 };
+pub const UTC_off_range = [2]i20{ -89999, 93599 };
 
 /// UT offset, seconds East of Greenwich
-pub const UToffset = struct {
+pub const UTCoffset = struct {
     seconds_east: i20 = 0,
     is_dst: bool = false,
     __abbrev_data: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 },
@@ -46,7 +46,7 @@ pub const UToffset = struct {
 
 /// Create the UTC "time zone"
 pub const UTC = Timezone{
-    .tzOffset = UToffset{ .seconds_east = 0, .__abbrev_data = [6:0]u8{ 90, 0, 0, 0, 0, 0 } },
+    .tzOffset = UTCoffset{ .seconds_east = 0, .__abbrev_data = [6:0]u8{ 90, 0, 0, 0, 0, 0 } },
     .__name_data_len = 3,
     .__name_data = [cap_name_data]u8{ 85, 84, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 };
@@ -118,7 +118,7 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
 
 /// Make a time zone from an offset from UTC.
 pub fn fromOffset(offset_sec_East: i32, identifier: []const u8) TzError!Timezone {
-    if (offset_sec_East < UT_off_range[0] or offset_sec_East > UT_off_range[1]) {
+    if (offset_sec_East < UTC_off_range[0] or offset_sec_East > UTC_off_range[1]) {
         return TzError.InvalidOffset;
     }
     if (std.mem.eql(u8, identifier, "UTC")) {
@@ -171,10 +171,10 @@ pub fn tzLocal(allocator: std.mem.Allocator) !Timezone {
     }
 }
 
-/// Get the UTC offset at a certain Unix time. Creates a new UToffset.
+/// Get the UTC offset at a certain Unix time. Creates a new UTCoffset.
 /// Priority for offset determination is tzfile > POSIX TZ > fixed offset.
 /// tzFile and tzPosix set tzOffset if possible.
-pub fn atUnixtime(self: Timezone, unixtime: i48) TzError!UToffset {
+pub fn atUnixtime(self: Timezone, unixtime: i48) TzError!UTCoffset {
     if (self.tzFile == null and self.tzPosix == null and self.tzOffset == null) {
         return TzError.AllTZRulesUndefined;
     }
