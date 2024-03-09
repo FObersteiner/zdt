@@ -5,7 +5,7 @@
 
 # zdt
 
-**Exploring datetime with time zones in Zig.** I created this project to have fun with Zig, learn a new language, and tackle the "do not roll your own datetime"-challenge. Use the outcome however you like - here's an example of something you can do with `zdt`:
+**Exploring datetime with time zones in Zig.** I created this project to have fun with Zig, learn a new language, and tackle the "do not roll your own datetime"-challenge. Here's an example of something you can do with `zdt`:
 
 ```zig
   var tz_LA = try zdt.Timezone.fromTzfile("America/Los_Angeles", allocator);
