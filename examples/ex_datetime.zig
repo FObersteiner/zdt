@@ -28,7 +28,7 @@ pub fn main() !void {
 
     println("", .{});
     println("---> (usage) Now: datetime from system time", .{});
-    const now = Datetime.utcnow();
+    const now = Datetime.now(Tz.UTC);
     println("'now', UTC      : {s}", .{now});
     const now_s = try now.floorTo(Duration.Timespan.second);
     println("(nanos removed) : {s}", .{now_s});

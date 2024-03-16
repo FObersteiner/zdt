@@ -18,6 +18,7 @@ pub const TzError = error{
     InvalidOffset,
     BadTZifVersion,
     InvalidTz,
+    InvalidIdentifier,
     AmbiguousDatetime,
     NonexistentDatetime,
     TzAlreadyDefined,

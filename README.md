@@ -49,7 +49,7 @@ zig build examples && ./zig-out/bin/ex_datetime
 
 ## Development
 
-Ongoing. Expect breaking changes. Recent changes: see the [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/doc/change.log).
+Ongoing. Expect breaking changes. Recent changes: see the [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/change.log).
 
 ## Zig version
 
@@ -58,6 +58,8 @@ This library is developed with Zig `0.12.0-dev`, mostly at the bleeding edge. Zi
 ## Time zone database
 
 `zdt` comes with [eggert/tz](https://github.com/eggert/tz). The database is compiled and shipped with `zdt`. If you wish to use your own version of the [IANA time zone db](https://www.iana.org/time-zones), you can set a path to it using the `-Dprefix-tzdb="path/to/your/tzdb"` option. See also `zig build --help`
+
+For development, to update the time zone database and the version info, run the according build steps: `zig build tz-update-db && zig build tz-update-version`. Note that you need a `C`-compiler and `make` set up; chances are this won't work out-of-the-box for example on Windows.
 
 ## Credits
 

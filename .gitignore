@@ -3,6 +3,9 @@
 /zig-out/
 
 /docs/literature/*
+/docs/*.ods
+/docs/*.py
+*~lock*
 
 # tz submodule
 /tz/*
@@ -10,4 +13,3 @@
 
 # building tzdata temporarily creates a directory:
 /lib/tzdata/tmp/
-

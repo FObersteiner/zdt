@@ -13,7 +13,7 @@ pub fn getDayNameAbbr_(n: u8) [sz_abbr]u8 {
 
     var buf: [sz_abbr / 2]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(
-        null, // FIXME : following consts fail: winnls.LOCALE_NAME_SYSTEM_DEFAULT // winnls.LOCALE_NAME_USER_DEFAULT
+        null, // TODO : following consts fail: winnls.LOCALE_NAME_SYSTEM_DEFAULT // winnls.LOCALE_NAME_USER_DEFAULT - why?
         day_names_abbr[n],
         &buf,
         sz_abbr / 2,
@@ -22,7 +22,7 @@ pub fn getDayNameAbbr_(n: u8) [sz_abbr]u8 {
 
     // Windows UTF-16 LE ("WTF") to UTF-8:
     var arr: [sz_abbr]u8 = undefined;
-    // TODO : this could maybe put into 'result' directly?
+    // TODO : this could maybe be put into 'result' directly?
     const utf8 = arr[0 .. sz_abbr - 1];
     const n_bytes = unicode.utf16LeToUtf8(
         utf8,

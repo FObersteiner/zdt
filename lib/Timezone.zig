@@ -19,7 +19,7 @@ __name_data_len: usize = 0,
 
 // time zone rule sources:
 tzFile: ?tzif.Tz = null, // a IANA db file with transitions list etc.
-tzPosix: ?bool = null, // TODO : implement // POSIX TZ rule
+tzPosix: ?bool = null, // TODO : implement // POSIX TZ string with rule
 tzOffset: ?UTCoffset = null,
 
 /// auto-generated string of the current eggert/tz version
@@ -67,6 +67,7 @@ pub fn abbreviation(self: *Timezone) []const u8 {
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned TZ instance.
 pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator) !Timezone {
+    if (!validate_identifier(identifier)) return TzError.InvalidIdentifier;
     const data = @embedFile(comptime_tzdb_prefix ++ identifier);
     var in_stream = std.io.fixedBufferStream(data);
     const tzif_tz = try tzif.Tz.parse(allocator, in_stream.reader());
@@ -82,6 +83,7 @@ pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator)
 
 /// Same as fromTzfile but for runtime-known tz identifiers.
 pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator: std.mem.Allocator) !Timezone {
+    if (!validate_identifier(identifier)) return TzError.InvalidIdentifier;
     var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&path_buffer);
     const fb_alloc = fba.allocator();
@@ -156,11 +158,11 @@ pub fn deinit(self: *Timezone) void {
 pub fn tzLocal(allocator: std.mem.Allocator) !Timezone {
     switch (builtin.os.tag) {
         .linux, .macos => {
-            const demo_path = "/etc/localtime";
+            const default_path = "/etc/localtime";
             // TODO : try multiple possibilities here?
 
             var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
-            const path = try std.fs.realpath(demo_path, &path_buffer);
+            const path = try std.fs.realpath(default_path, &path_buffer);
             return try Timezone.runtimeFromTzfile(path, "", allocator);
         },
         .windows => {
@@ -267,6 +269,25 @@ fn findTransition(array: []const tzif.Transition, target: i64) i32 {
     return @as(i32, @intCast(left - 1));
 }
 
+// time zone identifiers must only contain alpha-numeric characters
+// as well as '+', '-', '_' and '/' (path separator).
+fn validate_identifier(idf: []const u8) bool {
+    for (idf) |c| {
+        switch (c) {
+            'A'...'Z',
+            'a'...'z',
+            '0'...'9',
+            '+',
+            '-',
+            '_',
+            '/',
+            => continue, // OK case
+            else => return false,
+        }
+    }
+    return true;
+}
+
 test "embed tzif from lib dir" {
     const tzfile = comptime_tzdb_prefix ++ "Europe/Berlin";
     const data = @embedFile(tzfile);
@@ -275,4 +296,18 @@ test "embed tzif from lib dir" {
     defer tz.deinit();
     try std.testing.expectEqualStrings("CET", tz.transitions[0].timetype.name());
     try std.testing.expectEqualStrings("LMT", tz.timetypes[0].name());
+}
+
+test "validate name" {
+    var result = validate_identifier("asdf");
+    try std.testing.expect(result);
+    result = validate_identifier("as/df");
+    try std.testing.expect(result);
+
+    result = validate_identifier("../asdf");
+    try std.testing.expect(!result);
+    result = validate_identifier("as*df");
+    try std.testing.expect(!result);
+    result = validate_identifier("?!");
+    try std.testing.expect(!result);
 }

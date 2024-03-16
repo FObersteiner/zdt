@@ -9,21 +9,21 @@
 - [chrono-zig](https://codeberg.org/geemili/chrono-zig), a port of Rust's `chrono` crate
 - Karl Seguin's [zig utility library](https://github.com/karlseguin/zul) also offers some date/time functionality (no time zone features)
 
-## why does `Datetime.now(null)` give me a UTC-like datetime ?
+## why does `Datetime.now(null)` give a UTC-like datetime ?
 
 If you supply `null` (no time zone), the fields of the returned datetime will resemble UTC. This is a compromise. You can convert that to Unix time and it will be "correct". If the returned datetime would resemble your local time, the conversion to Unix time would not be possible without knowing the according offset from UTC. So the choice boils down to: you cannot convert naive datetime to Unix time _or_ naive datetime is _treated_ like it was UTC.
 
 ## Ambiguous and Non-Existent Datetime: folds and gaps
 
-A datetime is ambiguous if it appears multiple times on a wall clock. Example:
+A datetime is ambiguous if it appears multiple times on a wall clock:
 
-- DST transition fold: wall clock moved backwards when daylight saving time goes from active to inactive (offset from UTC is reduced)
+- DST transition fold: wall clock moved backwards when daylight saving time goes from active to inactive
 
-A datetime is non-existent if it does not appear on a wall clock. Example:
+A datetime is non-existent if it does not appear on a wall clock:
 
-- DST transition gap: wall clock moved forwards when daylight saving time goes from inactive to active (offset from UTC is increased)
+- DST transition gap: wall clock moved forwards when daylight saving time goes from inactive to active
 
-TODO : add more info how those cases are handled by zdt.
+The [DST tag wiki](https://stackoverflow.com/tags/dst/info) on StackOverflow has a nice illustration for this.
 
 ## IANA time zone identifiers vs. Windows time zone names
 
@@ -31,4 +31,5 @@ This library works with the IANA database exclusively. Therefore, a mapping is r
 
 Some resources related to this:
 
-- Jon Skeet [on stackoverflow](https://stackoverflow.com/a/71873868/10197418)
+- Jon Skeet [on StackOverflow](https://stackoverflow.com/a/71873868/10197418)
+- [timezone tag wiki](https://stackoverflow.com/tags/timezone/info) on StackOverflow

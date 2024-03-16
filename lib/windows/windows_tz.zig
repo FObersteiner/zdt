@@ -1,6 +1,6 @@
 const std = @import("std");
 const trnsl = std.zig.c_translation;
-const win = @cImport(@cInclude("windows.h")); // TODO: could potentially live without this...
+const win = @cImport(@cInclude("windows.h")); // TODO: could potentially live without this since I'm already re-declaring RegGetValueA...
 const WINAPI: std.builtin.CallingConvention = if (@import("builtin").cpu.arch == .x86) .Stdcall else .C;
 
 const iana_names = @import("./windows_tznames.zig").iana_names;
@@ -67,5 +67,5 @@ pub fn getTzName() ![]const u8 {
         }
     }
 
-    return "?"; // this will likely fail up.
+    return "?"; // this will likely fail upstream.
 }

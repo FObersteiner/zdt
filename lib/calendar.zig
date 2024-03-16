@@ -5,6 +5,7 @@ const Datetime = @import("./Datetime.zig");
 /// Days per month, depending on if it comes from a leap year.
 /// Based on Neri/Schneider's "Euclidean affine functions"
 pub fn daysInMonth(m: u5, is_leap: bool) u5 {
+    std.debug.assert((m > 0) and (m < 13));
     if (m == 2) return if (is_leap) 29 else 28;
     return 30 | (m ^ (m >> 3));
 }
@@ -33,6 +34,8 @@ pub fn isLeapMonth(year: u16, month: u4) bool {
 
 /// Difference between weekdays; x-y. x and y both <= 6 and >= 0, result in range [0..6].
 pub fn weekdayDifference(x: u3, y: u3) i4 {
+    std.debug.assert((x >= 0) and (x <= 6));
+    std.debug.assert((y >= 0) and (y <= 6));
     const z: i4 = @as(i4, x) - @as(i4, y);
     if (z <= 6) return z;
     return z + 7;

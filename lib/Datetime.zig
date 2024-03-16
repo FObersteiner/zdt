@@ -1,7 +1,6 @@
 //! an instant in time
 
 const std = @import("std");
-
 const log = std.log.scoped(.zdt__Datetime);
 
 const cal = @import("./calendar.zig");
@@ -22,6 +21,7 @@ minute: u6 = 0, // [0, 59]
 second: u6 = 0, // [0, 60]
 nanosecond: u30 = 0, // [0, 999999999]
 tzinfo: ?Timezone = null,
+dst_fold: ?u1 = null, // DST fold position; 0 = early side, 1 = late side
 
 // Seconds since the Unix epoch as incremental time ("serial" time).
 // This must always refer to 1970-01-01T00:00:00Z, not counting leap seconds
@@ -114,6 +114,7 @@ pub const Fields = struct {
     second: u7 = 0, // [0, 60]
     nanosecond: u30 = 0, // [0, 999999999]
     tzinfo: ?Timezone = null,
+    dst_fold: ?u1 = null, // DST fold position; 0 = early side, 1 = late side
 
     pub fn validate(self: Fields) ZdtError!void {
         if (self.year > max_year or self.year < min_year) return ZdtError.YearOutOfRange;
@@ -139,7 +140,7 @@ pub const Fields = struct {
 };
 
 pub fn fromFields(fields: Fields) ZdtError!Datetime {
-    _ = try fields.validate();
+    _ = try fields.validate(); // TODO : should this only be called in debug builds ?
     const d = cal.dateToRD([_]u16{ fields.year, fields.month, fields.day });
     // Note : need to truncate seconds to 59 so that Unix time is correct
     const s = if (fields.second == 60) 59 else fields.second;
@@ -152,6 +153,7 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         .second = @truncate(fields.second),
         .nanosecond = fields.nanosecond,
         .tzinfo = fields.tzinfo,
+        .dst_fold = fields.dst_fold,
         .__unix = ( //
             @as(i40, d) * s_per_day +
             @as(u17, fields.hour) * s_per_hour +
@@ -210,10 +212,28 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
     // dt matches either dt_guess_1 or dt_guess_2 => normal datetime
     const dt_eq_guess_1 = Datetime.__equalFields(dt, dt_guess_1);
     const dt_eq_guess_2 = Datetime.__equalFields(dt, dt_guess_2);
-    if (dt_eq_guess_1 and dt_eq_guess_2) return ZdtError.AmbiguousDatetime;
+
+    // If both guessed datetimes share the fields with the initial dt,
+    // we have an ambiguous datetime.
+    if (dt_eq_guess_1 and dt_eq_guess_2) {
+        // if 'dst_fold' is not specified, this should return an error.
+        const fold = fields.dst_fold orelse return ZdtError.AmbiguousDatetime;
+        switch (fold) {
+            0 => { // we want the DST active / 'early' side
+                if (dt_guess_1.tzinfo.?.tzOffset.?.is_dst) return dt_guess_1 else return dt_guess_2;
+            },
+            1 => { // we want the DST inactive / 'late' side
+                if (dt_guess_1.tzinfo.?.tzOffset.?.is_dst) return dt_guess_2 else return dt_guess_1;
+            },
+        }
+    }
+
+    // If both guesses did not succeede, we have a non-existent datetime.
+    // this should give an error.
     if (!dt_eq_guess_1 and !dt_eq_guess_2) return ZdtError.NonexistentDatetime;
-    if (dt_eq_guess_1) return dt_guess_1;
-    return dt_guess_2;
+
+    // If we came here, either guess 1 or guess 2 is correct.
+    if (dt_eq_guess_1) return dt_guess_1 else return dt_guess_2;
 }
 
 /// A helper to compare datetime fields, excluding nanosecond field.
@@ -371,14 +391,6 @@ pub fn nowLocal(allocator: std.mem.Allocator) !Datetime {
     const tz = try Timezone.tzLocal(allocator);
     const t = std.time.nanoTimestamp();
     return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, tz);
-}
-
-/// Now-in-UTC. Homage to the Python method with the same name,
-/// which is now deprecated. This one actually returns UTC ;-)
-/// TODO : remove ? Datetime.now(Timezone.UTC) is a bit more verbose but also more explicit...
-pub fn utcnow() Datetime {
-    const t = std.time.nanoTimestamp();
-    return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, Timezone.UTC) catch Datetime{};
 }
 
 /// Compare two instances with respect to their Unix time.

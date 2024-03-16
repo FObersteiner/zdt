@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 21 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 22 };
 
 const example_files = [_][]const u8{
     "ex_demo",
@@ -28,6 +28,8 @@ const test_files = [_][]const u8{
 
 const tz_submodule_dir = "tz";
 
+const tzdb_prefix_default = "lib/tzdata/zoneinfo";
+
 const req_zig_version = "0.12.0-dev";
 
 comptime {
@@ -44,7 +46,6 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const tzdb_prefix_default = "lib/tzdata/zoneinfo";
     const tzdb_prefix = b.option(
         []const u8,
         "prefix-tzdb",
@@ -95,36 +96,45 @@ pub fn build(b: *std.Build) !void {
 
     // --------------------------------------------------------------------------------
     // update tz database and version info
-    const tzdata_update_step = b.step("tz-update-db", "update timezone database");
+    const tzdata_version_update_step = b.step("tz-update-version", "update timezone database version info");
     {
-        var update_tzdata = b.addExecutable(.{
-            .name = "update_tzdata",
-            .root_source_file = .{ .path = "util/gen_tzdb.zig" },
-            .target = target,
-            .optimize = optimize,
-        });
-        const run_tzdata_update = b.addRunArtifact(update_tzdata);
-        run_tzdata_update.step.dependOn(&update_tzdata.step);
-        // where to run makefile of tzdata:
-        run_tzdata_update.addArg(tz_submodule_dir);
-        // target directory of the compilation:
-        run_tzdata_update.addArg(tzdb_prefix);
-        tzdata_update_step.dependOn(&run_tzdata_update.step);
-
-        // after updating tzdata, update version info
         var gen_tzdb_version = b.addExecutable(.{
             .name = "gen_tzdb_version",
             .root_source_file = .{ .path = "util/gen_tzdb_version.zig" },
             .target = target,
             .optimize = optimize,
         });
+
         const run_gen_version = b.addRunArtifact(gen_tzdb_version);
         run_gen_version.step.dependOn(&gen_tzdb_version.step);
         run_gen_version.addPathDir("lib");
         const out_file_v = run_gen_version.addOutputFileArg("tzdb_version.zig");
         const write_files_v = b.addWriteFiles();
         write_files_v.addCopyFileToSource(out_file_v, "./lib/tzdb_version.zig");
-        tzdata_update_step.dependOn(&write_files_v.step);
+        tzdata_version_update_step.dependOn(&write_files_v.step);
+    }
+    // --------------------------------------------------------------------------------
+
+    // --------------------------------------------------------------------------------
+    // update tz database and version info
+    const tzdata_update_step = b.step("tz-update-db", "update timezone database");
+    {
+        var gen_tzdb = b.addExecutable(.{
+            .name = "gen_tzdb",
+            .root_source_file = .{ .path = "util/gen_tzdb.zig" },
+            .target = target,
+            .optimize = optimize,
+        });
+
+        const run_tzdata_update = b.addRunArtifact(gen_tzdb);
+        run_tzdata_update.step.dependOn(&gen_tzdb.step);
+        // where to run makefile of tzdata:
+        run_tzdata_update.addArg(tz_submodule_dir);
+        // target directory of the compilation:
+        run_tzdata_update.addArg(tzdb_prefix);
+
+        tzdata_update_step.dependOn(&run_tzdata_update.step);
+        //        tzdata_update_step.dependOn(tzdata_version_update_step);
     }
     // --------------------------------------------------------------------------------
 
@@ -182,6 +192,17 @@ pub fn build(b: *std.Build) !void {
             const install_example = b.addInstallArtifact(example, .{});
             example_step.dependOn(&example.step);
             example_step.dependOn(&install_example.step);
+        }
+    }
+    // --------------------------------------------------------------------------------
+
+    // --------------------------------------------------------------------------------
+    // clean step: remove ./zig-out and ./zig-cache
+    const clean_step = b.step("clean", "Clean up");
+    {
+        clean_step.dependOn(&b.addRemoveDirTree(b.install_path).step);
+        if (builtin.os.tag != .windows) {
+            clean_step.dependOn(&b.addRemoveDirTree(b.pathFromRoot("zig-cache")).step);
         }
     }
     // --------------------------------------------------------------------------------

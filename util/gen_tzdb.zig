@@ -13,10 +13,16 @@ pub fn main() !void {
     const proc_update = try std.ChildProcess.run(.{
         .allocator = allocator,
         .argv = &argv_update,
-    }); // TODO : could catch here if submodule is not available
-    if (proc_update.stdout.len > 0 or proc_update.stderr.len > 0) {
+    });
+
+    // assert that there is no output to stderr, otherwise fail:
+    if (proc_update.stderr.len > 0) {
+        log.err("update command failed : {s}", .{proc_update.stderr});
+        return error.UpdateFailed;
+    }
+
+    if (proc_update.stdout.len > 0) {
         log.info("submodule update stdout: {s}", .{proc_update.stdout});
-        log.info("submodule update stderr: {s}", .{proc_update.stderr});
     } else {
         log.info("submodule update: no updates available", .{});
         // TODO : could exit here if tz db update should not be forced
@@ -61,8 +67,10 @@ pub fn main() !void {
         .allocator = allocator,
         .argv = &argv_compile,
     });
-    if (proc_compile.stdout.len > 0 or proc_compile.stderr.len > 0) {
+    if (proc_compile.stdout.len > 0) {
         log.info("tzdb compile step, stdout: {s}", .{proc_compile.stdout});
+    }
+    if (proc_compile.stderr.len > 0) {
         log.info("tzdb compile step, stderr: {s}", .{proc_compile.stderr});
     }
     allocator.free(proc_compile.stdout);

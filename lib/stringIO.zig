@@ -9,70 +9,36 @@ const Tz = @import("./Timezone.zig");
 const unix_specific = @import("./unix/unix_mdnames.zig");
 const windows_specific = @import("./windows/windows_mdnames.zig");
 
-const sz_abbr: usize = 32;
-const sz_normal: usize = 64;
-
-// Get the abbreviated day name in the current locale
-fn getDayNameAbbr(n: u8) [sz_abbr]u8 {
-    var dummy: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
-    dummy[0] = 63;
-    return switch (builtin.os.tag) {
-        .linux, .macos => unix_specific.getDayNameAbbr_(n),
-        .windows => windows_specific.getDayNameAbbr_(n),
-        else => dummy,
-    };
-}
-
-// Get the day name in the current locale
-fn getDayName(n: u8) [sz_normal]u8 {
-    var dummy: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
-    dummy[0] = 63;
-    return switch (builtin.os.tag) {
-        .linux, .macos => unix_specific.getDayName_(n),
-        .windows => windows_specific.getDayName_(n),
-        else => dummy,
-    };
-}
-
-// Get the abbreviated month name in the current locale
-fn getMonthNameAbbr(n: u8) [sz_abbr]u8 {
-    var dummy: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
-    dummy[0] = 63;
-    return switch (builtin.os.tag) {
-        .linux, .macos => unix_specific.getMonthNameAbbr_(n),
-        .windows => windows_specific.getMonthNameAbbr_(n),
-        else => dummy,
-    };
-}
-
-// Get the month name in the current locale
-fn getMonthName(n: u8) [sz_normal]u8 {
-    var dummy: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
-    dummy[0] = 63;
-    return switch (builtin.os.tag) {
-        .linux, .macos => unix_specific.getMonthName_(n),
-        .windows => windows_specific.getMonthName_(n),
-        else => dummy,
-    };
-}
-
 /// directives to create string representation of a datetime
 const FormatCode = enum(u8) {
-    year = 'Y',
-    month = 'm',
+    day_name_abbr = 'a', // locale-specific
+    day_name = 'A', // locale-specific
+    // %w
     day = 'd',
+    month_name_abbr = 'b', // locale-specific
+    month_name = 'B', // locale-specific
+    month = 'm',
+    // %y ?
+    year = 'Y',
     hour = 'H',
+    // %I ?
+    // %p ? // locale-specific
     min = 'M',
     sec = 'S',
     nanos = 'f',
     offset = 'z',
-    tz_abbrev = 'Z', // time zone abbreviation
+    tz_abbrev = 'Z',
+    // %j
+    // %U
+    // %W
+    // %G
+    // %u
+    // %V
+    // %T
+    // %c // locale-specific
+    // %x // locale-specific
+    // %X // locale-specific
     percent_lit = '%',
-    // locale-specific:
-    day_name_abbr = 'a',
-    day_name = 'A',
-    month_name_abbr = 'b',
-    month_name = 'B',
 
     /// create string representation of a datetime
     pub fn formatToString(
@@ -197,11 +163,9 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
     inline for (format) |fc| {
         if (next_char_is_specifier) {
             switch (fc) {
-                // Date specifiers
                 'Y' => fields.year = try parseDigits(u14, dt_string, &dt_string_idx, 4),
                 'm' => fields.month = try parseDigits(u7, dt_string, &dt_string_idx, 2),
                 'd' => fields.day = try parseDigits(u7, dt_string, &dt_string_idx, 2),
-                // Time specifiers
                 'H' => fields.hour = try parseDigits(u7, dt_string, &dt_string_idx, 2),
                 'M' => fields.minute = try parseDigits(u7, dt_string, &dt_string_idx, 2),
                 'S' => fields.second = try parseDigits(u7, dt_string, &dt_string_idx, 2),
@@ -214,8 +178,7 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
                     const f: u30 = try std.math.powi(u30, 10, @as(u30, @intCast(missing)));
                     fields.nanosecond *= f;
                 },
-                // UTC offset (+|-)hh[:mm[:ss]] or Z
-                'z' => {
+                'z' => { // UTC offset (+|-)hh[:mm[:ss]] or Z
                     const utcoffset = try parseOffset(i20, dt_string, &dt_string_idx, 9);
                     if (dt_string[dt_string_idx - 1] == 'Z') {
                         fields.tzinfo = Tz.UTC;
@@ -223,12 +186,10 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
                         fields.tzinfo = try Tz.fromOffset(utcoffset, "");
                     }
                 },
-                // literals
-                '%' => {
+                '%' => { // literal characters
                     if (dt_string[dt_string_idx] != fc) return error.InvalidFormat;
                     dt_string_idx += 1;
                 },
-
                 else => @compileError("Invalid format specifier '" ++ [_]u8{fc} ++ "'"),
             }
             next_char_is_specifier = false;
@@ -417,4 +378,54 @@ fn parseOffset(comptime T: type, dt_string: []const u8, idx: *usize, maxDigits: 
     const minutes = @divFloor(remainder, 100);
     const seconds = @mod(remainder, 100);
     return sign * (hours * 3600 + minutes * 60 + seconds);
+}
+
+// -----
+// helpers for %a %A %b %B
+// ----->
+const sz_abbr: usize = 32;
+const sz_normal: usize = 64;
+
+// Get the abbreviated day name in the current locale
+fn getDayNameAbbr(n: u8) [sz_abbr]u8 {
+    var dummy: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
+    dummy[0] = 63;
+    return switch (builtin.os.tag) {
+        .linux, .macos => unix_specific.getDayNameAbbr_(n),
+        .windows => windows_specific.getDayNameAbbr_(n),
+        else => dummy,
+    };
+}
+
+// Get the day name in the current locale
+fn getDayName(n: u8) [sz_normal]u8 {
+    var dummy: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
+    dummy[0] = 63;
+    return switch (builtin.os.tag) {
+        .linux, .macos => unix_specific.getDayName_(n),
+        .windows => windows_specific.getDayName_(n),
+        else => dummy,
+    };
+}
+
+// Get the abbreviated month name in the current locale
+fn getMonthNameAbbr(n: u8) [sz_abbr]u8 {
+    var dummy: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
+    dummy[0] = 63;
+    return switch (builtin.os.tag) {
+        .linux, .macos => unix_specific.getMonthNameAbbr_(n),
+        .windows => windows_specific.getMonthNameAbbr_(n),
+        else => dummy,
+    };
+}
+
+// Get the month name in the current locale
+fn getMonthName(n: u8) [sz_normal]u8 {
+    var dummy: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
+    dummy[0] = 63;
+    return switch (builtin.os.tag) {
+        .linux, .macos => unix_specific.getMonthName_(n),
+        .windows => windows_specific.getMonthName_(n),
+        else => dummy,
+    };
 }
