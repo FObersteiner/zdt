@@ -1,0 +1,207 @@
+# CHANGELOG
+
+## 2024-05-04, v0.1.0
+
+- cleanup
+
+## 2024-04-04
+
+- runtime loading of tzfile: accept period as part of identifier (path)
+
+
+## 2024-03-16
+
+- add 'dst_fold' datetime field to specify on which side of a DST 'fold' a datetime should fall
+- add explicit check and error for (in)valid time zone identifier
+- obtain tzdb version from tzdata.tz instead of git tag (no data - no version)
+- revise build steps to handle tzdata update and tzdb_version.zig update
+- remove `utcnow` method, can be done with `now(Timzone.UTC)`
+- add 'clean' step to build.zig, to remove ./zig-out and ./zig-cache
+- more stuff added to docs
+
+
+## 2024-03-09
+
+- add string input/output example
+- revise string IO methods
+- build.zig.zon: explicitly specify included files and directories
+- windows-tz: read Windows tz name from registry instead of using `tzutil`
+
+
+## 2024-02-28
+
+- documentation updates
+- add locale specific formatting directives %a, %A, %b and %B (datetime to string)
+- tzLocalize: accept aware datetime (creates new datetime with same fields but different time zone)
+
+
+## 2024-02-23
+
+- mirror of the repo on codeberg.org is public on github.com
+- add documentation (most of it still in preparation), update doc-comments
+- refine duration methods, 'fromTimespanMultiple' and 'toTimespanMultiple'
+- add duration example
+
+
+## 2024-02-16
+
+- bugfix `epoch` constant
+- `UTC` tz struct re-implemented as a constant (was: function)
+- remove `naiveFromList` method - datetime instance should be created via `fromFields`
+- update readme, add demo (example)
+
+
+## 2024-02-13
+
+- revise name and abbreviation of time zones
+- update tzdb version to 2024a
+
+
+## 2024-02-09
+
+- simplify API for timezone generation
+- internal revision which methods should operate on pointers and which on values
+- tz abbreviation awailable via formatDatetime method (stringIO module)
+
+
+## 2024-01-31
+
+- automatically set time zone database prefix when the library is used by another package
+- tz db prefix can also set to a user-specified path via build options
+- add local tz method (implemented for linux, windows)
+
+
+## 2024-01-24
+
+- add Paul Eggert's tz database as a submodule; TZif files are compiled into ./lib/tzdata/zoneinfo
+- tzdata version stored in Timezone.tzdata_version; the constant is updated via the build-script
+- tzfiles from the database that is shipped with zdt (eggert/tz) are comptime-loaded by default
+- runtime-loading of TZif files now has to be done via a separate function
+
+
+## 2024-01-19
+
+- some restructuring where stuff is located in the module's directory, no effect on code itself
+- prepare embedding zoneinfo data; latest version is obtained by Python script
+
+
+## 2024-01-10
+
+- add iso-calendar method for Datetime (generates ISOCalendar struct instance)
+- add week of year method (non-iso)
+- add nth weekday method (generate nth weekday of month)
+- add next/previous weekday method (generates Datetime)
+- add Month, Weekday and ISOCalendar types
+- add docs generate step to build script
+- add semantic version to build script
+
+
+## 2024-01-07
+
+- restructured datetime and timezone, both files now offer the type (struct) directly
+- add tzif parser from the standard lib as a source file
+- add epoch constant
+- zig_0.12-dev branch: runs with latest dev version - fixes tz abbreviation bug, but excludes zBench since this requires 0.11.0
+
+
+## 2024-01-03
+
+- add timezone tests
+- use a main-fn in benchmarks and examples
+- use Neri-Schneider algorithms for date <--> Unix time
+- add method to determine leap seconds offset for given Unix time
+
+
+## 2024-01-02
+
+- add day-of-year method
+- add day-of-week and iso-day-of-week methods
+- tzfile bugfix: correct offset determination for zones that only have one timetype
+
+
+## 2024-01-02
+
+- add basic duration arithmetic with datetime
+- revise parser and ISO8601 parser
+- parse 'Z' to a named offset, UTC
+- add parser benchmark
+
+
+## 2023-12-30
+
+- parser / DatetimeFields: accept leap second input
+- parser: fix bug with incomplete fractional input (< 9 digits)
+- add ISO8601 parser
+
+
+## 2023-12-27
+
+- add examples (offset time zone, time zone)
+- adhere to ziglang naming convention
+- revise TZ deinit method, make sure to free tzfile memory
+
+
+## 2023-12-22
+
+- revise TZ struct and attachment logic of datetime-->timezone
+- add comparison methods for UT and wall time
+- add datetime demo
+
+
+## 2023-12-21
+
+- add 'now' method
+- allow seconds in UTC offset
+
+
+## 2023-12-21
+
+- add datetime localization method
+- add time zone conversion method
+- offset tz: check range
+
+
+## 2023-12-20
+
+- datetime from fields with time zone handles ambiguous and non-existent datetime
+
+
+## 2023-12-18
+
+- add benchmark for calendric functions (r.d. <--> date)
+
+
+## 2023-12-16
+
+- some basic time zone calculations working
+
+
+## 2023-12-10
+
+- set 0.1.0 tag
+
+
+## 2023-12-06
+
+- prepare for restart
+
+
+## 2023-11-26
+
+- structural changes, where to put tests etc.
+- include zBench via build.zig.zon
+
+
+## 2023-11-23
+
+- benchmarks as binary; install-artifact, not test in build script
+
+
+## 2023-11-02
+
+- integrate zBench from fork
+
+
+## 2023-10-23
+
+- created

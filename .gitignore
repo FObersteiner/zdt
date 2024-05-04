@@ -1,0 +1,14 @@
+# zig output
+/zig-cache/
+/zig-out/
+
+
+/util/*.ods
+*~lock*
+
+# tz submodule
+/tz/*
+/tz/**
+
+# building tzdata temporarily creates a directory:
+/lib/tzdata/tmp/

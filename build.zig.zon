@@ -1,0 +1,13 @@
+.{
+    .name = "zdt",
+    .version = "0.1.0",
+    .paths = .{
+        "zdt.zig",
+        "lib",
+        "util",
+        "README.md",
+        "LICENSE",
+        "build.zig",
+        "build.zig.zon",
+    },
+}
