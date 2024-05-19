@@ -5,11 +5,11 @@ const std = @import("std");
 const Duration = @This();
 
 __sec: i64 = 0,
-__nsec: u30 = 0, // fraction is always positive
+__nsec: u32 = 0, // fraction is always positive
 
 /// Create a duration from multiple of specific a timespan
-pub fn fromTimespanMultiple(n: i72, timespan: Timespan) Duration {
-    const ns: i72 = @as(i72, @intCast(@intFromEnum(timespan))) * n;
+pub fn fromTimespanMultiple(n: i128, timespan: Timespan) Duration {
+    const ns: i128 = @as(i128, @intCast(@intFromEnum(timespan))) * n;
     return .{
         .__sec = @intCast(@divFloor(ns, 1_000_000_000)),
         .__nsec = @intCast(@mod(ns, 1_000_000_000)),
@@ -18,9 +18,9 @@ pub fn fromTimespanMultiple(n: i72, timespan: Timespan) Duration {
 
 /// Convert a Duration to the smallest multiple of the given timespan
 /// that can contain the duration
-pub fn toTimespanMultiple(self: Duration, timespan: Timespan) i72 {
+pub fn toTimespanMultiple(self: Duration, timespan: Timespan) i128 {
     const ns: i128 = self.asNanoseconds();
-    const divisor: u56 = @intFromEnum(timespan);
+    const divisor: u64 = @intFromEnum(timespan);
     const result = std.math.divCeil(i128, ns, @as(i128, divisor)) catch 0;
     return @intCast(result);
 }
@@ -34,7 +34,7 @@ pub fn totalSeconds(self: Duration) f64 {
 /// Add a duration to another. Makes a new Duration.
 pub fn add(this: Duration, other: Duration) Duration {
     const s: i64 = this.__sec + other.__sec;
-    const ns: u31 = this.__nsec + other.__nsec;
+    const ns: u32 = this.__nsec + other.__nsec;
     return .{
         .__sec = s + @divFloor(ns, 1_000_000_000),
         .__nsec = @truncate(@mod(ns, 1_000_000_000)),
@@ -44,7 +44,7 @@ pub fn add(this: Duration, other: Duration) Duration {
 /// Subtract a duration from another. Makes a new Duration.
 pub fn sub(this: Duration, other: Duration) Duration {
     var s: i64 = this.__sec - other.__sec;
-    var ns: i32 = @as(i32, this.__nsec) - other.__nsec;
+    var ns: i32 = @as(i32, @intCast(this.__nsec)) - @as(i32, @intCast(other.__nsec));
     if (ns < 0) {
         s -= 1;
         ns += 1_000_000_000;
@@ -96,7 +96,7 @@ pub fn format(
 
 /// Resolution of a duration in terms of fractions of a second. Mainly used
 /// to specify input resolution for creating datetime from Unix time.
-pub const Resolution = enum(u30) {
+pub const Resolution = enum(u32) {
     second = 1,
     millisecond = 1_000,
     microsecond = 1_000_000,
@@ -104,7 +104,7 @@ pub const Resolution = enum(u30) {
 };
 
 /// Span in time of a duration, in terms of multiples of a nanosecond.
-pub const Timespan = enum(u56) {
+pub const Timespan = enum(u64) {
     nanosecond = 1,
     microsecond = 1_000,
     millisecond = 1_000_000,

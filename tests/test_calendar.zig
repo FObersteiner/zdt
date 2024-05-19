@@ -15,7 +15,7 @@ test "days_in_month" {
     try testing.expect(d == 31);
 
     // index 0 is a place-holder --------vv
-    const DAYS_IN_REGULAR_MONTH = [_]u5{ 30, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    const DAYS_IN_REGULAR_MONTH = [_]u8{ 30, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
     for (DAYS_IN_REGULAR_MONTH[1..], 1..) |m, idx| {
         const x = cal.daysInMonth(@truncate(idx), std.time.epoch.isLeapYear(2021));
         try testing.expect(x == m);

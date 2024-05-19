@@ -13,35 +13,35 @@ const ZdtError = @import("./errors.zig").ZdtError;
 
 const Datetime = @This();
 
-year: u14 = 1, // [1, 9999]
-month: u4 = 1, // [1, 12]
-day: u5 = 1, // [1, 32]
-hour: u5 = 0, // [0, 23]
-minute: u6 = 0, // [0, 59]
-second: u6 = 0, // [0, 60]
-nanosecond: u30 = 0, // [0, 999999999]
+year: u16 = 1, // [1, 9999]
+month: u8 = 1, // [1, 12]
+day: u8 = 1, // [1, 32]
+hour: u8 = 0, // [0, 23]
+minute: u8 = 0, // [0, 59]
+second: u8 = 0, // [0, 60]
+nanosecond: u32 = 0, // [0, 999999999]
 tzinfo: ?Timezone = null,
 dst_fold: ?u1 = null, // DST fold position; 0 = early side, 1 = late side
 
 // Seconds since the Unix epoch as incremental time ("serial" time).
 // This must always refer to 1970-01-01T00:00:00Z, not counting leap seconds
-__unix: i40 = unix_s_min, // [unix_s_min, unix_s_max]
+__unix: i64 = unix_s_min, // [unix_s_min, unix_s_max]
 
-pub const min_year: u14 = 1; // r.d.; 0001-01-01
-pub const max_year: u14 = 9999;
-pub const unix_s_min: i40 = -62135596800;
-pub const unix_s_max: i40 = 253402300799;
+pub const min_year: u16 = 1; // r.d.; 0001-01-01
+pub const max_year: u16 = 9999;
+pub const unix_s_min: i64 = -62135596800;
+pub const unix_s_max: i64 = 253402300799;
 pub const epoch = Datetime{ .year = 1970, .__unix = 0, .tzinfo = Timezone.UTC };
 
 // constants with the number of bits limited to what is required
-const s_per_minute: u6 = 60;
-const s_per_hour: u12 = 3600;
-const s_per_day: u17 = 86400;
-const ms_per_s: u10 = 1_000;
-const us_per_s: u20 = 1_000_000;
-const ns_per_s: u30 = 1_000_000_000;
+const s_per_minute: u8 = 60;
+const s_per_hour: u16 = 3600;
+const s_per_day: u32 = 86400;
+const ms_per_s: u16 = 1_000;
+const us_per_s: u32 = 1_000_000;
+const ns_per_s: u32 = 1_000_000_000;
 
-pub const Weekday = enum(u3) {
+pub const Weekday = enum(u8) {
     Sunday = 0,
     Monday = 1,
     Tuesday = 2,
@@ -59,7 +59,7 @@ pub const Weekday = enum(u3) {
     }
 };
 
-pub const Month = enum(u4) {
+pub const Month = enum(u8) {
     January = 1,
     February = 2,
     March = 3,
@@ -83,9 +83,9 @@ pub const Month = enum(u4) {
 };
 
 pub const ISOCalendar = struct {
-    year: u14, // [1, 9999]
-    isoweek: u6, // [1, 53]
-    isoweekday: u3, // [1, 7]
+    year: u16, // [1, 9999]
+    isoweek: u8, // [1, 53]
+    isoweekday: u8, // [1, 7]
 
     pub fn format(
         self: ISOCalendar,
@@ -104,15 +104,15 @@ pub const ISOCalendar = struct {
 
 /// the fields of a datetime instance
 pub const Fields = struct {
-    year: u14 = 1, // [1, 9999]
+    year: u16 = 1, // [1, 9999]
     // u7 because we need to cover potential invalid input from a datetime string,
     // e.g.'99' for the hour field
-    month: u7 = 1, // [1, 12]
-    day: u7 = 1, // [1, 32]
-    hour: u7 = 0, // [0, 23]
-    minute: u7 = 0, // [0, 59]
-    second: u7 = 0, // [0, 60]
-    nanosecond: u30 = 0, // [0, 999999999]
+    month: u8 = 1, // [1, 12]
+    day: u8 = 1, // [1, 32]
+    hour: u8 = 0, // [0, 23]
+    minute: u8 = 0, // [0, 59]
+    second: u8 = 0, // [0, 60]
+    nanosecond: u32 = 0, // [0, 999999999]
     tzinfo: ?Timezone = null,
     dst_fold: ?u1 = null, // DST fold position; 0 = early side, 1 = late side
 
@@ -128,10 +128,10 @@ pub const Fields = struct {
 
         // if a tz is provided, it must allow offset calculation, which requires
         // one of the types to be not-null:
-        if (self.tzinfo != null) {
-            if (self.tzinfo.?.tzFile == null and
-                self.tzinfo.?.tzOffset == null and
-                self.tzinfo.?.tzPosix == null)
+        if (self.tzinfo) |tzinfo| {
+            if (tzinfo.tzFile == null and
+                tzinfo.tzOffset == null and
+                tzinfo.tzPosix == null)
             {
                 return ZdtError.AllTZRulesUndefined;
             }
@@ -142,7 +142,7 @@ pub const Fields = struct {
 pub fn fromFields(fields: Fields) ZdtError!Datetime {
     _ = try fields.validate(); // TODO : should this only be called in debug builds ?
     const d = cal.dateToRD([_]u16{ fields.year, fields.month, fields.day });
-    // Note : need to truncate seconds to 59 so that Unix time is correct
+    // Note : need to truncate seconds to 59 so that Unix time is 'correct'
     const s = if (fields.second == 60) 59 else fields.second;
     var dt = Datetime{
         .year = fields.year,
@@ -198,7 +198,7 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
     // Note : this is a bit optimistic since it assumes both "bracketing" timetypes
     //        share the same UTC offset.
     const tt_guess = if (sts[0] != null) sts[0] else sts[2];
-    const unix_guess_2 = dt.__unix - @as(i48, @intCast(tt_guess.?.offset));
+    const unix_guess_2 = dt.__unix - @as(i64, @intCast(tt_guess.?.offset));
     var dt_guess_2 = try Datetime.fromUnix(unix_guess_2, Duration.Resolution.second, fields.tzinfo);
     dt_guess_2.nanosecond = fields.nanosecond;
 
@@ -250,9 +250,9 @@ fn __equalFields(this: Datetime, other: Datetime) bool {
 }
 
 /// Construct a datetime from Unix time with a specific precision (time unit)
-pub fn fromUnix(n: i72, resolution: Duration.Resolution, tzinfo: ?Timezone) ZdtError!Datetime {
-    if (n > @as(i72, unix_s_max) * @intFromEnum(resolution) or
-        n < @as(i72, unix_s_min) * @intFromEnum(resolution))
+pub fn fromUnix(n: i128, resolution: Duration.Resolution, tzinfo: ?Timezone) ZdtError!Datetime {
+    if (n > @as(i128, unix_s_max) * @intFromEnum(resolution) or
+        n < @as(i128, unix_s_min) * @intFromEnum(resolution))
     {
         return ZdtError.UnixOutOfRange;
     }
@@ -262,16 +262,16 @@ pub fn fromUnix(n: i72, resolution: Duration.Resolution, tzinfo: ?Timezone) ZdtE
             _dt.__unix = @intCast(n);
         },
         .millisecond => {
-            _dt.__unix = @intCast(@divFloor(n, @as(i72, ms_per_s)));
-            _dt.nanosecond = @intCast(@mod(n, @as(i72, ms_per_s)) * us_per_s);
+            _dt.__unix = @intCast(@divFloor(n, @as(i128, ms_per_s)));
+            _dt.nanosecond = @intCast(@mod(n, @as(i128, ms_per_s)) * us_per_s);
         },
         .microsecond => {
-            _dt.__unix = @intCast(@divFloor(n, @as(i72, us_per_s)));
-            _dt.nanosecond = @intCast(@mod(n, @as(i72, us_per_s)) * ms_per_s);
+            _dt.__unix = @intCast(@divFloor(n, @as(i128, us_per_s)));
+            _dt.nanosecond = @intCast(@mod(n, @as(i128, us_per_s)) * ms_per_s);
         },
         .nanosecond => {
-            _dt.__unix = @intCast(@divFloor(n, @as(i72, ns_per_s)));
-            _dt.nanosecond = @intCast(@mod(n, @as(i72, ns_per_s)));
+            _dt.__unix = @intCast(@divFloor(n, @as(i128, ns_per_s)));
+            _dt.nanosecond = @intCast(@mod(n, @as(i128, ns_per_s)));
         },
     }
 
@@ -300,12 +300,12 @@ fn __normalize(self: *Datetime) TzError!void {
 }
 
 /// Return Unix time for given datetime struct
-pub fn toUnix(self: Datetime, resolution: Duration.Resolution) i72 {
+pub fn toUnix(self: Datetime, resolution: Duration.Resolution) i128 {
     switch (resolution) {
-        .second => return @as(i72, self.__unix),
-        .millisecond => return @as(i72, self.__unix) * ms_per_s + @divFloor(self.nanosecond, us_per_s),
-        .microsecond => return @as(i72, self.__unix) * us_per_s + @divFloor(self.nanosecond, ms_per_s),
-        .nanosecond => return @as(i72, self.__unix) * ns_per_s + self.nanosecond,
+        .second => return @as(i128, self.__unix),
+        .millisecond => return @as(i128, self.__unix) * ms_per_s + @divFloor(self.nanosecond, us_per_s),
+        .microsecond => return @as(i128, self.__unix) * us_per_s + @divFloor(self.nanosecond, ms_per_s),
+        .nanosecond => return @as(i128, self.__unix) * ns_per_s + self.nanosecond,
     }
 }
 
@@ -330,7 +330,7 @@ pub fn tzLocalize(self: Datetime, tzinfo: ?Timezone) ZdtError!Datetime {
 pub fn tzConvert(self: Datetime, new_tz: Timezone) ZdtError!Datetime {
     if (self.tzinfo == null) return ZdtError.TzUndefined;
     return Datetime.fromUnix(
-        @as(i72, self.__unix) * ns_per_s + self.nanosecond,
+        @as(i128, self.__unix) * ns_per_s + self.nanosecond,
         Duration.Resolution.nanosecond,
         new_tz,
     );
@@ -400,8 +400,8 @@ pub fn compareUT(this: Datetime, other: Datetime) ZdtError!std.math.Order {
     if ((this.tzinfo != null and other.tzinfo == null) or
         (this.tzinfo == null and other.tzinfo != null)) return ZdtError.CompareNaiveAware;
     return std.math.order(
-        @as(i72, this.__unix) * ns_per_s + this.nanosecond,
-        @as(i72, other.__unix) * ns_per_s + other.nanosecond,
+        @as(i128, this.__unix) * ns_per_s + this.nanosecond,
+        @as(i128, other.__unix) * ns_per_s + other.nanosecond,
     );
 }
 
@@ -414,9 +414,9 @@ pub fn compareWall(this: Datetime, other: Datetime) !std.math.Order {
 
 /// Add a duration to a datetime. Makes a new datetime.
 pub fn add(self: Datetime, td: Duration) ZdtError!Datetime {
-    const ns: i72 = ( //
-        @as(i72, self.__unix) * ns_per_s + //
-        @as(i72, self.nanosecond) + //
+    const ns: i128 = ( //
+        @as(i128, self.__unix) * ns_per_s + //
+        @as(i128, self.nanosecond) + //
         td.__sec * ns_per_s + //
         td.__nsec //
     );
@@ -431,7 +431,7 @@ pub fn sub(self: Datetime, td: Duration) ZdtError!Datetime {
 /// Calculate the duration between two datetimes, independent of the time zone.
 pub fn diff(this: Datetime, other: Datetime) Duration {
     var s: i64 = this.__unix - other.__unix;
-    var ns: i32 = @as(i32, this.nanosecond) - other.nanosecond;
+    var ns: i32 = @as(i32, @intCast(this.nanosecond)) - @as(i32, @intCast(other.nanosecond));
     if (ns < 0) {
         s -= 1;
         ns += 1_000_000_000;
@@ -456,7 +456,7 @@ pub fn diffWall(this: Datetime, other: Datetime) !Duration {
 }
 
 /// Day of the year starting with 1 == yyyy-01-01 (strftime/strptime: %j).
-pub fn dayOfYear(self: Datetime) u9 {
+pub fn dayOfYear(self: Datetime) u16 {
     return cal.dayOfYear(self.year, self.month, self.day);
 }
 
@@ -466,13 +466,13 @@ pub fn weekday(self: Datetime) Weekday {
 }
 
 /// Number of the weekday starting at 0 == Sunday (strftime/strptime: %w).
-pub fn weekdayNumber(self: Datetime) u3 {
+pub fn weekdayNumber(self: Datetime) u8 {
     const days = cal.dateToRD([3]u16{ self.year, self.month, self.day });
     return cal.weekdayFromUnixdays(days);
 }
 
 /// ISO-number of the weekday, starting at 1 == Monday (strftime/strptime: %u).
-pub fn weekdayIsoNumber(self: Datetime) u3 {
+pub fn weekdayIsoNumber(self: Datetime) u8 {
     const days = cal.dateToRD([3]u16{ self.year, self.month, self.day });
     return cal.ISOweekdayFromUnixdays(days);
 }
@@ -483,7 +483,7 @@ pub fn monthEnum(self: Datetime) Month {
 
 /// Roll datetime forward to the specified next weekday. Makes a new datetime.
 pub fn nextWeekday(self: Datetime, d: Weekday) Datetime {
-    var daysdiff: i4 = 0;
+    var daysdiff: i8 = 0;
     if (self.weekday() == d) {
         daysdiff = 7;
     } else {
@@ -496,7 +496,7 @@ pub fn nextWeekday(self: Datetime, d: Weekday) Datetime {
 
 /// Roll datetime backward to the specified previous weekday.
 pub fn previousWeekday(self: Datetime, d: Weekday) Datetime {
-    var daysdiff: i4 = 0;
+    var daysdiff: i8 = 0;
     if (self.weekday() == d) {
         daysdiff = -7;
     } else {
@@ -509,7 +509,7 @@ pub fn previousWeekday(self: Datetime, d: Weekday) Datetime {
 
 /// nth weekday of given month and year, returned as a Datetime.
 /// nth must be in range [1..5]; although 5 might return an error for certain year/month combinations.
-pub fn nthWeekday(year: u14, month: u4, wd: Weekday, nth: u5) ZdtError!Datetime {
+pub fn nthWeekday(year: u16, month: u8, wd: Weekday, nth: u8) ZdtError!Datetime {
     if (nth > 5 or nth == 0) return RangeError.DayOutOfRange;
     var dt = try Datetime.fromFields(.{ .year = year, .month = month });
     if (dt.weekday() != wd) dt = dt.nextWeekday(wd);
@@ -521,7 +521,7 @@ pub fn nthWeekday(year: u14, month: u4, wd: Weekday, nth: u5) ZdtError!Datetime 
 
 /// Week number of the year (Sunday as the first day of the week) as returned from
 /// strftime's %U
-pub fn weekOfYearSun(dt: Datetime) u6 {
+pub fn weekOfYearSun(dt: Datetime) u8 {
     const doy = dt.dayOfYear();
     const dow = dt.weekdayNumber();
     return @truncate(@divFloor(doy + 7 - dow, 7));
@@ -529,7 +529,7 @@ pub fn weekOfYearSun(dt: Datetime) u6 {
 
 /// Week number of the year (Monday as the first day of the week) as returned from
 /// strftime's %W
-pub fn weekOfYearMon(dt: Datetime) u6 {
+pub fn weekOfYearMon(dt: Datetime) u8 {
     const doy = dt.dayOfYear();
     const dow = dt.weekdayNumber();
     return @truncate(@divFloor((doy + 7 - if (dow > 0) dow - 1 else 6), 7));
@@ -538,10 +538,10 @@ pub fn weekOfYearMon(dt: Datetime) u6 {
 /// Calculate the ISO week of the year and generate ISOCalendar.
 /// Algorithm from <https://en.wikipedia.org/wiki/ISO_week_date>.
 pub fn isocalendar(dt: Datetime) ISOCalendar {
-    const doy: u9 = dt.dayOfYear();
-    const dow: u9 = @as(u9, dt.weekdayIsoNumber());
-    const w: u9 = @divFloor(10 + doy - dow, 7);
-    const weeks: u6 = cal.weeksPerYear(dt.year);
+    const doy: u16 = dt.dayOfYear();
+    const dow: u16 = @as(u9, dt.weekdayIsoNumber());
+    const w: u16 = @divFloor(10 + doy - dow, 7);
+    const weeks: u8 = cal.weeksPerYear(dt.year);
     var isocal = ISOCalendar{ .year = dt.year, .isoweek = 0, .isoweekday = @truncate(dow) };
     if (w > weeks) {
         isocal.isoweek = 1;
@@ -566,7 +566,7 @@ pub fn formatOffset(self: Datetime, writer: anytype) !void {
     // make the calculation here:
     const off = self.tzinfo.?.tzOffset.?.seconds_east;
 
-    const absoff: u19 = if (off < 0) @intCast(off * -1) else @intCast(off);
+    const absoff: u32 = if (off < 0) @intCast(off * -1) else @intCast(off);
     const sign = if (off < 0) "-" else "+";
     const hours = absoff / 3600;
     const minutes = (absoff % 3600) / 60;

@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2024-05-19, v0.1.1
+
+- use base2 sized integers for better performance
+- TZ format: use 'c'-directive to signal that those are ASCII-encoded strings
+
 ## 2024-05-04, v0.1.0
 
 - cleanup

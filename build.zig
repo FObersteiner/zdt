@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 0 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 1 };
 
 const example_files = [_][]const u8{
     "ex_demo",
@@ -43,17 +43,17 @@ pub fn build(b: *std.Build) !void {
 
     const tzdb_prefix = b.option(
         []const u8,
-        "prefix-tzdb",
+        "prefix_tzdb",
         "Absolute path to IANA time zone database, containing TZif files",
     ) orelse tzdb_prefix_default;
 
     const zdt_module = b.addModule("zdt", .{
-        .root_source_file = .{ .path = "zdt.zig" },
+        .root_source_file = b.path("zdt.zig"),
     });
 
     const zdt = b.addStaticLibrary(.{
         .name = "zdt",
-        .root_source_file = .{ .path = "zdt.zig" },
+        .root_source_file = b.path("zdt.zig"),
         .target = target,
         .optimize = optimize,
         .version = zdt_version,
@@ -70,7 +70,7 @@ pub fn build(b: *std.Build) !void {
 
     var gen_tzdb_prefix = b.addExecutable(.{
         .name = "gen_tzdb_prefix",
-        .root_source_file = .{ .path = "util/gen_tzdb_prefix.zig" },
+        .root_source_file = b.path("util/gen_tzdb_prefix.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -90,33 +90,20 @@ pub fn build(b: *std.Build) !void {
     // --------------------------------------------------------------------------------
 
     // --------------------------------------------------------------------------------
-    // update tz database and version info
-    const tzdata_version_update_step = b.step("tz-update-version", "update timezone database version info");
-    {
-        var gen_tzdb_version = b.addExecutable(.{
-            .name = "gen_tzdb_version",
-            .root_source_file = .{ .path = "util/gen_tzdb_version.zig" },
-            .target = target,
-            .optimize = optimize,
-        });
-
-        const run_gen_version = b.addRunArtifact(gen_tzdb_version);
-        run_gen_version.step.dependOn(&gen_tzdb_version.step);
-        run_gen_version.addPathDir("lib");
-        const out_file_v = run_gen_version.addOutputFileArg("tzdb_version.zig");
-        const write_files_v = b.addWriteFiles();
-        write_files_v.addCopyFileToSource(out_file_v, "./lib/tzdb_version.zig");
-        tzdata_version_update_step.dependOn(&write_files_v.step);
-    }
-    // --------------------------------------------------------------------------------
-
-    // --------------------------------------------------------------------------------
-    // update tz database and version info
-    const tzdata_update_step = b.step("tz-update-db", "update timezone database");
+    // to update the timezone database, run the following steps -
+    // note that you have to clean the cache first, order matters.
+    //
+    // zig build clean && zig build update-tz-database && zig build update-tz-version
+    //
+    // update tz database
+    const update_tz_database = b.step(
+        "update-tz-database",
+        "update timezone database",
+    );
     {
         var gen_tzdb = b.addExecutable(.{
             .name = "gen_tzdb",
-            .root_source_file = .{ .path = "util/gen_tzdb.zig" },
+            .root_source_file = b.path("util/gen_tzdb.zig"),
             .target = target,
             .optimize = optimize,
         });
@@ -127,7 +114,28 @@ pub fn build(b: *std.Build) !void {
         run_tzdata_update.addArg(tz_submodule_dir);
         // target directory of the compilation:
         run_tzdata_update.addArg(tzdb_prefix);
-        tzdata_update_step.dependOn(&run_tzdata_update.step);
+        update_tz_database.dependOn(&run_tzdata_update.step);
+    }
+    // update tz database version info
+    const update_tz_version_step = b.step(
+        "update-tz-version",
+        "update timezone database version info",
+    );
+    {
+        var gen_tzdb_version = b.addExecutable(.{
+            .name = "gen_tzdb_version",
+            .root_source_file = b.path("util/gen_tzdb_version.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+
+        const run_gen_version = b.addRunArtifact(gen_tzdb_version);
+        run_gen_version.step.dependOn(&gen_tzdb_version.step);
+        run_gen_version.addPathDir("lib");
+        const out_file_v = run_gen_version.addOutputFileArg("tzdb_version.zig");
+        const write_files_v = b.addWriteFiles();
+        write_files_v.addCopyFileToSource(out_file_v, "./lib/tzdb_version.zig");
+        update_tz_version_step.dependOn(&write_files_v.step);
     }
     // --------------------------------------------------------------------------------
 
@@ -138,7 +146,7 @@ pub fn build(b: *std.Build) !void {
         // unit tests in lib/*.zig files
         const root_test = b.addTest(.{
             .name = "zdt_root",
-            .root_source_file = .{ .path = "zdt.zig" },
+            .root_source_file = b.path("zdt.zig"),
             .target = target,
             .optimize = optimize,
             // .test_runner = "./test_runner.zig",
@@ -152,7 +160,7 @@ pub fn build(b: *std.Build) !void {
         for (test_files) |test_name| {
             const _test = b.addTest(.{
                 .name = test_name,
-                .root_source_file = .{ .path = b.fmt("tests/{s}.zig", .{test_name}) },
+                .root_source_file = b.path(b.fmt("tests/{s}.zig", .{test_name})),
                 .target = target,
                 .optimize = optimize,
                 // .test_runner = "./test_runner.zig",
@@ -176,7 +184,7 @@ pub fn build(b: *std.Build) !void {
         for (example_files) |example_name| {
             const example = b.addExecutable(.{
                 .name = example_name,
-                .root_source_file = .{ .path = b.fmt("examples/{s}.zig", .{example_name}) },
+                .root_source_file = b.path(b.fmt("examples/{s}.zig", .{example_name})),
                 .target = target,
                 .optimize = optimize,
             });

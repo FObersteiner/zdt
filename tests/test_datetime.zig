@@ -56,24 +56,24 @@ test "validate tz field" {
 
 test "Datetime from empty field struct" {
     const dt = try Datetime.fromFields(.{});
-    try testing.expectEqual(@as(u14, 1), dt.year);
-    try testing.expectEqual(@as(u4, 1), dt.month);
+    try testing.expectEqual(@as(u16, 1), dt.year);
+    try testing.expectEqual(@as(u8, 1), dt.month);
     try testing.expectEqual(@as(u5, 1), dt.day);
     try testing.expect(dt.tzinfo == null);
 }
 
 test "Datetime from populated field struct" {
     const dt = try Datetime.fromFields(.{ .year = 2023, .month = 12 });
-    try testing.expectEqual(@as(u14, 2023), dt.year);
-    try testing.expectEqual(@as(u4, 12), dt.month);
+    try testing.expectEqual(@as(u16, 2023), dt.year);
+    try testing.expectEqual(@as(u8, 12), dt.month);
     try testing.expectEqual(@as(u5, 1), dt.day);
     try testing.expect(dt.tzinfo == null);
 }
 
 test "Datetime from list" {
     const dt = try Datetime.fromFields(.{ .year = 2023, .month = 12 });
-    try testing.expectEqual(@as(u14, 2023), dt.year);
-    try testing.expectEqual(@as(u4, 12), dt.month);
+    try testing.expectEqual(@as(u16, 2023), dt.year);
+    try testing.expectEqual(@as(u8, 12), dt.month);
     try testing.expectEqual(@as(u5, 1), dt.day);
     try testing.expect(dt.tzinfo == null);
 }
@@ -106,13 +106,13 @@ test "Datetime Unix epoch roundtrip" {
 
 test "Fields can represent leap second, Unix cannot" {
     const dt_from_fields = try Datetime.fromFields(.{ .year = 1970, .second = 60 });
-    try testing.expectEqual(@as(u6, 60), dt_from_fields.second);
+    try testing.expectEqual(@as(u8, 60), dt_from_fields.second);
     const unix_s = dt_from_fields.toUnix(Duration.Resolution.second);
-    try testing.expectEqual(@as(i72, 59), unix_s);
+    try testing.expectEqual(@as(i128, 59), unix_s);
 
     const dt_from_int = try Datetime.fromUnix(60, Duration.Resolution.second, null);
-    try testing.expectEqual(@as(u6, 0), dt_from_int.second);
-    try testing.expectEqual(@as(u6, 1), dt_from_int.minute);
+    try testing.expectEqual(@as(u8, 0), dt_from_int.second);
+    try testing.expectEqual(@as(u8, 1), dt_from_int.minute);
 }
 
 test "Dateime from invalid fields" {
@@ -149,11 +149,11 @@ test "Datetime Min Max fields vs seconds roundtrip" {
 
     const too_large_s = Datetime.fromUnix(Datetime.unix_s_max + 1, Duration.Resolution.second, null);
     try testing.expectError(ZdtError.UnixOutOfRange, too_large_s);
-    const too_large_ns = Datetime.fromUnix(@as(i72, Datetime.unix_s_max + 1) * std.time.ns_per_s, Duration.Resolution.second, null);
+    const too_large_ns = Datetime.fromUnix(@as(i128, Datetime.unix_s_max + 1) * std.time.ns_per_s, Duration.Resolution.second, null);
     try testing.expectError(ZdtError.UnixOutOfRange, too_large_ns);
     const too_small_s = Datetime.fromUnix(Datetime.unix_s_min - 1, Duration.Resolution.second, null);
     try testing.expectError(ZdtError.UnixOutOfRange, too_small_s);
-    const too_small_ns = Datetime.fromUnix(@as(i72, Datetime.unix_s_min - 1) * std.time.ns_per_s, Duration.Resolution.second, null);
+    const too_small_ns = Datetime.fromUnix(@as(i128, Datetime.unix_s_min - 1) * std.time.ns_per_s, Duration.Resolution.second, null);
     try testing.expectError(ZdtError.UnixOutOfRange, too_small_ns);
 }
 
@@ -263,9 +263,9 @@ test "floor naive datetime to the minute" {
     try testing.expectEqual(dt_floored.day, dt.day);
     try testing.expectEqual(dt_floored.hour, dt.hour);
     try testing.expectEqual(dt_floored.minute, dt.minute);
-    try testing.expectEqual(@as(u6, 0), dt_floored.second);
-    try testing.expectEqual(@as(u30, 0), dt_floored.nanosecond);
-    try testing.expectEqual(@as(u30, 0), dt_floored.nanosecond);
+    try testing.expectEqual(@as(u8, 0), dt_floored.second);
+    try testing.expectEqual(@as(u32, 0), dt_floored.nanosecond);
+    try testing.expectEqual(@as(u32, 0), dt_floored.nanosecond);
 }
 
 test "floor naive datetime to the hour" {
@@ -275,10 +275,10 @@ test "floor naive datetime to the hour" {
     try testing.expectEqual(dt_floored.month, dt.month);
     try testing.expectEqual(dt_floored.day, dt.day);
     try testing.expectEqual(dt_floored.hour, dt.hour);
-    try testing.expectEqual(@as(u6, 0), dt_floored.minute);
-    try testing.expectEqual(@as(u6, 0), dt_floored.second);
-    try testing.expectEqual(@as(u30, 0), dt_floored.nanosecond);
-    try testing.expectEqual(@as(u30, 0), dt_floored.nanosecond);
+    try testing.expectEqual(@as(u8, 0), dt_floored.minute);
+    try testing.expectEqual(@as(u8, 0), dt_floored.second);
+    try testing.expectEqual(@as(u32, 0), dt_floored.nanosecond);
+    try testing.expectEqual(@as(u32, 0), dt_floored.nanosecond);
 }
 
 test "floor naive datetime to the date" {
@@ -287,11 +287,11 @@ test "floor naive datetime to the date" {
     try testing.expectEqual(dt_floored.year, dt.year);
     try testing.expectEqual(dt_floored.month, dt.month);
     try testing.expectEqual(dt_floored.day, dt.day);
-    try testing.expectEqual(@as(u5, 0), dt_floored.hour);
-    try testing.expectEqual(@as(u6, 0), dt_floored.minute);
-    try testing.expectEqual(@as(u6, 0), dt_floored.second);
-    try testing.expectEqual(@as(u30, 0), dt_floored.nanosecond);
-    try testing.expectEqual(@as(i48, 1613606400), dt_floored.__unix);
+    try testing.expectEqual(@as(u8, 0), dt_floored.hour);
+    try testing.expectEqual(@as(u8, 0), dt_floored.minute);
+    try testing.expectEqual(@as(u8, 0), dt_floored.second);
+    try testing.expectEqual(@as(u32, 0), dt_floored.nanosecond);
+    try testing.expectEqual(@as(i64, 1613606400), dt_floored.__unix);
 }
 
 test "day of year" {
@@ -322,9 +322,9 @@ test "day of week" {
 
 test "day of week, iso" {
     var dt = try Datetime.fromFields(.{ .year = 1970, .day = 5 });
-    var i: u4 = 1;
+    var i: u8 = 1;
     while (i < 8) : (i += 1) {
-        try testing.expectEqual(i, @as(u4, dt.weekdayIsoNumber()));
+        try testing.expectEqual(i, @as(u8, dt.weekdayIsoNumber()));
         dt = try dt.add(Duration.fromTimespanMultiple(1, Duration.Timespan.day));
     }
 }
@@ -346,30 +346,30 @@ test "next weekday" {
     const dt = try Datetime.fromFields(.{ .year = 1970 });
     const nextThu = dt.nextWeekday(Datetime.Weekday.Thursday);
     try testing.expectEqualStrings("Thursday", nextThu.weekday().longName());
-    try testing.expectEqual(@as(u6, 8), nextThu.day);
+    try testing.expectEqual(@as(u8, 8), nextThu.day);
 
     const nextWed = dt.nextWeekday(Datetime.Weekday.Wednesday);
     try testing.expectEqualStrings("Wednesday", nextWed.weekday().longName());
-    try testing.expectEqual(@as(u6, 7), nextWed.day);
+    try testing.expectEqual(@as(u8, 7), nextWed.day);
 
     const nextSun = dt.nextWeekday(Datetime.Weekday.Sunday);
     try testing.expectEqualStrings("Sunday", nextSun.weekday().longName());
-    try testing.expectEqual(@as(u6, 4), nextSun.day);
+    try testing.expectEqual(@as(u8, 4), nextSun.day);
 }
 
 test "prev weekday" {
     const dt = try Datetime.fromFields(.{ .year = 1970 });
     const prevThu = dt.previousWeekday(Datetime.Weekday.Thursday);
     try testing.expectEqualStrings("Thursday", prevThu.weekday().longName());
-    try testing.expectEqual(@as(u6, 25), prevThu.day);
+    try testing.expectEqual(@as(u8, 25), prevThu.day);
 
     const prevWed = dt.previousWeekday(Datetime.Weekday.Wednesday);
     try testing.expectEqualStrings("Wednesday", prevWed.weekday().longName());
-    try testing.expectEqual(@as(u6, 31), prevWed.day);
+    try testing.expectEqual(@as(u8, 31), prevWed.day);
 
     const prevSun = dt.previousWeekday(Datetime.Weekday.Sunday);
     try testing.expectEqualStrings("Sunday", prevSun.weekday().longName());
-    try testing.expectEqual(@as(u6, 28), prevSun.day);
+    try testing.expectEqual(@as(u8, 28), prevSun.day);
 }
 
 test "nth weekday" {
@@ -395,59 +395,59 @@ test "nth weekday" {
 
 test "week of year" {
     var dt = try Datetime.fromFields(.{ .year = 1970 });
-    try testing.expectEqual(@as(u6, 0), dt.weekOfYearSun());
+    try testing.expectEqual(@as(u8, 0), dt.weekOfYearSun());
     const nextSun = dt.nextWeekday(Datetime.Weekday.Sunday);
-    try testing.expectEqual(@as(u6, 1), nextSun.weekOfYearSun());
+    try testing.expectEqual(@as(u8, 1), nextSun.weekOfYearSun());
 
-    try testing.expectEqual(@as(u6, 0), nextSun.weekOfYearMon());
+    try testing.expectEqual(@as(u8, 0), nextSun.weekOfYearMon());
     const nextMon = dt.nextWeekday(Datetime.Weekday.Monday);
-    try testing.expectEqual(@as(u6, 1), nextMon.weekOfYearMon());
+    try testing.expectEqual(@as(u8, 1), nextMon.weekOfYearMon());
 
     dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 31 });
-    try testing.expectEqual(@as(u6, 53), dt.weekOfYearSun());
-    try testing.expectEqual(@as(u6, 52), dt.weekOfYearMon());
+    try testing.expectEqual(@as(u8, 53), dt.weekOfYearSun());
+    try testing.expectEqual(@as(u8, 52), dt.weekOfYearMon());
 }
 
 test "iso calendar" {
     var dt = try Datetime.fromFields(.{ .year = 2024, .month = 1, .day = 9 });
     var isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 2), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 2), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1977, .month = 1, .day = 1 });
     isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 53), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 53), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1977, .month = 12, .day = 31 });
     isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 52), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 52), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1978, .month = 1, .day = 1 });
     isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 52), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 52), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1978, .month = 1, .day = 2 });
     isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 1), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 1), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1978, .month = 12, .day = 31 });
     isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 52), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 52), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1979, .month = 12, .day = 28 });
     isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 52), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 52), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1979, .month = 12, .day = 29 });
     isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 52), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 52), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1979, .month = 12, .day = 30 });
     isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 52), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 52), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1979, .month = 12, .day = 31 });
     isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 1), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 1), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1980, .month = 1, .day = 1 });
     isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 1), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 1), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1981, .month = 12, .day = 31 });
     isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 53), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 53), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1982, .month = 1, .day = 3 });
     isocal = dt.isocalendar();
-    try testing.expectEqual(@as(u6, 53), isocal.isoweek);
+    try testing.expectEqual(@as(u8, 53), isocal.isoweek);
 }
 
 // ---vv--- test generated with Python script ---vv---
@@ -457,7 +457,7 @@ test "unix nanoseconds, fields" {
     var dt_from_unix = try Datetime.fromUnix(-1206205679347298795, Duration.Resolution.nanosecond, null);
     var dt_from_fields = try Datetime.fromFields(.{ .year = 1931, .month = 10, .day = 12, .hour = 6, .minute = 52, .second = 0, .nanosecond = 652701205 });
     try testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
-    var unix: i72 = dt_from_fields.toUnix(Duration.Resolution.nanosecond);
+    var unix: i128 = dt_from_fields.toUnix(Duration.Resolution.nanosecond);
     try testing.expect(unix == -1206205679347298795);
 
     // 1969-11-24T23:10:10.285143+00:00 :

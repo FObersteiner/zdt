@@ -34,11 +34,11 @@ const comptime_tzdb_prefix = "./tzdata/zoneinfo/"; // IANA db as provided by the
 
 /// offset from UTC should be in range -25h to +26h as specified by
 /// RFC8536, sect. 3.2, TZif data block.
-pub const UTC_off_range = [2]i20{ -89999, 93599 };
+pub const UTC_off_range = [2]i32{ -89999, 93599 };
 
 /// UT offset, seconds East of Greenwich
 pub const UTCoffset = struct {
-    seconds_east: i20 = 0,
+    seconds_east: i32 = 0,
     is_dst: bool = false,
     __abbrev_data: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 },
     __transition_index: i32 = -1, // TZif transitions index. -1 means invalid
@@ -48,11 +48,13 @@ pub const UTCoffset = struct {
 pub const UTC = Timezone{
     .tzOffset = UTCoffset{ .seconds_east = 0, .__abbrev_data = [6:0]u8{ 90, 0, 0, 0, 0, 0 } },
     .__name_data_len = 3,
-    .__name_data = [cap_name_data]u8{ 85, 84, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    .__name_data = [3]u8{ 85, 84, 67 } ++ std.mem.zeroes([cap_name_data - 3]u8),
 };
 
 /// A time zone's name (identifier)
 pub fn name(self: *Timezone) []const u8 {
+    // 'self' must be a pointer to TZ, otherwise returned slice would point to an out-of-scope
+    // copy of the TZ instance. See also <https://ziggit.dev/t/pointers-to-temporary-memory/>
     return self.__name_data[0..self.__name_data_len];
 }
 
@@ -159,8 +161,6 @@ pub fn tzLocal(allocator: std.mem.Allocator) !Timezone {
     switch (builtin.os.tag) {
         .linux, .macos => {
             const default_path = "/etc/localtime";
-            // TODO : try multiple possibilities here?
-
             var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
             const path = try std.fs.realpath(default_path, &path_buffer);
             return try Timezone.runtimeFromTzfile(path, "", allocator);
@@ -176,7 +176,7 @@ pub fn tzLocal(allocator: std.mem.Allocator) !Timezone {
 /// Get the UTC offset at a certain Unix time. Creates a new UTCoffset.
 /// Priority for offset determination is tzfile > POSIX TZ > fixed offset.
 /// tzFile and tzPosix set tzOffset if possible.
-pub fn atUnixtime(self: Timezone, unixtime: i48) TzError!UTCoffset {
+pub fn atUnixtime(self: Timezone, unixtime: i64) TzError!UTCoffset {
     if (self.tzFile == null and self.tzPosix == null and self.tzOffset == null) {
         return TzError.AllTZRulesUndefined;
     }
@@ -207,10 +207,9 @@ pub fn atUnixtime(self: Timezone, unixtime: i48) TzError!UTCoffset {
         return TzError.NotImplemented; // TODO : handle posix tz
     }
 
-    // if we already have an offset here but no tzFile or tzPosix, there's nothing
-    // more we can do.
-    if (self.tzOffset != null) {
-        return self.tzOffset.?;
+    // if we already have an offset here but no tzFile or tzPosix, there's nothing more we can do.
+    if (self.tzOffset) |offset| {
+        return offset;
     }
 
     return TzError.AllTZRulesUndefined;
@@ -225,16 +224,16 @@ pub fn format(
     _ = fmt;
     _ = options;
     var _self = self; // need a variable copy because we have pointer methods
-    try writer.print("Time zone, name: {s}", .{
+    try writer.print("Time zone, name: {c}", .{
         _self.name(),
     });
-    if (_self.tzOffset != null) {
+    if (_self.tzOffset) |offset| {
         try writer.print(
-            ", abbreviation: {s}, offset from UTC: {d} s, daylight saving time? {}",
+            ", abbreviation: {c}, offset from UTC: {d} s, daylight saving time? {}",
             .{
                 _self.abbreviation(),
-                _self.tzOffset.?.seconds_east,
-                _self.tzOffset.?.is_dst,
+                offset.seconds_east,
+                offset.is_dst,
             },
         );
     }
@@ -247,7 +246,7 @@ pub fn format(
 /// -3 : target is smaller than first transition element
 fn findTransition(array: []const tzif.Transition, target: i64) i32 {
     if (array.len == 0) return -1;
-    // we know that 'items' is sorted, so we can check first and last indices.
+    // we know that transitions in 'array' are sorted, so we can check first and last indices.
     // if 'target' is out of range, caller should return to use tz.timetype[0]
     // or tz.timetype[-1] resp.
     if (target > array[array.len - 1].ts) return -2;

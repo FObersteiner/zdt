@@ -163,23 +163,23 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
     inline for (format) |fc| {
         if (next_char_is_specifier) {
             switch (fc) {
-                'Y' => fields.year = try parseDigits(u14, dt_string, &dt_string_idx, 4),
-                'm' => fields.month = try parseDigits(u7, dt_string, &dt_string_idx, 2),
-                'd' => fields.day = try parseDigits(u7, dt_string, &dt_string_idx, 2),
-                'H' => fields.hour = try parseDigits(u7, dt_string, &dt_string_idx, 2),
-                'M' => fields.minute = try parseDigits(u7, dt_string, &dt_string_idx, 2),
-                'S' => fields.second = try parseDigits(u7, dt_string, &dt_string_idx, 2),
+                'Y' => fields.year = try parseDigits(u16, dt_string, &dt_string_idx, 4),
+                'm' => fields.month = try parseDigits(u8, dt_string, &dt_string_idx, 2),
+                'd' => fields.day = try parseDigits(u8, dt_string, &dt_string_idx, 2),
+                'H' => fields.hour = try parseDigits(u8, dt_string, &dt_string_idx, 2),
+                'M' => fields.minute = try parseDigits(u8, dt_string, &dt_string_idx, 2),
+                'S' => fields.second = try parseDigits(u8, dt_string, &dt_string_idx, 2),
                 'f' => {
                     // if we only parse n digits out of 9, we have to multiply the result by
                     // 10^n to get nanoseconds
                     const tmp_idx = dt_string_idx;
-                    fields.nanosecond = try parseDigits(u30, dt_string, &dt_string_idx, 9);
+                    fields.nanosecond = try parseDigits(u32, dt_string, &dt_string_idx, 9);
                     const missing = 9 - (dt_string_idx - tmp_idx);
-                    const f: u30 = try std.math.powi(u30, 10, @as(u30, @intCast(missing)));
+                    const f: u32 = try std.math.powi(u32, 10, @as(u32, @intCast(missing)));
                     fields.nanosecond *= f;
                 },
                 'z' => { // UTC offset (+|-)hh[:mm[:ss]] or Z
-                    const utcoffset = try parseOffset(i20, dt_string, &dt_string_idx, 9);
+                    const utcoffset = try parseOffset(i32, dt_string, &dt_string_idx, 9);
                     if (dt_string[dt_string_idx - 1] == 'Z') {
                         fields.tzinfo = Tz.UTC;
                     } else {
@@ -242,43 +242,43 @@ pub fn parseISO8601(dt_string: []const u8) !Datetime {
     }
 
     var fields = Datetime.Fields{};
-    var utcoffset: ?i20 = null;
+    var utcoffset: ?i32 = null;
 
     var dt_string_idx: usize = 0;
     // since this is a runtime-parser, we need to step through the input
     // and stop doing so once we reach the end (break the 'parseblock')
     parseblock: {
         // yyyy-mm
-        fields.year = try parseDigits(u14, dt_string, &dt_string_idx, 4);
+        fields.year = try parseDigits(u16, dt_string, &dt_string_idx, 4);
         if (dt_string_idx != 4) return error.InvalidFormat; // 2-digit year not allowed
         if (dt_string[dt_string_idx] != '-') return error.InvalidFormat;
         dt_string_idx += 1;
-        fields.month = try parseDigits(u7, dt_string, &dt_string_idx, 2);
+        fields.month = try parseDigits(u8, dt_string, &dt_string_idx, 2);
         if (dt_string_idx != 7) return error.InvalidFormat; // 1-digit month not allowed
         if (dt_string_idx == dt_string.len) break :parseblock;
 
         // yyyy-mm-dd
         if (dt_string[dt_string_idx] != '-') return error.InvalidFormat;
         dt_string_idx += 1;
-        fields.day = try parseDigits(u7, dt_string, &dt_string_idx, 2);
+        fields.day = try parseDigits(u8, dt_string, &dt_string_idx, 2);
         if (dt_string_idx != 10) return error.InvalidFormat; // 1-digit day not allowed
         if (dt_string_idx == dt_string.len) break :parseblock;
 
         // yyyy-mm-ddTHH:MM
         if (!(dt_string[dt_string_idx] == 'T' or dt_string[dt_string_idx] == ' ')) return error.InvalidFormat;
         dt_string_idx += 1;
-        fields.hour = try parseDigits(u7, dt_string, &dt_string_idx, 2);
+        fields.hour = try parseDigits(u8, dt_string, &dt_string_idx, 2);
         if (dt_string_idx != 13) return error.InvalidFormat; // 1-digit hour not allowed
         if (dt_string[dt_string_idx] != ':') return error.InvalidFormat;
         dt_string_idx += 1;
-        fields.minute = try parseDigits(u7, dt_string, &dt_string_idx, 2);
+        fields.minute = try parseDigits(u8, dt_string, &dt_string_idx, 2);
         if (dt_string_idx != 16) return error.InvalidFormat; // 1-digit minute not allowed
         if (dt_string_idx == dt_string.len) break :parseblock;
 
         // yyyy-mm-ddTHH:MM:SS
         if (dt_string[dt_string_idx] != ':') return error.InvalidFormat;
         dt_string_idx += 1;
-        fields.second = try parseDigits(u7, dt_string, &dt_string_idx, 2);
+        fields.second = try parseDigits(u8, dt_string, &dt_string_idx, 2);
         if (dt_string_idx != 19) return error.InvalidFormat; // 1-digit minute not allowed
         if (dt_string_idx == dt_string.len) break :parseblock;
 
@@ -287,7 +287,7 @@ pub fn parseISO8601(dt_string: []const u8) !Datetime {
             dt_string[dt_string_idx] == '-' or
             dt_string[dt_string_idx] == 'Z')
         {
-            utcoffset = try parseOffset(i20, dt_string, &dt_string_idx, 9);
+            utcoffset = try parseOffset(i32, dt_string, &dt_string_idx, 9);
             if (dt_string_idx == dt_string.len) break :parseblock;
             return error.InvalidFormat; // offset must not befollowed by other fields
         }
@@ -297,14 +297,14 @@ pub fn parseISO8601(dt_string: []const u8) !Datetime {
         dt_string_idx += 1;
         // parse any number of fractional seconds up to 9
         const tmp_idx = dt_string_idx;
-        fields.nanosecond = try parseDigits(u30, dt_string, &dt_string_idx, 9);
+        fields.nanosecond = try parseDigits(u32, dt_string, &dt_string_idx, 9);
         const missing = 9 - (dt_string_idx - tmp_idx);
-        const f: u30 = try std.math.powi(u30, 10, @as(u30, @intCast(missing)));
+        const f: u32 = try std.math.powi(u32, 10, @as(u32, @intCast(missing)));
         fields.nanosecond *= f;
         if (dt_string_idx == dt_string.len) break :parseblock;
 
         // trailing UTC offset
-        utcoffset = try parseOffset(i20, dt_string, &dt_string_idx, 9);
+        utcoffset = try parseOffset(i32, dt_string, &dt_string_idx, 9);
     }
 
     // if we come here, the string must be completely consumed

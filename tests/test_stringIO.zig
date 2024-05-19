@@ -34,7 +34,7 @@ fn locale_ok() bool {
         std.mem.eql(u8, env_locale, "English_United States.1252") or
         std.mem.eql(u8, env_locale, "C")))
     {
-        log.warn("can only run test with English locale; got {s}\n", .{env_locale});
+        log.warn("can only run test with English locale; got {s}", .{env_locale});
         return false;
     }
     return true;

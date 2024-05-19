@@ -25,18 +25,18 @@ test "to timespan" {
     try testing.expectEqual(@as(i128, 5), td.asNanoseconds());
 
     const ns = td.toTimespanMultiple(Duration.Timespan.nanosecond);
-    try testing.expectEqual(@as(i72, 5), ns);
+    try testing.expectEqual(@as(i128, 5), ns);
 
     const weeks = td.toTimespanMultiple(Duration.Timespan.week);
-    try testing.expectEqual(@as(i72, 1), weeks);
+    try testing.expectEqual(@as(i128, 1), weeks);
 
     td = Duration.fromTimespanMultiple(5500, Duration.Timespan.microsecond);
     var ms = td.toTimespanMultiple(Duration.Timespan.millisecond);
-    try testing.expectEqual(@as(i72, 6), ms);
+    try testing.expectEqual(@as(i128, 6), ms);
 
     td = Duration.fromTimespanMultiple(5501, Duration.Timespan.microsecond);
     ms = td.toTimespanMultiple(Duration.Timespan.millisecond);
-    try testing.expectEqual(@as(i72, 6), ms);
+    try testing.expectEqual(@as(i128, 6), ms);
 }
 
 test "total seconds" {
@@ -49,19 +49,19 @@ test "add durations" {
     var b = Duration{ .__sec = 1 };
     var c = a.add(b);
     try testing.expectEqual(@as(i64, 2), c.__sec);
-    try testing.expectEqual(@as(u30, 0), c.__nsec);
+    try testing.expectEqual(@as(u32, 0), c.__nsec);
 
     a = Duration{ .__sec = 1 };
     b = Duration{ .__nsec = 1 };
     c = a.add(b);
     try testing.expectEqual(@as(i64, 1), c.__sec);
-    try testing.expectEqual(@as(u30, 1), c.__nsec);
+    try testing.expectEqual(@as(u32, 1), c.__nsec);
 
     a = Duration{ .__nsec = 500_000_000 };
     b = Duration{ .__nsec = 500_000_314 };
     c = a.add(b);
     try testing.expectEqual(@as(i64, 1), c.__sec);
-    try testing.expectEqual(@as(u30, 314), c.__nsec);
+    try testing.expectEqual(@as(u32, 314), c.__nsec);
 }
 
 test "sub durations" {
@@ -69,32 +69,32 @@ test "sub durations" {
     var b = Duration{ .__sec = 1 };
     var c = a.sub(b);
     try testing.expectEqual(@as(i64, 0), c.__sec);
-    try testing.expectEqual(@as(u30, 0), c.__nsec);
+    try testing.expectEqual(@as(u32, 0), c.__nsec);
 
     a = Duration{ .__sec = 1 };
     b = Duration{ .__nsec = 1 };
     c = a.sub(b);
     try testing.expectEqual(@as(i64, 0), c.__sec);
-    try testing.expectEqual(@as(u30, 999_999_999), c.__nsec);
+    try testing.expectEqual(@as(u32, 999_999_999), c.__nsec);
 
     a = Duration{ .__nsec = 500_000_000 };
     b = Duration{ .__nsec = 500_000_314 };
     c = a.sub(b);
     try testing.expectEqual(@as(i64, -1), c.__sec);
-    try testing.expectEqual(@as(u30, 999999686), c.__nsec);
+    try testing.expectEqual(@as(u32, 999999686), c.__nsec);
 }
 
 test "add duration to datetime" {
     var dt = try Datetime.fromFields(.{ .year = 1970, .second = 42 });
     dt = try dt.add(Duration{ .__sec = 1, .__nsec = 0 });
-    try testing.expectEqual(@as(i40, 43), dt.__unix);
+    try testing.expectEqual(@as(i64, 43), dt.__unix);
 
     dt = try dt.add(Duration{ .__sec = -1, .__nsec = 0 });
-    try testing.expectEqual(@as(i40, 42), dt.__unix);
+    try testing.expectEqual(@as(i64, 42), dt.__unix);
 
     dt = try dt.add(Duration{ .__sec = -1, .__nsec = 1E9 });
-    try testing.expectEqual(@as(i40, 42), dt.__unix);
-    try testing.expectEqual(@as(u30, 0), dt.nanosecond);
+    try testing.expectEqual(@as(i64, 42), dt.__unix);
+    try testing.expectEqual(@as(u32, 0), dt.nanosecond);
 
     dt = try dt.add(Duration.fromTimespanMultiple(1, Duration.Timespan.week));
     try testing.expectEqual(@as(u6, 8), dt.day);
@@ -103,14 +103,14 @@ test "add duration to datetime" {
 test "subtract duration from datetime" {
     var dt = try Datetime.fromFields(.{ .year = 1970, .second = 42 });
     dt = try dt.sub(Duration{ .__sec = -1, .__nsec = 0 });
-    try testing.expectEqual(@as(i40, 43), dt.__unix);
+    try testing.expectEqual(@as(i64, 43), dt.__unix);
 
     dt = try dt.sub(Duration{ .__sec = 1, .__nsec = 0 });
-    try testing.expectEqual(@as(i40, 42), dt.__unix);
+    try testing.expectEqual(@as(i64, 42), dt.__unix);
 
     dt = try dt.sub(Duration{ .__sec = 1, .__nsec = 1E9 });
-    try testing.expectEqual(@as(i40, 42), dt.__unix);
-    try testing.expectEqual(@as(u30, 0), dt.nanosecond);
+    try testing.expectEqual(@as(i64, 42), dt.__unix);
+    try testing.expectEqual(@as(u32, 0), dt.nanosecond);
 }
 
 test "datetime difference" {
@@ -118,15 +118,15 @@ test "datetime difference" {
     var b = try Datetime.fromFields(.{ .year = 1970, .second = 1 });
     var diff = a.diff(b);
     try testing.expectEqual(@as(i64, 0), diff.__sec);
-    try testing.expectEqual(@as(u30, 0), diff.__nsec);
+    try testing.expectEqual(@as(u32, 0), diff.__nsec);
 
     a = try Datetime.fromFields(.{ .year = 1970, .second = 0 });
     b = try Datetime.fromFields(.{ .year = 1970, .second = 1 });
     diff = a.diff(b);
     try testing.expectEqual(@as(i64, -1), diff.__sec);
-    try testing.expectEqual(@as(u30, 0), diff.__nsec);
+    try testing.expectEqual(@as(u32, 0), diff.__nsec);
 
     diff = b.diff(a);
     try testing.expectEqual(@as(i64, 1), diff.__sec);
-    try testing.expectEqual(@as(u30, 0), diff.__nsec);
+    try testing.expectEqual(@as(u32, 0), diff.__nsec);
 }

@@ -2,4 +2,4 @@
 
 /// Version of the IANA time zone database shipped with zdt;
 /// year/version (letter code) and commit hash from eggert/tz
-pub const tzdb_version = "2024a-26-g3e94495";
+pub const tzdb_version = "2024a-32-gdb7fb40";

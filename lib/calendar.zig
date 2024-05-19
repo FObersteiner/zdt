@@ -4,47 +4,46 @@ const Datetime = @import("./Datetime.zig");
 
 /// Days per month, depending on if it comes from a leap year.
 /// Based on Neri/Schneider's "Euclidean affine functions"
-pub fn daysInMonth(m: u5, is_leap: bool) u5 {
+pub fn daysInMonth(m: u8, is_leap: bool) u8 {
     std.debug.assert((m > 0) and (m < 13));
     if (m == 2) return if (is_leap) 29 else 28;
     return 30 | (m ^ (m >> 3));
 }
 
 /// Number of days in a certain month of any year.
-pub fn lastDayOfMonth(year: u16, month: u5) u5 {
+pub fn lastDayOfMonth(year: u16, month: u8) u8 {
     return daysInMonth(month, isLeapYear(year));
 }
 
 /// Calculate the day of the week (Sun = 0, Sat = 6) for given days after Unix epoch
-pub fn weekdayFromUnixdays(unix_days: i32) u3 {
+pub fn weekdayFromUnixdays(unix_days: i32) u8 {
     // offset by +4 since Unix epoch falls on a Thursday
     // since @mod always returns a positive value, we do not have to treat negative unix_days separately
     return @intCast(@mod((unix_days + 4), 7));
 }
 
 /// Calculate the ISO day of the week (Mon = 1, Sun = 7) for given days after Unix epoch
-pub fn ISOweekdayFromUnixdays(unix_days: i32) u3 {
+pub fn ISOweekdayFromUnixdays(unix_days: i32) u8 {
     return @intCast(@mod((unix_days + 3), 7) + 1);
 }
 
 /// Test if a month is a leap month, i.e. Feb in a leap year.
-pub fn isLeapMonth(year: u16, month: u4) bool {
+pub fn isLeapMonth(year: u16, month: u8) bool {
     return isLeapYear(year) and month == 2;
 }
 
 /// Difference between weekdays; x-y. x and y both <= 6 and >= 0, result in range [0..6].
-pub fn weekdayDifference(x: u3, y: u3) i4 {
+pub fn weekdayDifference(x: u8, y: u8) i8 {
     std.debug.assert((x >= 0) and (x <= 6));
     std.debug.assert((y >= 0) and (y <= 6));
-    const z: i4 = @as(i4, x) - @as(i4, y);
+    const z: i8 = @as(i8, @intCast(x)) - @as(i8, @intCast(y));
     if (z <= 6) return z;
     return z + 7;
 }
 
 /// Calculate the day of the year. Result is [1, 366].
 /// See also https://astronomy.stackexchange.com/q/2407
-pub fn dayOfYear(year: u14, month: u4, day: u5) u9 {
-    // TODO : do Neri-Schneider suggest a more efficient algorithm here ?
+pub fn dayOfYear(year: u16, month: u8, day: u8) u16 {
     const _month: i16 = @as(i16, month);
     const _day: i16 = @as(i16, day);
     const base_offset: i16 = @divFloor(_month * 275, 9);
@@ -53,18 +52,17 @@ pub fn dayOfYear(year: u14, month: u4, day: u5) u9 {
     return @intCast(base_offset - (feb_offset * leap_offset) + _day - 30);
 }
 
-// helper
 fn firstday(y: i16) i16 {
     return @mod((y + @divFloor(y, 4) - @divFloor(y, 100) + @divFloor(y, 400)), 7);
 }
 
 /// Number of ISO weeks per year
-pub fn weeksPerYear(y: u14) u6 {
-    return if (firstday(@as(i16, y)) == 4 or firstday(@as(i16, y - 1)) == 3) 53 else 52;
+pub fn weeksPerYear(y: u16) u8 {
+    return if (firstday(@as(i16, @intCast(y))) == 4 or firstday(@as(i16, @intCast(y - 1))) == 3) 53 else 52;
 }
 
 /// Number of ISO weeks per year, same as weeksPerYear but taking a datetime instance
-pub fn weeksPerYear_(dt: Datetime) u7 {
+pub fn weeksPerYear_(dt: Datetime) u8 {
     const this_y = Datetime.fromFields(.{ .year = dt.year }) catch unreachable;
     if (this_y.weekday() == Datetime.Weekday.Thursday) return 53;
     if (isLeapYear(dt.year) and this_y.weekday() == Datetime.Weekday.Wednesday) return 53;
@@ -73,7 +71,7 @@ pub fn weeksPerYear_(dt: Datetime) u7 {
 
 /// Mapping of Unix time [s] to number of leap seconds n_leap; n_leap = array-index + 11;
 /// UTC = TAI - n_leap
-pub const leaps = [_]u48{
+pub const leaps = [_]u64{
     // default to 10 leap seconds before 1972-07-01
     78796800, // 1972-07-01: now 11 leap seconds
     94694400, // 1973-01-01: ... 12

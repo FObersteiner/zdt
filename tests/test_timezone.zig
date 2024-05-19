@@ -29,7 +29,7 @@ test "offset tz never changes offset" {
     utoff = try tzinfo.atUnixtime(@intCast(std.time.timestamp()));
     try testing.expect(utoff.seconds_east == 999);
 
-    var err = Tz.fromOffset(-99999, "invalid");
+    var err: zdt.ZdtError!zdt.Timezone = Tz.fromOffset(-99999, "invalid");
     try testing.expectError(TzError.InvalidOffset, err);
     err = Tz.fromOffset(99999, "invalid");
     try testing.expectError(TzError.InvalidOffset, err);
@@ -92,6 +92,7 @@ test "local tz db, from specified or default prefix" {
 
 test "invalid tzfile name" {
     const db = Tz.tzdb_prefix;
+    //    log.warn("tz db: {s}", .{db});
     var err = Tz.runtimeFromTzfile("this is not a tzname", db, testing.allocator);
     try testing.expectError(ZdtError.InvalidIdentifier, err);
     err = Tz.runtimeFromTzfile("../test", db, testing.allocator);
@@ -292,13 +293,13 @@ test "tz without transitions at UTC+9" {
     defer _ = tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 26, .hour = 2, .tzinfo = tzinfo });
-    try testing.expectEqual(@as(i20, 9 * 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
+    try testing.expectEqual(@as(i32, 9 * 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
     dt = try Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 12, .hour = 2, .minute = 59, .second = 59, .tzinfo = tzinfo });
-    try testing.expectEqual(@as(i20, 9 * 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
+    try testing.expectEqual(@as(i32, 9 * 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
     dt = try Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 2, .tzinfo = tzinfo });
-    try testing.expectEqual(@as(i20, 9 * 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
+    try testing.expectEqual(@as(i32, 9 * 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
     dt = try Datetime.fromFields(.{ .year = 2023, .month = 11, .day = 5, .hour = 1, .minute = 59, .second = 59, .tzinfo = tzinfo });
-    try testing.expectEqual(@as(i20, 9 * 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
+    try testing.expectEqual(@as(i32, 9 * 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
 }
 
 test "make datetime aware" {
@@ -383,19 +384,19 @@ test "floor to date changes UTC offset" {
 
     var dt = try Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 5, .tzinfo = tzinfo });
     var dt_floored = try dt.floorTo(Duration.Timespan.day);
-    try testing.expectEqual(@as(u5, 0), dt_floored.hour);
-    try testing.expectEqual(@as(u6, 0), dt_floored.minute);
-    try testing.expectEqual(@as(u6, 0), dt_floored.second);
-    try testing.expectEqual(@as(i20, 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
-    try testing.expectEqual(@as(i20, 7200), dt_floored.tzinfo.?.tzOffset.?.seconds_east);
+    try testing.expectEqual(@as(u8, 0), dt_floored.hour);
+    try testing.expectEqual(@as(u8, 0), dt_floored.minute);
+    try testing.expectEqual(@as(u8, 0), dt_floored.second);
+    try testing.expectEqual(@as(i32, 3600), dt.tzinfo.?.tzOffset.?.seconds_east);
+    try testing.expectEqual(@as(i32, 7200), dt_floored.tzinfo.?.tzOffset.?.seconds_east);
 
     dt = try Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 26, .hour = 3, .tzinfo = tzinfo });
     dt_floored = try dt.floorTo(Duration.Timespan.day);
-    try testing.expectEqual(@as(u5, 0), dt_floored.hour);
-    try testing.expectEqual(@as(u6, 0), dt_floored.minute);
-    try testing.expectEqual(@as(u6, 0), dt_floored.second);
-    try testing.expectEqual(@as(i20, 7200), dt.tzinfo.?.tzOffset.?.seconds_east);
-    try testing.expectEqual(@as(i20, 3600), dt_floored.tzinfo.?.tzOffset.?.seconds_east);
+    try testing.expectEqual(@as(u8, 0), dt_floored.hour);
+    try testing.expectEqual(@as(u8, 0), dt_floored.minute);
+    try testing.expectEqual(@as(u8, 0), dt_floored.second);
+    try testing.expectEqual(@as(i32, 7200), dt.tzinfo.?.tzOffset.?.seconds_east);
+    try testing.expectEqual(@as(i32, 3600), dt_floored.tzinfo.?.tzOffset.?.seconds_east);
 }
 
 test "load a lot of zones" {
