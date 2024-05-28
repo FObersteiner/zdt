@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 1 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 2 };
 
 const example_files = [_][]const u8{
     "ex_demo",
@@ -210,15 +210,14 @@ pub fn build(b: *std.Build) !void {
 
     // --------------------------------------------------------------------------------
     // generate docs
-    // const docs_step = b.step("docs", "auto-generate documentation");
-    // {
-    //     //    NOTE : atm, this does not work due to anonymous import
-    //     const install_docs = b.addInstallDirectory(.{
-    //         .source_dir = zdt.getEmittedDocs(),
-    //         .install_dir = std.Build.InstallDir{ .custom = "../docs" },
-    //         .install_subdir = "autogen",
-    //     });
-    //     docs_step.dependOn(&install_docs.step);
-    // }
+    const docs_step = b.step("docs", "auto-generate documentation");
+    {
+        const install_docs = b.addInstallDirectory(.{
+            .source_dir = zdt.getEmittedDocs(),
+            .install_dir = std.Build.InstallDir{ .custom = "../autodoc" },
+            .install_subdir = "",
+        });
+        docs_step.dependOn(&install_docs.step);
+    }
     // --------------------------------------------------------------------------------
 }

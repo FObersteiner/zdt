@@ -1,6 +1,6 @@
 //! Update the path to the IANA time zone database shipped with zdt.
 const std = @import("std");
-const log = std.log.scoped(.zdt__gen_tzprefix);
+const log = std.log.scoped(.zdt__gen_tzdb_prefix);
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -32,7 +32,7 @@ pub fn main() !void {
     std.mem.replaceScalar(u8, prefix, '\\', '/');
     defer allocator.free(prefix);
 
-    log.info("tzdb prefix: {s}", .{prefix});
+    // log.info("tzdb prefix: {s}", .{prefix});
 
     // filename arg passed in from build.zig
     const filename = args.next().?;

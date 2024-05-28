@@ -1,6 +1,7 @@
 # zig output
 /zig-cache/
 /zig-out/
+/autodoc/
 
 
 /util/*.ods

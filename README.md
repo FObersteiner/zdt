@@ -2,7 +2,11 @@
 
 # zdt
 
-**Datetime with Timezones in Zig.** For learning purposes. Demo:
+**Datetime with Timezones in Zig.** For learning purposes.
+
+The original repository is hosted [on Codeberg](https://codeberg.org/FObersteiner/zdt).
+
+Demo:
 
 ```zig
   var tz_LA = try zdt.Timezone.fromTzfile("America/Los_Angeles", allocator);

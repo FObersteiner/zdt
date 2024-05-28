@@ -23,6 +23,7 @@ nanosecond: u32 = 0, // [0, 999999999]
 tzinfo: ?Timezone = null,
 dst_fold: ?u1 = null, // DST fold position; 0 = early side, 1 = late side
 
+// Internal field.
 // Seconds since the Unix epoch as incremental time ("serial" time).
 // This must always refer to 1970-01-01T00:00:00Z, not counting leap seconds
 __unix: i64 = unix_s_min, // [unix_s_min, unix_s_max]
@@ -447,7 +448,7 @@ pub fn diffWall(this: Datetime, other: Datetime) !Duration {
     var s: i64 = ((this.__unix - other.__unix) +
         (this.tzinfo.?.tzOffset.?.seconds_east - other.tzinfo.?.tzOffset.?.seconds_east));
 
-    var ns: i32 = @as(i32, this.nanosecond) - other.nanosecond;
+    var ns: i32 = @as(i32, @intCast(this.nanosecond)) - @as(i32, @intCast(other.nanosecond));
     if (ns < 0) {
         s -= 1;
         ns += 1_000_000_000;

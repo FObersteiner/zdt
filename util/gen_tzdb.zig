@@ -1,7 +1,7 @@
 //! Update eggert/tz submodule, build the time zone database and move
 //! its 'zoneinfo' directory to /lib/tzdata.
 const std = @import("std");
-const log = std.log.scoped(.zdt__gen_tzdata);
+const log = std.log.scoped(.zdt__gen_tzdb);
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

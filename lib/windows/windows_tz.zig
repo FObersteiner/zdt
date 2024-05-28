@@ -1,7 +1,5 @@
 const std = @import("std");
 const trnsl = std.zig.c_translation;
-const win = @cImport(@cInclude("windows.h")); // TODO: could potentially live without this since I'm already re-declaring RegGetValueA...
-const WINAPI: std.builtin.CallingConvention = if (@import("builtin").cpu.arch == .x86) .Stdcall else .C;
 
 const iana_names = @import("./windows_tznames.zig").iana_names;
 const windows_names = @import("./windows_tznames.zig").windows_names;
@@ -9,12 +7,23 @@ const WinTzError = @import("../errors.zig").WinTzError;
 
 const log = std.log.scoped(.zdt__windows_tz);
 
+const WINAPI: std.builtin.CallingConvention = if (@import("builtin").cpu.arch == .x86) .Stdcall else .C;
+const DWORD = u32;
+const LONG = i32;
+const LPCSTR = [*c]const u8;
+const LPDWORD = [*c]DWORD;
+const ULONG_PTR = c_ulonglong;
+const PVOID = ?*anyopaque;
+const RRF_RT_REG_BINARY = @as(c_int, 0x00000008);
+const RRF_RT_REG_DWORD = @as(c_int, 0x00000010);
+const RRF_RT_DWORD = RRF_RT_REG_BINARY | RRF_RT_REG_DWORD;
+
 const struct_HKEY__ = extern struct { unused: c_int = std.mem.zeroes(c_int) };
 const HKEY = ?*align(1) struct_HKEY__;
 
 const HKEY_LOCAL_MACHINE = trnsl.cast(HKEY, //
-    trnsl.cast(win.ULONG_PTR, //
-    trnsl.cast(win.LONG, //
+    trnsl.cast(ULONG_PTR, //
+    trnsl.cast(LONG, //
     trnsl.promoteIntLiteral( //
     c_int,
     0x80000002,
@@ -23,12 +32,12 @@ const HKEY_LOCAL_MACHINE = trnsl.cast(HKEY, //
 
 extern fn RegGetValueA(
     hkey: ?*align(1) struct_HKEY__,
-    lpSubKey: win.LPCSTR,
-    lpValue: win.LPCSTR,
-    dwFlags: win.DWORD,
-    pdwType: win.LPDWORD,
-    pvData: win.PVOID,
-    pcbData: win.LPDWORD,
+    lpSubKey: LPCSTR,
+    lpValue: LPCSTR,
+    dwFlags: DWORD,
+    pdwType: LPDWORD,
+    pvData: PVOID,
+    pcbData: LPDWORD,
 ) callconv(WINAPI) c_long;
 
 /// Get the IANA time zone identifier on Windows.
@@ -42,14 +51,14 @@ pub fn getTzName() ![]const u8 {
     const key = "SYSTEM\\CurrentControlSet\\Control\\TimeZoneInformation";
     const sub_key_tz = "TimeZoneKeyName";
     const sz: usize = 256;
-    var data_size: win.DWORD = sz; // @sizeOf(win.DWORD);
+    var data_size: DWORD = sz;
     var data_str: [sz]u8 = std.mem.zeroes([sz]u8);
 
     const result = RegGetValueA(
         HKEY_LOCAL_MACHINE,
         key,
         sub_key_tz,
-        win.RRF_RT_DWORD,
+        RRF_RT_DWORD,
         null,
         &data_str,
         &data_size,

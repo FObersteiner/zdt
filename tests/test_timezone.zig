@@ -147,6 +147,36 @@ test "DST transitions" {
     s.deinit();
 }
 
+test "wall diff vs. abs diff" {
+    var tzinfo = try Tz.fromTzfile("Europe/Berlin", testing.allocator);
+    defer _ = tzinfo.deinit();
+
+    // DST off --> DST on (missing datetime), 2023-03-26
+    const dt_std = try Datetime.fromUnix(
+        1679792399000000001,
+        Duration.Resolution.nanosecond,
+        tzinfo,
+    );
+    const dt_dst = try Datetime.fromUnix(
+        1679792400000000002,
+        Duration.Resolution.nanosecond,
+        tzinfo,
+    );
+    try testing.expect(!dt_std.tzinfo.?.tzOffset.?.is_dst);
+    try testing.expect(dt_dst.tzinfo.?.tzOffset.?.is_dst);
+
+    const diff_abs = dt_std.diff(dt_dst); // just 1 sec and 1 nanosec
+    const diff_wall = try dt_std.diffWall(dt_dst); // 1 hour, 1 sec and 1 nanosec
+    try testing.expectEqual(
+        @as(i128, -1000000001),
+        diff_abs.toTimespanMultiple(Duration.Timespan.nanosecond),
+    );
+    try testing.expectEqual(
+        @as(i128, -3601000000001),
+        diff_wall.toTimespanMultiple(Duration.Timespan.nanosecond),
+    );
+}
+
 test "tz has name and abbreviation" {
     var tzinfo = try Tz.fromTzfile("Europe/Berlin", testing.allocator);
     defer _ = tzinfo.deinit();

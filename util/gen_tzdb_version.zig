@@ -1,6 +1,6 @@
 //! Update the version information of the IANA time zone database shipped with zdt.
 const std = @import("std");
-const log = std.log.scoped(.zdt__gen_tzversion);
+const log = std.log.scoped(.zdt__gen_tzdb_version);
 
 pub fn main() !void {
     // changed in v0.1.22: get the version info from the tzdata.zi file.
