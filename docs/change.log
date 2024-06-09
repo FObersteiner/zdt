@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 2024-06-09, v0.1.3
+
+- cleaun-up calendar.zig
+
 ## 2024-05-30
 
 - add autodoc workflow, gh pages

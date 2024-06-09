@@ -1,14 +1,8 @@
 //! calendric stuff
 const std = @import("std");
-const Datetime = @import("./Datetime.zig");
+const assert = std.debug.assert;
 
-/// Days per month, depending on if it comes from a leap year.
-/// Based on Neri/Schneider's "Euclidean affine functions"
-pub fn daysInMonth(m: u8, is_leap: bool) u8 {
-    std.debug.assert((m > 0) and (m < 13));
-    if (m == 2) return if (is_leap) 29 else 28;
-    return 30 | (m ^ (m >> 3));
-}
+const Datetime = @import("./Datetime.zig");
 
 /// Number of days in a certain month of any year.
 pub fn lastDayOfMonth(year: u16, month: u8) u8 {
@@ -153,7 +147,7 @@ pub fn unixdaysFromDate(ymd: [3]u16) i32 {
 }
 
 /// Calculate a Gregorian calendar date (year-month-day) from days since
-/// the Unix epoch, 1970-01-01 00:00 Z.
+/// the Unix epoch (1970-01-01).
 /// The result is time zone naive, however resembles UTC since that is what
 /// the Unix epoch refers to.
 /// Based on Howard Hinnant 'date' algorithms, https://howardhinnant.github.io/date_algorithms.html
@@ -197,73 +191,28 @@ pub fn dateFromUnixdays(unix_days: i32) [3]u16 { // i23 should covert the range 
     return [_]u16{ y, m, d };
 }
 
-//
-//
-// --- from https://github.com/travisstaloch/date-zig/blob/main/src/lib.zig ---
-// --- vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv ---
-//
-/// Determine if the given year is a leap year
-///
-/// # Panics
-///
-/// Year must be between [YEAR_MIN] and [YEAR_MAX] inclusive. Bounds are checked
-/// using `std.debug.assert` only, so that the checks are not present in release
-/// builds, similar to integer overflow checks.
-///
-/// # Examples
-///
-/// ```
-/// try expectEqual(is_leap_year(2023), false);
-/// try expectEqual(is_leap_year(2024), true);
-/// try expectEqual(is_leap_year(2100), false);
-/// try expectEqual(is_leap_year(2400), true);
-/// ```
-///
-/// # Algorithm
-///
-/// Algorithm is Neri-Schneider from C++now 2023 conference:
-/// > https://github.com/boostcon/cppnow_presentations_2023/blob/main/cppnow_slides/Speeding_Date_Implementing_Fast_Calendar_Algorithms.pdf
+// ----------------------------------------------------------------------------
+// Like the two algorithms 'dateFromUnixdays' and 'unixdaysFromDate' above,
+// the following code hasn't grown on my fields.
+// It is mostly adapted from Travis Staloc,
+// <https://github.com/travisstaloch/date-zig/>, which in turn is based on
+// Neri & Schneiders paper on the use of Euclidian affine functions to calendar
+// algorithms, <https://dx.doi.org/10.1002/spe.3172>.
+
+// variant proposed by @Validark in a discussion on
+// <https://ziggit.dev/t/benchmarking-isdigit/> - compiles to asm with one
+// short branch (not a leap year, hitted ~75% of the time) and one longer
+// branch.
+/// Determine if 'year' is a leap year.
 pub fn isLeapYear(y: u16) bool {
-    // Using `%` instead of `&` causes compiler to emit branches instead. This
-    // is faster in a tight loop due to good branch prediction, but probably
-    // slower in a real program so we use `&`. Also `% 25` is functionally
-    // equivalent to `% 100` here, but a little cheaper to compute. If branches
-    // were to be emitted, using `% 100` would be most likely faster due to
-    // better branch prediction.
-    return if (@mod(y, 25) != 0)
-        y & 3 == 0
-    else
-        y & 15 == 0;
-    // NOTE : this is actually slower than the standard lib implementation
+    return (y % 4) == 0 and (y % 25 != 0 or (y & 15) == 0);
 }
 
-/// Determine the number of days in the given month in the given year
-///
-/// # Panics
-///
-/// Year must be between [YEAR_MIN] and [YEAR_MAX]. Month must be between `1`
-/// and `12`. Bounds are checked using `std.debug.assert` only, so that the checks
-/// are not present in release builds, similar to integer overflow checks.
-///
-/// # Example
-///
-/// ```
-/// try expectEqual(days_in_month(2023, 1), 31);
-/// try expectEqual(days_in_month(2023, 2), 28);
-/// try expectEqual(days_in_month(2023, 4), 30);
-/// try expectEqual(days_in_month(2024, 1), 31);
-/// try expectEqual(days_in_month(2024, 2), 29);
-/// try expectEqual(days_in_month(2024, 4), 30);
-/// ```
-///
-/// # Algorithm
-///
-/// Algorithm is Neri-Schneider from C++now 2023 conference:
-/// > https://github.com/boostcon/cppnow_presentations_2023/blob/main/cppnow_slides/Speeding_Date_Implementing_Fast_Calendar_Algorithms.pdf
-pub fn daysInMonth_(y: i32, m: u8) u8 {
-    return if (m != 2) 30 | (m ^ (m >> 3)) else if (isLeapYear(y)) 29 else 28;
+/// Days per month, depending on if it comes from a leap year.
+pub fn daysInMonth(m: u8, is_leap: bool) u8 {
+    return if (m != 2) 30 | (m ^ (m >> 3)) else if (is_leap) 29 else 28;
 }
-//
+
 /// Adjustment from Unix epoch to make calculations use positive integers
 ///
 /// Unit is eras, which is defined to be 400 years, as that is the period of the
@@ -286,15 +235,6 @@ const SECS_IN_DAY: i64 = 86400;
 const SECS_OFFSET: i64 = DAY_OFFSET * SECS_IN_DAY;
 
 /// Convert Rata Die / days since 0001-01-01 to Gregorian date
-///
-/// Given a day counting from Unix epoch (January 1st, 1970) returns a
-/// `(year, month, day)` triple.
-///
-/// ## Algorithm
-///
-/// > Neri C, Schneider L. "*Euclidean affine functions and their application to
-/// > calendar algorithms*". Softw Pract Exper. 2022;1-34. DOI:
-/// > [10.1002/spe.3172](https://onlinelibrary.wiley.com/doi/full/10.1002/spe.3172).
 pub fn rdToDate(rd: i32) [3]u16 {
     const n0: u32 = @intCast(rd +% DAY_OFFSET);
     // century
@@ -320,15 +260,6 @@ pub fn rdToDate(rd: i32) [3]u16 {
 }
 
 /// Convert Gregorian date to Rata Die / days since 0001-01-01
-///
-/// Given a `year, month, day` returns the days since Unix epoch
-/// (January 1st, 1970). Dates before the epoch produce negative values.
-///
-/// ## Algorithm
-///
-/// > Neri C, Schneider L. "*Euclidean affine functions and their application to
-/// > calendar algorithms*". Softw Pract Exper. 2022;1-34. DOI:
-/// > [10.1002/spe.3172](https://onlinelibrary.wiley.com/doi/full/10.1002/spe.3172).
 pub fn dateToRD(ymd: [3]u16) i32 {
     const y1: u32 = @intCast(ymd[0] +% YEAR_OFFSET);
     // map

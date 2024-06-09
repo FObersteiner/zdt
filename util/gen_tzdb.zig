@@ -10,7 +10,7 @@ pub fn main() !void {
 
     // update submodule
     const argv_update = [_][]const u8{ "git", "submodule", "update", "--remote", "tz" };
-    const proc_update = try std.ChildProcess.run(.{
+    const proc_update = try std.process.Child.run(.{
         .allocator = allocator,
         .argv = &argv_update,
     });
@@ -62,7 +62,7 @@ pub fn main() !void {
 
     // compile tzdata
     const argv_compile = [_][]const u8{ "make", target_dir_cmd, "ZFLAGS=-b fat", "POSIXRULES=", "install" };
-    const proc_compile = try std.ChildProcess.run(.{
+    const proc_compile = try std.process.Child.run(.{
         .cwd = source_dir_abs,
         .allocator = allocator,
         .argv = &argv_compile,
