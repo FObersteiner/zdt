@@ -1,8 +1,9 @@
 //! calendric stuff
 const std = @import("std");
 const assert = std.debug.assert;
-
 const Datetime = @import("./Datetime.zig");
+
+pub const isLeapYear = std.time.epoch.isLeapYear;
 
 /// Number of days in a certain month of any year.
 pub fn lastDayOfMonth(year: u16, month: u8) u8 {
@@ -28,8 +29,8 @@ pub fn isLeapMonth(year: u16, month: u8) bool {
 
 /// Difference between weekdays; x-y. x and y both <= 6 and >= 0, result in range [0..6].
 pub fn weekdayDifference(x: u8, y: u8) i8 {
-    std.debug.assert((x >= 0) and (x <= 6));
-    std.debug.assert((y >= 0) and (y <= 6));
+    assert((x >= 0) and (x <= 6));
+    assert((y >= 0) and (y <= 6));
     const z: i8 = @as(i8, @intCast(x)) - @as(i8, @intCast(y));
     if (z <= 6) return z;
     return z + 7;
@@ -199,14 +200,14 @@ pub fn dateFromUnixdays(unix_days: i32) [3]u16 { // i23 should covert the range 
 // Neri & Schneiders paper on the use of Euclidian affine functions to calendar
 // algorithms, <https://dx.doi.org/10.1002/spe.3172>.
 
-// variant proposed by @Validark in a discussion on
+// variant proposed by @Validark (Niles) in a discussion on
 // <https://ziggit.dev/t/benchmarking-isdigit/> - compiles to asm with one
 // short branch (not a leap year, hitted ~75% of the time) and one longer
 // branch.
-/// Determine if 'year' is a leap year.
-pub fn isLeapYear(y: u16) bool {
-    return (y % 4) == 0 and (y % 25 != 0 or (y & 15) == 0);
-}
+// Determine if 'year' is a leap year.
+// pub fn isLeapYear(y: u16) bool {
+//     return (y % 4) == 0 and (y % 25 != 0 or (y & 15) == 0);
+// }
 
 /// Days per month, depending on if it comes from a leap year.
 pub fn daysInMonth(m: u8, is_leap: bool) u8 {
