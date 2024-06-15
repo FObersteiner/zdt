@@ -75,7 +75,9 @@ test "Datetime from list" {
     try testing.expectEqual(@as(u16, 2023), dt.year);
     try testing.expectEqual(@as(u8, 12), dt.month);
     try testing.expectEqual(@as(u5, 1), dt.day);
-    try testing.expect(dt.tzinfo == null);
+    try testing.expectEqual(false, dt.isAware());
+    try testing.expectEqual(false, dt.isZoned());
+    try testing.expectEqual(true, dt.isNaive());
 }
 
 test "Datetime Unix epoch roundtrip" {
@@ -163,6 +165,9 @@ test "Epoch" {
     try testing.expectEqual(epoch.month, 1);
     try testing.expectEqual(epoch.day, 1);
     try testing.expectEqual(epoch.__unix, 0);
+    try testing.expectEqual(true, epoch.isAware());
+    try testing.expectEqual(true, epoch.isZoned());
+    try testing.expectEqual(false, epoch.isNaive());
     try testing.expectEqualStrings(epoch.tzinfo.?.abbreviation(), "Z");
     try testing.expectEqualStrings(epoch.tzinfo.?.name(), "UTC");
 }

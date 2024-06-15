@@ -26,14 +26,15 @@ pub fn main() !void {
 
     var tz_berlin: Tz = try Tz.fromTzfile("Europe/Berlin", allocator);
     defer tz_berlin.deinit();
-    var now_local: Datetime = Datetime.now(tz_berlin);
+    var now_berlin: Datetime = Datetime.now(tz_berlin);
     const now_utc: Datetime = Datetime.now(Tz.UTC);
     println("Now, UTC time    : {s}", .{now_utc});
-    println("Now, Berlin time : {s} ({s})\n", .{ now_local, now_local.tzinfo.?.abbreviation() });
+    println("Now, Berlin time : {s} ({s})", .{ now_berlin, now_berlin.tzinfo.?.abbreviation() });
+    println("Datetimes have timezone? {}, {}\n", .{ now_utc.isAware(), now_berlin.isAware() });
 
     var my_tz: Tz = try Tz.tzLocal(allocator);
     defer my_tz.deinit();
-    now_local = try now_local.tzConvert(my_tz);
+    var now_local = try now_berlin.tzConvert(my_tz);
     println("My time zone : {s}", .{my_tz.name()});
 
     println("Now, my time zone : {s} ({s})", .{ now_local, now_local.tzinfo.?.abbreviation() });

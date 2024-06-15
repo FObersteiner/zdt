@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 2 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 3 };
 
 const example_files = [_][]const u8{
     "ex_demo",
@@ -203,13 +203,15 @@ pub fn build(b: *std.Build) !void {
     {
         clean_step.dependOn(&b.addRemoveDirTree(b.install_path).step);
         if (builtin.os.tag != .windows) {
-            clean_step.dependOn(&b.addRemoveDirTree(b.pathFromRoot("zig-cache")).step);
+            clean_step.dependOn(&b.addRemoveDirTree(b.pathFromRoot(".zig-cache")).step);
         }
     }
     // --------------------------------------------------------------------------------
 
     // --------------------------------------------------------------------------------
     // generate docs
+    // run on a local server e.g. via
+    // python -m http.server -b 127.0.0.1 [some-unused-port] -d [your-docs-dir]
     const docs_step = b.step("docs", "auto-generate documentation");
     {
         const install_docs = b.addInstallDirectory(.{

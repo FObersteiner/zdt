@@ -26,8 +26,8 @@ tzOffset: ?UTCoffset = null,
 pub const tzdb_version = tzvers.tzdb_version;
 
 /// auto-generated prefix / path of the current eggert/tz database, as shipped with zdt
-const tzprefix = @import("tzdb_prefix"); // anonymous import; see build.zig
-pub const tzdb_prefix = tzprefix.tzdb_prefix;
+// anonymous import; see build.zig
+pub const tzdb_prefix = @import("tzdb_prefix").tzdb_prefix;
 
 /// Where to comptime-load IANA tz database files from
 const comptime_tzdb_prefix = "./tzdata/zoneinfo/"; // IANA db as provided by the library
@@ -36,7 +36,7 @@ const comptime_tzdb_prefix = "./tzdata/zoneinfo/"; // IANA db as provided by the
 /// RFC8536, sect. 3.2, TZif data block.
 pub const UTC_off_range = [2]i32{ -89999, 93599 };
 
-/// UT offset, seconds East of Greenwich
+/// offset from UTC, in seconds East of Greenwich
 pub const UTCoffset = struct {
     seconds_east: i32 = 0,
     is_dst: bool = false,
@@ -69,7 +69,7 @@ pub fn abbreviation(self: *Timezone) []const u8 {
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned TZ instance.
 pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator) !Timezone {
-    if (!validate_identifier(identifier)) return TzError.InvalidIdentifier;
+    if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     const data = @embedFile(comptime_tzdb_prefix ++ identifier);
     var in_stream = std.io.fixedBufferStream(data);
     const tzif_tz = try tzif.Tz.parse(allocator, in_stream.reader());
@@ -85,7 +85,7 @@ pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator)
 
 /// Same as fromTzfile but for runtime-known tz identifiers.
 pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator: std.mem.Allocator) !Timezone {
-    if (!validate_identifier(identifier)) return TzError.InvalidIdentifier;
+    if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&path_buffer);
     const fb_alloc = fba.allocator();
@@ -268,9 +268,9 @@ fn findTransition(array: []const tzif.Transition, target: i64) i32 {
     return @as(i32, @intCast(left - 1));
 }
 
-// time zone identifiers must only contain alpha-numeric characters
-// as well as '+', '-', '_' and '/' (path separator).
-fn validate_identifier(idf: []const u8) bool {
+/// time zone identifiers must only contain alpha-numeric characters
+/// as well as '+', '-', '_' and '/' (path separator).
+pub fn identifierValid(idf: []const u8) bool {
     for (idf, 0..) |c, i| {
         switch (c) {
             // OK cases:
@@ -307,19 +307,19 @@ test "embed tzif from lib dir" {
 }
 
 test "validate name" {
-    var result = validate_identifier("asdf");
-    try std.testing.expect(result);
-    result = validate_identifier("as/df");
-    try std.testing.expect(result);
-    result = validate_identifier("as.df");
-    try std.testing.expect(result);
+    var result = identifierValid("asdf");
+    try std.testing.expectEqual(true, result);
+    result = identifierValid("as/df");
+    try std.testing.expectEqual(true, result);
+    result = identifierValid("as.df");
+    try std.testing.expectEqual(true, result);
 
-    result = validate_identifier("../asdf");
-    try std.testing.expect(!result);
-    result = validate_identifier(".");
-    try std.testing.expect(!result);
-    result = validate_identifier("as*df");
-    try std.testing.expect(!result);
-    result = validate_identifier("?!");
-    try std.testing.expect(!result);
+    result = identifierValid("../asdf");
+    try std.testing.expectEqual(false, result);
+    result = identifierValid(".");
+    try std.testing.expectEqual(false, result);
+    result = identifierValid("as*df");
+    try std.testing.expectEqual(false, result);
+    result = identifierValid("?!");
+    try std.testing.expectEqual(false, result);
 }

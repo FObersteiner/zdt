@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2024-06-15, v0.1.3
+
+- introduce helper functions isAware and isNaive for Datetime struct
+- make tz name validator public (Timezone.identifierValid)
+
 ## 2024-06-09
 
 - cleaun-up calendar.zig

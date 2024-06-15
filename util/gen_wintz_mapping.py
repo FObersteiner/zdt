@@ -8,9 +8,10 @@
 # http://unicode.org/cldr/data/common/supplemental/supplementalData.xml
 # and parsing it, and from this generating the file windows_tz.zig.
 
+import logging
+
 # import ftplib
 from datetime import datetime, timezone
-import logging
 
 # import tarfile
 # from io import BytesIO

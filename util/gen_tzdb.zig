@@ -1,5 +1,5 @@
 //! Update eggert/tz submodule, build the time zone database and move
-//! its 'zoneinfo' directory to /lib/tzdata.
+//! its 'zoneinfo' directory to /lib/tzdata. Remove all other build artifacts.
 const std = @import("std");
 const log = std.log.scoped(.zdt__gen_tzdb);
 
@@ -9,16 +9,23 @@ pub fn main() !void {
     defer _ = gpa.deinit();
 
     // update submodule
-    const argv_update = [_][]const u8{ "git", "submodule", "update", "--remote", "tz" };
+    const argv_update = [_][]const u8{
+        "git",
+        "submodule",
+        "update",
+        "--init", // --init and --recursive flags used here to work around a pyenv bug
+        "--recursive",
+        "--remote",
+        "tz",
+    };
     const proc_update = try std.process.Child.run(.{
         .allocator = allocator,
         .argv = &argv_update,
     });
 
-    // assert that there is no output to stderr, otherwise fail:
     if (proc_update.stderr.len > 0) {
         log.err("update command failed : {s}", .{proc_update.stderr});
-        return error.UpdateFailed;
+        // error might originate from pyenv bug... try to continue
     }
 
     if (proc_update.stdout.len > 0) {

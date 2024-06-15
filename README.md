@@ -2,7 +2,7 @@
 
 # zdt
 
-**Datetime with Timezones in Zig.** For learning purposes.
+**Datetime with Timezones in Zig.** Opinionated. For learning purposes.
 
 The original repository is hosted [on Codeberg](https://codeberg.org/FObersteiner/zdt).
 
@@ -44,8 +44,6 @@ zig build examples && ./zig-out/bin/ex_datetime
 
 ## Documentation
 
-(incomplete)
-
 - [Introduction](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/01_intro.md)
 - [Usage](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/02_usage.md)
 - [Misc & Advanced](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/03_misc_advanced.md)
@@ -56,7 +54,7 @@ See [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/chang
 
 ## Zig version
 
-This library is developed with Zig `0.13.0-dev`, might not compile with older versions.
+This library is developed with Zig `0.14.0-dev`, might not compile with older versions.
 
 ## Time zone database
 

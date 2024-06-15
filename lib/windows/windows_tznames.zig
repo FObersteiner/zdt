@@ -3,7 +3,7 @@
 //
 // --- Do not edit ---
 //
-// latest referesh: 2024-05-26T05:53:53+00:00
+// latest referesh: 2024-06-15T08:50:57+00:00
 // windows_names are sorted alphabetically so we can do binary search (later)
 pub const windows_names = [_][]const u8{
     "AUS Central Standard Time",

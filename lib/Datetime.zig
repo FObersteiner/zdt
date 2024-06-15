@@ -106,8 +106,6 @@ pub const ISOCalendar = struct {
 /// the fields of a datetime instance
 pub const Fields = struct {
     year: u16 = 1, // [1, 9999]
-    // u7 because we need to cover potential invalid input from a datetime string,
-    // e.g.'99' for the hour field
     month: u8 = 1, // [1, 12]
     day: u8 = 1, // [1, 32]
     hour: u8 = 0, // [0, 23]
@@ -183,7 +181,7 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
 
     // However, we could still have an ambiguous datetime or a datetime in a gap of
     // a DST transition. To exclude that, we need the surrounding timetypes of the current one.
-    const sts = __getSurroundingTimetypes(local_tz.__transition_index, &fields.tzinfo.?.tzFile.?);
+    const sts = getSurroundingTimetypes(local_tz.__transition_index, &fields.tzinfo.?.tzFile.?);
 
     // #1 - if there are no surrounding timetypes, we can only use the first guessed datetime
     // to compare to.
@@ -285,7 +283,7 @@ pub fn fromUnix(n: i128, resolution: Duration.Resolution, tzinfo: ?Timezone) Zdt
 /// UTC offset of the time zone (if such is supplied).
 fn __normalize(self: *Datetime) TzError!void {
     var fake_unix = self.__unix; // "local" Unix time to get the fields right
-    if (self.tzinfo != null) {
+    if (self.isAware()) {
         self.tzinfo.?.tzOffset = try self.tzinfo.?.atUnixtime(self.__unix);
         fake_unix += self.tzinfo.?.tzOffset.?.seconds_east;
     }
@@ -310,6 +308,21 @@ pub fn toUnix(self: Datetime, resolution: Duration.Resolution) i128 {
     }
 }
 
+/// true if a timezone has been set
+pub fn isAware(self: Datetime) bool {
+    return self.tzinfo != null;
+}
+
+/// alias for isAware
+pub fn isZoned(self: Datetime) bool {
+    return self.isAware();
+}
+
+/// true if no timezone is set
+pub fn isNaive(self: Datetime) bool {
+    return !self.isAware();
+}
+
 /// Make a datetime local to a given time zone.
 ///
 /// 'null' can be supplied to make an aware datetime naive.
@@ -329,7 +342,7 @@ pub fn tzLocalize(self: Datetime, tzinfo: ?Timezone) ZdtError!Datetime {
 /// Convert datetime to another time zone. The datetime must be aware;
 /// can only convert to another time zone if initial time zone is defined
 pub fn tzConvert(self: Datetime, new_tz: Timezone) ZdtError!Datetime {
-    if (self.tzinfo == null) return ZdtError.TzUndefined;
+    if (self.isNaive()) return ZdtError.TzUndefined;
     return Datetime.fromUnix(
         @as(i128, self.__unix) * ns_per_s + self.nanosecond,
         Duration.Resolution.nanosecond,
@@ -342,7 +355,7 @@ pub fn floorTo(self: Datetime, timespan: Duration.Timespan) !Datetime {
     // any other timespan than second can lead to ambiguous or non-existent
     // datetime - therefore we need to make a new datetime
     var fields = Fields{ .tzinfo = self.tzinfo };
-    if (self.tzinfo != null and self.tzinfo.?.tzFile != null) {
+    if (self.isAware() and self.tzinfo.?.tzFile != null) {
         // tzOffset must be resetted so that fromFields method
         // re-calculates the offset for the new Unix time:
         fields.tzinfo.?.tzOffset = null;
@@ -398,8 +411,8 @@ pub fn nowLocal(allocator: std.mem.Allocator) !Datetime {
 /// Ignores the time zone - however, both datetimes must either be aware or naive.
 pub fn compareUT(this: Datetime, other: Datetime) ZdtError!std.math.Order {
     // can only compare if both aware or naive, not a mix.
-    if ((this.tzinfo != null and other.tzinfo == null) or
-        (this.tzinfo == null and other.tzinfo != null)) return ZdtError.CompareNaiveAware;
+    if ((this.isAware() and other.isNaive()) or
+        (this.isNaive() and other.isAware())) return ZdtError.CompareNaiveAware;
     return std.math.order(
         @as(i128, this.__unix) * ns_per_s + this.nanosecond,
         @as(i128, other.__unix) * ns_per_s + other.nanosecond,
@@ -408,8 +421,8 @@ pub fn compareUT(this: Datetime, other: Datetime) ZdtError!std.math.Order {
 
 /// Compare wall time, irrespective of the time zone.
 pub fn compareWall(this: Datetime, other: Datetime) !std.math.Order {
-    const _this = if (this.tzinfo != null) try this.tzLocalize(null) else this;
-    const _other = if (other.tzinfo != null) try other.tzLocalize(null) else other;
+    const _this = if (this.isAware()) try this.tzLocalize(null) else this;
+    const _other = if (other.isAware()) try other.tzLocalize(null) else other;
     return try Datetime.compareUT(_this, _other);
 }
 
@@ -442,7 +455,7 @@ pub fn diff(this: Datetime, other: Datetime) Duration {
 
 /// Calculate wall time difference between two timezone-aware datetimes.
 pub fn diffWall(this: Datetime, other: Datetime) !Duration {
-    if (this.tzinfo == null or other.tzinfo == null) return error.TzUndefined;
+    if (this.isNaive() or other.isNaive()) return error.TzUndefined;
     if (this.tzinfo.?.tzOffset == null or other.tzinfo.?.tzOffset == null) return error.TzUndefined;
 
     var s: i64 = ((this.__unix - other.__unix) +
@@ -540,7 +553,7 @@ pub fn weekOfYearMon(dt: Datetime) u8 {
 /// Algorithm from <https://en.wikipedia.org/wiki/ISO_week_date>.
 pub fn isocalendar(dt: Datetime) ISOCalendar {
     const doy: u16 = dt.dayOfYear();
-    const dow: u16 = @as(u9, dt.weekdayIsoNumber());
+    const dow: u16 = @as(u16, dt.weekdayIsoNumber());
     const w: u16 = @divFloor(10 + doy - dow, 7);
     const weeks: u8 = cal.weeksPerYear(dt.year);
     var isocal = ISOCalendar{ .year = dt.year, .isoweek = 0, .isoweekday = @truncate(dow) };
@@ -559,7 +572,7 @@ pub fn isocalendar(dt: Datetime) ISOCalendar {
 /// Formatted printing for UTC offset
 pub fn formatOffset(self: Datetime, writer: anytype) !void {
     // if the tzinfo or tzOffset is null, we cannot do anything:
-    if (self.tzinfo == null) return;
+    if (self.isNaive()) return;
     if (self.tzinfo.?.tzOffset == null) return;
 
     // If the tzinfo is defined for a specific datetime, it should contain
@@ -598,7 +611,7 @@ pub fn format(
 
 /// Surrounding timetypes at a given transition index. This index might be
 /// negative to indicate out-of-range values.
-fn __getSurroundingTimetypes(idx: i32, _tz: *const tzif.Tz) [3]?*tzif.Timetype {
+pub fn getSurroundingTimetypes(idx: i32, _tz: *const tzif.Tz) [3]?*tzif.Timetype {
     var surrounding = [3]?*tzif.Timetype{ null, null, null };
     if (idx > 0) {
         surrounding[1] = _tz.transitions[@as(u64, @intCast(idx))].timetype;
