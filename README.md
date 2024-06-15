@@ -54,7 +54,7 @@ See [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/chang
 
 ## Zig version
 
-This library is developed with Zig `0.14.0-dev`, might not compile with older versions.
+This library is developed with Zig `0.14.0-dev`, might not compile with older versions. As of 2024-06-15, Zig-0.12 and Zig-0.13 (both stable) should work.
 
 ## Time zone database
 
