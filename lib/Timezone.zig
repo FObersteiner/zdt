@@ -86,7 +86,7 @@ pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator)
 /// Same as fromTzfile but for runtime-known tz identifiers.
 pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator: std.mem.Allocator) !Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
-    var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+    var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&path_buffer);
     const fb_alloc = fba.allocator();
     const p = try std.fs.path.join(fb_alloc, &[_][]const u8{ db_path, identifier });
@@ -104,7 +104,7 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
     // if db_path is empty: assume identifier is a path
     // --> look for 'zoneinfo' substring in identifier, remove if found
     if (std.mem.eql(u8, db_path, "")) {
-        var pathname_iterator = std.mem.split(u8, p, "zoneinfo" ++ std.fs.path.sep_str);
+        var pathname_iterator = std.mem.splitSequence(u8, p, "zoneinfo" ++ std.fs.path.sep_str);
         const part = pathname_iterator.next() orelse identifier;
         if (!std.mem.eql(u8, identifier, part)) {
             const tmp_name = pathname_iterator.next() orelse "?";
@@ -161,7 +161,7 @@ pub fn tzLocal(allocator: std.mem.Allocator) !Timezone {
     switch (builtin.os.tag) {
         .linux, .macos => {
             const default_path = "/etc/localtime";
-            var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+            var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
             const path = try std.fs.realpath(default_path, &path_buffer);
             return try Timezone.runtimeFromTzfile(path, "", allocator);
         },

@@ -56,11 +56,15 @@ See [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/chang
 
 This library is developed with Zig `0.14.0-dev`, might not compile with older versions. As of 2024-06-15, Zig-0.12 and Zig-0.13 (both stable) should work.
 
+## Dependencies
+
+- none
+
 ## Time zone database
 
 `zdt` comes with [eggert/tz](https://github.com/eggert/tz). The database is compiled and shipped with `zdt` (as-is; not tar-balled or compressed). If you wish to use your own version of the [IANA time zone db](https://www.iana.org/time-zones), you can set a path to it using the `-Dprefix-tzdb="path/to/your/tzdb"` option. See also `zig build --help`
 
-For development, to update the time zone database and the version info, run the following build steps: `zig build tz-update-db && zig build tz-update-version`.
+For development, to update the time zone database and the version info, run the following build steps: `zig build update-tz-database && zig build update-tz-version`.
 
 ## License
 

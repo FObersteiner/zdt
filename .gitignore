@@ -4,13 +4,12 @@ zig-cache/
 zig-out/
 autodoc/
 
-
-/util/*.ods
+util/*.ods
+util/directives.md
 *~lock*
 
 # tz submodule
-/tz/*
-/tz/**
+tz/
 
 # building tzdata temporarily creates a directory:
-/lib/tzdata/tmp/
+lib/tzdata/tmp/

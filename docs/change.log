@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2024-06-18, v0.1.4
+
+- adjust to std lib updates (std.mem.split, std.fs.max_path_bytes)
+- clean-up unused code in stringIO
+- add %j directive, implement datetime --> string
+- add %T directive, implement datetime <--> string
+
 ## 2024-06-15, v0.1.3
 
 - introduce helper functions isAware and isNaive for Datetime struct

@@ -28,19 +28,19 @@ const FormatCode = enum(u8) {
     nanos = 'f',
     offset = 'z',
     tz_abbrev = 'Z',
-    // %j
-    // %U
-    // %W
-    // %G
-    // %u
-    // %V
-    // %T
+    doy = 'j',
+    // %U - weeknum, sun = 00
+    // %W - weeknum, mon = 00
+    // %G - ISO year 0000
+    // %u - ISO weekday, mon = 1
+    // %V - ISO weeknum, mon = 01 (contains Jan 4)
+    isofmt = 'T', // %T - ISO8601
     // %c // locale-specific
     // %x // locale-specific
     // %X // locale-specific
     percent_lit = '%',
 
-    /// create string representation of a datetime
+    /// create string representation of datetime fields and properties
     pub fn formatToString(
         self: FormatCode,
         writer: anytype,
@@ -48,7 +48,7 @@ const FormatCode = enum(u8) {
     ) !void {
         switch (self) {
             .month => try writer.print("{d:0>2}", .{dt.month}),
-            .year => try writer.print("{d}", .{dt.year}),
+            .year => try writer.print("{d:0>4}", .{dt.year}),
             .day => try writer.print("{d:0>2}", .{dt.day}),
             .hour => try writer.print("{d:0>2}", .{dt.hour}),
             .min => try writer.print("{d:0>2}", .{dt.minute}),
@@ -59,6 +59,7 @@ const FormatCode = enum(u8) {
                 "{s}", // use __abbrev_data directly since we have a copy of dt:
                 .{std.mem.sliceTo(dt.tzinfo.?.tzOffset.?.__abbrev_data[0..], 0)},
             ),
+            .doy => try writer.print("{d:0>3}", .{dt.dayOfYear()}),
             .percent_lit => try writer.print("%", .{}),
             // locale-specific:
             .day_name_abbr => try writer.print(
@@ -77,63 +78,10 @@ const FormatCode = enum(u8) {
                 "{s}",
                 .{std.mem.sliceTo(getMonthName(dt.month - 1)[0..], 0)},
             ),
+            .isofmt => try dt.format("", .{}, writer),
         }
     }
 };
-
-// a specific directive in a string of parsing/formatting directives
-const Part = union(enum) {
-    literal: u8,
-    specifier: FormatCode,
-
-    pub fn formatToString(
-        self: Part,
-        writer: anytype,
-        dt: Datetime,
-    ) !void {
-        switch (self) {
-            .literal => |b| try writer.writeByte(b),
-            .specifier => |s| try s.formatToString(writer, dt),
-        }
-    }
-};
-
-// parse a string with format codes to a list of Part
-fn parseFormatBuf(buf: []Part, format_str: []const u8) ![]Part {
-    var parts_idx: usize = 0;
-
-    var next_char_is_specifier = false;
-    for (format_str) |fc| {
-        if (next_char_is_specifier) {
-            if (fc == '%') {
-                next_char_is_specifier = false;
-                buf[parts_idx] = .{ .literal = fc };
-                parts_idx += 1;
-                continue;
-            }
-            buf[parts_idx] = .{
-                .specifier = std.meta.intToEnum(FormatCode, fc) catch return error.InvalidSpecifier,
-            };
-            parts_idx += 1;
-            next_char_is_specifier = false;
-        } else {
-            if (fc == '%') {
-                next_char_is_specifier = true;
-            } else {
-                buf[parts_idx] = .{ .literal = fc };
-                parts_idx += 1;
-            }
-        }
-    }
-
-    return buf[0..parts_idx];
-}
-
-fn formatParts(writer: anytype, parts: []const Part, dt: Datetime) !void {
-    for (parts) |part| {
-        try part.formatToString(writer, dt);
-    }
-}
 
 /// Create a string representation of a Datetime
 pub fn formatToString(writer: anytype, format: []const u8, dt: Datetime) !void {
@@ -154,7 +102,6 @@ pub fn formatToString(writer: anytype, format: []const u8, dt: Datetime) !void {
 }
 
 /// Create a Datetime from a string, with a compile-time-known format
-// TODO : add runtime parser ?
 pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Datetime {
     var fields = Datetime.Fields{};
 
@@ -186,6 +133,7 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
                         fields.tzinfo = try Tz.fromOffset(utcoffset, "");
                     }
                 },
+                'T' => return parseISO8601(dt_string),
                 '%' => { // literal characters
                     if (dt_string[dt_string_idx] != fc) return error.InvalidFormat;
                     dt_string_idx += 1;
@@ -217,10 +165,10 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
 /// Requires at least a year and a month, separated by ASCII minus.
 /// Date and time separator is either 'T' or ASCII space.
 ///
-/// ## examples
-///
+/// Examples:
+/// ---
 /// string                         len  datetime, normlized ISO8601
-/// -----------------------------|----|------------------------------------
+/// ------------------------------|----|------------------------------------
 /// 2014-08                        7    2014-08-01T00:00:00
 /// 2014-08-23                     10   2014-08-23T00:00:00
 /// 2014-08-23 12:15               16   2014-08-23T12:15:00
@@ -363,7 +311,7 @@ fn parseOffset(comptime T: type, dt_string: []const u8, idx: *usize, maxDigits: 
     // clean offset string:
     var index: usize = 0;
     var offset_chars = [6]u8{ 48, 48, 48, 48, 48, 48 }; // start with 000000;
-    for (dt_string[start_idx + 1 .. idx.*]) |c| { //                   hhmmss
+    for (dt_string[start_idx + 1 .. idx.*]) |c| { //                  hhmmss
         if (c != ':') {
             offset_chars[index] = c;
             index += 1;

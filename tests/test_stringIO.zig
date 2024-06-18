@@ -69,8 +69,16 @@ test "format datetime with literal characters in format string" {
         .directive = "%Y-%m-%dT%H:%M:%S",
     }, .{
         .dt = try Datetime.fromFields(.{ .year = 1970 }),
-        .string = "Unix epoch 1970-01-01 00:00:00",
-        .directive = "Unix epoch %Y-%m-%d %H:%M:%S",
+        .string = "Unix epoch 1970-01-01 00:00:00 001",
+        .directive = "Unix epoch %Y-%m-%d %H:%M:%S %j",
+    }, .{
+        .dt = try Datetime.fromFields(.{ .year = 2024, .month = 12, .day = 31 }),
+        .string = "2024-12-31 00:00:00 366",
+        .directive = "%Y-%m-%d %H:%M:%S %j",
+    }, .{
+        .dt = try Datetime.fromFields(.{ .year = 2024, .month = 12, .day = 31 }),
+        .string = "2024-12-31T00:00:00",
+        .directive = "%T",
     }, .{
         .dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3 }),
         .string = "% 2023-12-09 % 01:02:03 %",
@@ -214,6 +222,24 @@ test "comptime parse with comptime format string" {
 
     for (cases) |case| {
         const dt = try str.parseToDatetime("%Y-%m-%d %H:%M:%S", case.string);
+        try testing.expectEqual(case.dt, dt);
+    }
+}
+
+test "comptime parse ISO " {
+    const cases = [_]TestCase{
+        .{
+            .string = "2021-02-18T17:00:00.1",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 100_000_000 }),
+        },
+        .{
+            .string = "2021-02-18T17:00:00.123456",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 123_456_000 }),
+        },
+    };
+
+    for (cases) |case| {
+        const dt = try str.parseToDatetime("%T", case.string);
         try testing.expectEqual(case.dt, dt);
     }
 }
