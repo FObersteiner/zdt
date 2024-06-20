@@ -2,9 +2,10 @@
 
 # zdt
 
-**Datetime with Timezones in Zig.** Opinionated. For learning purposes.
+**Datetime with Timezones in Zig.** Opinionated, and mostly for learning purposes.
 
-The original repository is hosted [on Codeberg](https://codeberg.org/FObersteiner/zdt).
+- [on Codeberg](https://codeberg.org/FObersteiner/zdt)
+- [on github](https://github.com/FObersteiner/zdt)
 
 Demo:
 
