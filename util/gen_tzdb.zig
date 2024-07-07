@@ -64,7 +64,7 @@ pub fn main() !void {
     log.info("target, tmp: {s}", .{tmp_dir});
     log.info("target, final: {s}", .{target_dir_abs});
 
-    var path_buffer: [std.fs.MAX_PATH_BYTES + 8]u8 = undefined;
+    var path_buffer: [std.fs.max_path_bytes + 8]u8 = undefined;
     const target_dir_cmd = try std.fmt.bufPrint(&path_buffer, "DESTDIR={s}", .{tmp_dir});
 
     // compile tzdata

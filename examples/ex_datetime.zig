@@ -30,6 +30,7 @@ pub fn main() !void {
     println("---> (usage) Now: datetime from system time", .{});
     const now = Datetime.now(Tz.UTC);
     println("'now', UTC      : {s}", .{now});
+    println("'now', UTC      : {s:.3} (only ms shown)", .{now});
     const now_s = try now.floorTo(Duration.Timespan.second);
     println("(nanos removed) : {s}", .{now_s});
     const now_date = try now.floorTo(Duration.Timespan.day);

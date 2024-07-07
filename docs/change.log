@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2024-07-07, v0.1.5
+
+- add option to truncate fractional second via 's.:[precision]' formatting directive
+- limit what is exposed from ./util via the zon file
+- satisfy zig-0.14 deprecations
+
 ## 2024-06-18, v0.1.4
 
 - adjust to std lib updates (std.mem.split, std.fs.max_path_bytes)

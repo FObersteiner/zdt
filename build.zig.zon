@@ -3,8 +3,10 @@
     .version = "0.1.4",
     .paths = .{
         "zdt.zig",
-        "lib",
-        "util",
+        "lib", // anything from lib
+        "util/gen_tzdb.zig", // exclude other scripts from util
+        "util/gen_tzdb_prefix.zig",
+        "util/gen_tzdb_version.zig",
         "README.md",
         "LICENSE",
         "build.zig",

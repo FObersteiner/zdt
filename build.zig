@@ -1,8 +1,18 @@
+//! build steps:
+//! ---
+//! `tests`              - run unit tests
+//! `examples`           - build examples
+//! `clean`              - remove zig-cache on non-Windows OS
+//! `docs`               - run autodoc generation
+//! `update-tz-version`  - retreive version of tzdata from local copy and set in zig file
+//! `update-tz-prefix`   - update tzdata path
+//! `update-tz-database` - retreive latest version of eggert/tz and build tzdata
+//! ---
 const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 4 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 5 };
 
 const example_files = [_][]const u8{
     "ex_demo",
@@ -66,7 +76,7 @@ pub fn build(b: *std.Build) !void {
     // --------------------------------------------------------------------------------
     // path prefix to tz data should always be updated on install
     const install = b.getInstallStep();
-    const tzprefix_step = b.step("tz-update-prefix", "generate timezone database prefix (path)");
+    const tzprefix_step = b.step("update-tz-prefix", "generate timezone database prefix (path)");
 
     var gen_tzdb_prefix = b.addExecutable(.{
         .name = "gen_tzdb_prefix",
@@ -204,6 +214,7 @@ pub fn build(b: *std.Build) !void {
         clean_step.dependOn(&b.addRemoveDirTree(b.install_path).step);
         if (builtin.os.tag != .windows) {
             clean_step.dependOn(&b.addRemoveDirTree(b.pathFromRoot(".zig-cache")).step);
+            clean_step.dependOn(&b.addRemoveDirTree(b.pathFromRoot("zig-cache")).step);
         }
     }
     // --------------------------------------------------------------------------------

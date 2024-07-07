@@ -593,6 +593,8 @@ pub fn formatOffset(self: Datetime, writer: anytype) !void {
 }
 
 /// Formatted printing for Datetime. Defaults to ISO8601 / RFC3339nano.
+/// Nanoseconds are displayed if not zero. To get milli- or microsecond
+/// precision, use formatting directive 's:.3' (ms) or 's:.6' (us).
 pub fn format(
     self: Datetime,
     comptime fmt: []const u8,
@@ -600,12 +602,20 @@ pub fn format(
     writer: anytype,
 ) !void {
     _ = fmt;
-    _ = options;
     try writer.print(
         "{d:0>4}-{d:0>2}-{d:0>2}T{d:0>2}:{d:0>2}:{d:0>2}",
         .{ self.year, self.month, self.day, self.hour, self.minute, self.second },
     );
-    if (self.nanosecond != 0) try writer.print(".{d:0>9}", .{self.nanosecond});
+
+    if (options.precision) |p| switch (p) {
+        3 => {
+            try writer.print(".{d:0>3}", .{self.nanosecond / 1_000_000});
+        },
+        6 => try writer.print(".{d:0>6}", .{self.nanosecond / 1_000}),
+        9 => try writer.print(".{d:0>9}", .{self.nanosecond}),
+        else => if (self.nanosecond != 0) try writer.print(".{d:0>9}", .{self.nanosecond}),
+    } else if (self.nanosecond != 0) try writer.print(".{d:0>9}", .{self.nanosecond});
+
     if (self.tzinfo != null) try self.formatOffset(writer);
 }
 

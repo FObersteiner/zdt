@@ -20,6 +20,7 @@ const TestCase = struct {
     string: []const u8,
     dt: Datetime,
     directive: []const u8 = "",
+    prc: ?usize = null,
 };
 
 // locale-specific tests only for English
@@ -58,6 +59,32 @@ test "format naive datetimes with format string api" {
         var s = std.ArrayList(u8).init(testing.allocator);
         defer s.deinit();
         try str.formatToString(s.writer(), "%Y-%m-%d %H:%M:%S", case.dt);
+        try testing.expectEqualStrings(case.string, s.items);
+    }
+}
+test "format with precision" {
+    const cases = [_]TestCase{
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1970 }),
+            .string = "1970-01-01T00:00:00.000",
+            .prc = 3,
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1970 }),
+            .string = "1970-01-01T00:00:00.000000",
+            .prc = 6,
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1970 }),
+            .string = "1970-01-01T00:00:00.000000000",
+            .prc = 9,
+        },
+    };
+
+    for (cases) |case| {
+        var s = std.ArrayList(u8).init(testing.allocator);
+        defer s.deinit();
+        try case.dt.format("s", .{ .precision = case.prc }, s.writer());
         try testing.expectEqualStrings(case.string, s.items);
     }
 }

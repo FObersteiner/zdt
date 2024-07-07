@@ -12,7 +12,7 @@ pub fn main() !void {
     var in_stream = buf_reader.reader();
     var buf: [128]u8 = undefined;
     const line = (try in_stream.readUntilDelimiterOrEof(&buf, '\n')).?;
-    var iterator = std.mem.split(u8, line, " ");
+    var iterator = std.mem.splitScalar(u8, line, ' ');
     var version_string: []const u8 = undefined;
     while (iterator.next()) |x| {
         version_string = x;
