@@ -89,7 +89,7 @@ pub const ISOCalendar = struct {
     isoweekday: u8, // [1, 7]
 
     pub fn format(
-        self: ISOCalendar,
+        calendar: ISOCalendar,
         comptime fmt: []const u8,
         options: std.fmt.FormatOptions,
         writer: anytype,
@@ -98,7 +98,7 @@ pub const ISOCalendar = struct {
         _ = options;
         try writer.print(
             "{d:0>4}-W{d:0>2}-{d}T{d:0>2}:{d:0>2}:{d:0>2}",
-            .{ self.year, self.isoweek, self.isoweekday },
+            .{ calendar.year, calendar.isoweek, calendar.isoweekday },
         );
     }
 };
@@ -115,19 +115,19 @@ pub const Fields = struct {
     tzinfo: ?Timezone = null,
     dst_fold: ?u1 = null, // DST fold position; 0 = early side, 1 = late side
 
-    pub fn validate(self: Fields) ZdtError!void {
-        if (self.year > max_year or self.year < min_year) return ZdtError.YearOutOfRange;
-        if (self.month > 12 or self.month < 1) return ZdtError.MonthOutOfRange;
-        const max_days = cal.daysInMonth(@truncate(self.month), cal.isLeapYear(self.year));
-        if (self.day > max_days or self.day < 1) return ZdtError.DayOutOfRange;
-        if (self.hour > 23) return ZdtError.HourOutOfRange;
-        if (self.minute > 59) return ZdtError.MinuteOutOfRange;
-        if (self.second > 60) return ZdtError.SecondOutOfRange;
-        if (self.nanosecond > 999999999) return ZdtError.NanosecondOutOfRange;
+    pub fn validate(fields: Fields) ZdtError!void {
+        if (fields.year > max_year or fields.year < min_year) return ZdtError.YearOutOfRange;
+        if (fields.month > 12 or fields.month < 1) return ZdtError.MonthOutOfRange;
+        const max_days = cal.daysInMonth(@truncate(fields.month), cal.isLeapYear(fields.year));
+        if (fields.day > max_days or fields.day < 1) return ZdtError.DayOutOfRange;
+        if (fields.hour > 23) return ZdtError.HourOutOfRange;
+        if (fields.minute > 59) return ZdtError.MinuteOutOfRange;
+        if (fields.second > 60) return ZdtError.SecondOutOfRange;
+        if (fields.nanosecond > 999999999) return ZdtError.NanosecondOutOfRange;
 
         // if a tz is provided, it must allow offset calculation, which requires
         // one of the types to be not-null:
-        if (self.tzinfo) |tzinfo| {
+        if (fields.tzinfo) |tzinfo| {
             if (tzinfo.tzFile == null and
                 tzinfo.tzOffset == null and
                 tzinfo.tzPosix == null)
@@ -281,111 +281,111 @@ pub fn fromUnix(n: i128, resolution: Duration.Resolution, tzinfo: ?Timezone) Zdt
 /// A helper to update datetime fields so that they agree with the __unix internal
 /// representation. Expects a "local" unix time, to be corrected by the
 /// UTC offset of the time zone (if such is supplied).
-fn __normalize(self: *Datetime) TzError!void {
-    var fake_unix = self.__unix; // "local" Unix time to get the fields right
-    if (self.isAware()) {
-        self.tzinfo.?.tzOffset = try self.tzinfo.?.atUnixtime(self.__unix);
-        fake_unix += self.tzinfo.?.tzOffset.?.seconds_east;
+fn __normalize(dt: *Datetime) TzError!void {
+    var fake_unix = dt.__unix; // "local" Unix time to get the fields right
+    if (dt.isAware()) {
+        dt.tzinfo.?.tzOffset = try dt.tzinfo.?.atUnixtime(dt.__unix);
+        fake_unix += dt.tzinfo.?.tzOffset.?.seconds_east;
     }
     const s_after_midnight: i32 = @intCast(@mod(fake_unix, s_per_day));
     const days: i32 = @intCast(@divFloor(fake_unix, s_per_day));
     const ymd: [3]u16 = cal.rdToDate(days);
-    self.year = @intCast(ymd[0]);
-    self.month = @intCast(ymd[1]);
-    self.day = @intCast(ymd[2]);
-    self.hour = @intCast(@divFloor(s_after_midnight, s_per_hour));
-    self.minute = @intCast(@divFloor(@mod(s_after_midnight, s_per_hour), s_per_minute));
-    self.second = @intCast(@mod(s_after_midnight, s_per_minute));
+    dt.year = @intCast(ymd[0]);
+    dt.month = @intCast(ymd[1]);
+    dt.day = @intCast(ymd[2]);
+    dt.hour = @intCast(@divFloor(s_after_midnight, s_per_hour));
+    dt.minute = @intCast(@divFloor(@mod(s_after_midnight, s_per_hour), s_per_minute));
+    dt.second = @intCast(@mod(s_after_midnight, s_per_minute));
 }
 
 /// Return Unix time for given datetime struct
-pub fn toUnix(self: Datetime, resolution: Duration.Resolution) i128 {
+pub fn toUnix(dt: Datetime, resolution: Duration.Resolution) i128 {
     switch (resolution) {
-        .second => return @as(i128, self.__unix),
-        .millisecond => return @as(i128, self.__unix) * ms_per_s + @divFloor(self.nanosecond, us_per_s),
-        .microsecond => return @as(i128, self.__unix) * us_per_s + @divFloor(self.nanosecond, ms_per_s),
-        .nanosecond => return @as(i128, self.__unix) * ns_per_s + self.nanosecond,
+        .second => return @as(i128, dt.__unix),
+        .millisecond => return @as(i128, dt.__unix) * ms_per_s + @divFloor(dt.nanosecond, us_per_s),
+        .microsecond => return @as(i128, dt.__unix) * us_per_s + @divFloor(dt.nanosecond, ms_per_s),
+        .nanosecond => return @as(i128, dt.__unix) * ns_per_s + dt.nanosecond,
     }
 }
 
 /// true if a timezone has been set
-pub fn isAware(self: Datetime) bool {
-    return self.tzinfo != null;
+pub fn isAware(dt: Datetime) bool {
+    return dt.tzinfo != null;
 }
 
 /// alias for isAware
-pub fn isZoned(self: Datetime) bool {
-    return self.isAware();
+pub fn isZoned(dt: Datetime) bool {
+    return dt.isAware();
 }
 
 /// true if no timezone is set
-pub fn isNaive(self: Datetime) bool {
-    return !self.isAware();
+pub fn isNaive(dt: Datetime) bool {
+    return !dt.isAware();
 }
 
 /// Make a datetime local to a given time zone.
 ///
 /// 'null' can be supplied to make an aware datetime naive.
-pub fn tzLocalize(self: Datetime, tzinfo: ?Timezone) ZdtError!Datetime {
+pub fn tzLocalize(dt: Datetime, tzinfo: ?Timezone) ZdtError!Datetime {
     return Datetime.fromFields(.{
-        .year = self.year,
-        .month = self.month,
-        .day = self.day,
-        .hour = self.hour,
-        .minute = self.minute,
-        .second = self.second,
-        .nanosecond = self.nanosecond,
+        .year = dt.year,
+        .month = dt.month,
+        .day = dt.day,
+        .hour = dt.hour,
+        .minute = dt.minute,
+        .second = dt.second,
+        .nanosecond = dt.nanosecond,
         .tzinfo = tzinfo,
     });
 }
 
 /// Convert datetime to another time zone. The datetime must be aware;
 /// can only convert to another time zone if initial time zone is defined
-pub fn tzConvert(self: Datetime, new_tz: Timezone) ZdtError!Datetime {
-    if (self.isNaive()) return ZdtError.TzUndefined;
+pub fn tzConvert(dt: Datetime, new_tz: Timezone) ZdtError!Datetime {
+    if (dt.isNaive()) return ZdtError.TzUndefined;
     return Datetime.fromUnix(
-        @as(i128, self.__unix) * ns_per_s + self.nanosecond,
+        @as(i128, dt.__unix) * ns_per_s + dt.nanosecond,
         Duration.Resolution.nanosecond,
         new_tz,
     );
 }
 
 /// Floor a datetime to a certain timespan. Creates a new datetime instance.
-pub fn floorTo(self: Datetime, timespan: Duration.Timespan) !Datetime {
+pub fn floorTo(dt: Datetime, timespan: Duration.Timespan) !Datetime {
     // any other timespan than second can lead to ambiguous or non-existent
     // datetime - therefore we need to make a new datetime
-    var fields = Fields{ .tzinfo = self.tzinfo };
-    if (self.isAware() and self.tzinfo.?.tzFile != null) {
+    var fields = Fields{ .tzinfo = dt.tzinfo };
+    if (dt.isAware() and dt.tzinfo.?.tzFile != null) {
         // tzOffset must be resetted so that fromFields method
         // re-calculates the offset for the new Unix time:
         fields.tzinfo.?.tzOffset = null;
     }
     switch (timespan) {
         .second => {
-            fields.year = self.year;
-            fields.month = self.month;
-            fields.day = self.day;
-            fields.hour = self.hour;
-            fields.minute = self.minute;
-            fields.second = self.second;
+            fields.year = dt.year;
+            fields.month = dt.month;
+            fields.day = dt.day;
+            fields.hour = dt.hour;
+            fields.minute = dt.minute;
+            fields.second = dt.second;
         },
         .minute => {
-            fields.year = self.year;
-            fields.month = self.month;
-            fields.day = self.day;
-            fields.hour = self.hour;
-            fields.minute = self.minute;
+            fields.year = dt.year;
+            fields.month = dt.month;
+            fields.day = dt.day;
+            fields.hour = dt.hour;
+            fields.minute = dt.minute;
         },
         .hour => {
-            fields.year = self.year;
-            fields.month = self.month;
-            fields.day = self.day;
-            fields.hour = self.hour;
+            fields.year = dt.year;
+            fields.month = dt.month;
+            fields.day = dt.day;
+            fields.hour = dt.hour;
         },
         .day => {
-            fields.year = self.year;
-            fields.month = self.month;
-            fields.day = self.day;
+            fields.year = dt.year;
+            fields.month = dt.month;
+            fields.day = dt.day;
         },
         else => return ZdtError.NotImplemented,
     }
@@ -427,19 +427,19 @@ pub fn compareWall(this: Datetime, other: Datetime) !std.math.Order {
 }
 
 /// Add a duration to a datetime. Makes a new datetime.
-pub fn add(self: Datetime, td: Duration) ZdtError!Datetime {
+pub fn add(dt: Datetime, td: Duration) ZdtError!Datetime {
     const ns: i128 = ( //
-        @as(i128, self.__unix) * ns_per_s + //
-        @as(i128, self.nanosecond) + //
+        @as(i128, dt.__unix) * ns_per_s + //
+        @as(i128, dt.nanosecond) + //
         td.__sec * ns_per_s + //
         td.__nsec //
     );
-    return try Datetime.fromUnix(ns, Duration.Resolution.nanosecond, self.tzinfo);
+    return try Datetime.fromUnix(ns, Duration.Resolution.nanosecond, dt.tzinfo);
 }
 
 /// Subtract a duration from a datetime. Makes a new datetime.
-pub fn sub(self: Datetime, td: Duration) ZdtError!Datetime {
-    return self.add(.{ .__sec = td.__sec * -1, .__nsec = td.__nsec });
+pub fn sub(dt: Datetime, td: Duration) ZdtError!Datetime {
+    return dt.add(.{ .__sec = td.__sec * -1, .__nsec = td.__nsec });
 }
 
 /// Calculate the duration between two datetimes, independent of the time zone.
@@ -470,55 +470,55 @@ pub fn diffWall(this: Datetime, other: Datetime) !Duration {
 }
 
 /// Day of the year starting with 1 == yyyy-01-01 (strftime/strptime: %j).
-pub fn dayOfYear(self: Datetime) u16 {
-    return cal.dayOfYear(self.year, self.month, self.day);
+pub fn dayOfYear(dt: Datetime) u16 {
+    return cal.dayOfYear(dt.year, dt.month, dt.day);
 }
 
 /// Day of the week as an enum value; Sun as first day of the week
-pub fn weekday(self: Datetime) Weekday {
-    return std.meta.intToEnum(Weekday, self.weekdayNumber()) catch unreachable;
+pub fn weekday(dt: Datetime) Weekday {
+    return std.meta.intToEnum(Weekday, dt.weekdayNumber()) catch unreachable;
 }
 
 /// Number of the weekday starting at 0 == Sunday (strftime/strptime: %w).
-pub fn weekdayNumber(self: Datetime) u8 {
-    const days = cal.dateToRD([3]u16{ self.year, self.month, self.day });
+pub fn weekdayNumber(dt: Datetime) u8 {
+    const days = cal.dateToRD([3]u16{ dt.year, dt.month, dt.day });
     return cal.weekdayFromUnixdays(days);
 }
 
 /// ISO-number of the weekday, starting at 1 == Monday (strftime/strptime: %u).
-pub fn weekdayIsoNumber(self: Datetime) u8 {
-    const days = cal.dateToRD([3]u16{ self.year, self.month, self.day });
+pub fn weekdayIsoNumber(dt: Datetime) u8 {
+    const days = cal.dateToRD([3]u16{ dt.year, dt.month, dt.day });
     return cal.ISOweekdayFromUnixdays(days);
 }
 
-pub fn monthEnum(self: Datetime) Month {
-    return std.meta.intToEnum(Month, self.month) catch unreachable;
+pub fn monthEnum(dt: Datetime) Month {
+    return std.meta.intToEnum(Month, dt.month) catch unreachable;
 }
 
 /// Roll datetime forward to the specified next weekday. Makes a new datetime.
-pub fn nextWeekday(self: Datetime, d: Weekday) Datetime {
+pub fn nextWeekday(dt: Datetime, d: Weekday) Datetime {
     var daysdiff: i8 = 0;
-    if (self.weekday() == d) {
+    if (dt.weekday() == d) {
         daysdiff = 7;
     } else {
-        daysdiff = cal.weekdayDifference(@intFromEnum(d), self.weekdayNumber());
+        daysdiff = cal.weekdayDifference(@intFromEnum(d), dt.weekdayNumber());
         if (daysdiff < 0) daysdiff += 7; // ensure a positive shift since we want 'next'
     }
     const offset = Duration.fromTimespanMultiple(daysdiff, Duration.Timespan.day);
-    return self.add(offset) catch self; // return unmodified copy on error
+    return dt.add(offset) catch dt; // return unmodified copy on error
 }
 
 /// Roll datetime backward to the specified previous weekday.
-pub fn previousWeekday(self: Datetime, d: Weekday) Datetime {
+pub fn previousWeekday(dt: Datetime, d: Weekday) Datetime {
     var daysdiff: i8 = 0;
-    if (self.weekday() == d) {
+    if (dt.weekday() == d) {
         daysdiff = -7;
     } else {
-        daysdiff = cal.weekdayDifference(@intFromEnum(d), self.weekdayNumber());
+        daysdiff = cal.weekdayDifference(@intFromEnum(d), dt.weekdayNumber());
         if (daysdiff > 0) daysdiff -= 7;
     }
     const offset = Duration.fromTimespanMultiple(daysdiff, Duration.Timespan.day);
-    return self.add(offset) catch self; // return unmodified copy on error
+    return dt.add(offset) catch dt; // return unmodified copy on error
 }
 
 /// nth weekday of given month and year, returned as a Datetime.
@@ -570,15 +570,15 @@ pub fn isocalendar(dt: Datetime) ISOCalendar {
 }
 
 /// Formatted printing for UTC offset
-pub fn formatOffset(self: Datetime, writer: anytype) !void {
+pub fn formatOffset(dt: Datetime, writer: anytype) !void {
     // if the tzinfo or tzOffset is null, we cannot do anything:
-    if (self.isNaive()) return;
-    if (self.tzinfo.?.tzOffset == null) return;
+    if (dt.isNaive()) return;
+    if (dt.tzinfo.?.tzOffset == null) return;
 
     // If the tzinfo is defined for a specific datetime, it should contain
     // a fixed offset (calculated from tzfile etc.). It should not be necessary to
     // make the calculation here:
-    const off = self.tzinfo.?.tzOffset.?.seconds_east;
+    const off = dt.tzinfo.?.tzOffset.?.seconds_east;
 
     const absoff: u32 = if (off < 0) @intCast(off * -1) else @intCast(off);
     const sign = if (off < 0) "-" else "+";
@@ -596,7 +596,7 @@ pub fn formatOffset(self: Datetime, writer: anytype) !void {
 /// Nanoseconds are displayed if not zero. To get milli- or microsecond
 /// precision, use formatting directive 's:.3' (ms) or 's:.6' (us).
 pub fn format(
-    self: Datetime,
+    dt: Datetime,
     comptime fmt: []const u8,
     options: std.fmt.FormatOptions,
     writer: anytype,
@@ -604,19 +604,19 @@ pub fn format(
     _ = fmt;
     try writer.print(
         "{d:0>4}-{d:0>2}-{d:0>2}T{d:0>2}:{d:0>2}:{d:0>2}",
-        .{ self.year, self.month, self.day, self.hour, self.minute, self.second },
+        .{ dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second },
     );
 
     if (options.precision) |p| switch (p) {
         3 => {
-            try writer.print(".{d:0>3}", .{self.nanosecond / 1_000_000});
+            try writer.print(".{d:0>3}", .{dt.nanosecond / 1_000_000});
         },
-        6 => try writer.print(".{d:0>6}", .{self.nanosecond / 1_000}),
-        9 => try writer.print(".{d:0>9}", .{self.nanosecond}),
-        else => if (self.nanosecond != 0) try writer.print(".{d:0>9}", .{self.nanosecond}),
-    } else if (self.nanosecond != 0) try writer.print(".{d:0>9}", .{self.nanosecond});
+        6 => try writer.print(".{d:0>6}", .{dt.nanosecond / 1_000}),
+        9 => try writer.print(".{d:0>9}", .{dt.nanosecond}),
+        else => if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond}),
+    } else if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond});
 
-    if (self.tzinfo != null) try self.formatOffset(writer);
+    if (dt.tzinfo != null) try dt.formatOffset(writer);
 }
 
 /// Surrounding timetypes at a given transition index. This index might be

@@ -42,11 +42,11 @@ const FormatCode = enum(u8) {
 
     /// create string representation of datetime fields and properties
     pub fn formatToString(
-        self: FormatCode,
+        fc: FormatCode,
         writer: anytype,
         dt: Datetime,
     ) !void {
-        switch (self) {
+        switch (fc) {
             .month => try writer.print("{d:0>2}", .{dt.month}),
             .year => try writer.print("{d:0>4}", .{dt.year}),
             .day => try writer.print("{d:0>2}", .{dt.day}),

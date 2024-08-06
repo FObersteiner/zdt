@@ -120,4 +120,6 @@ pub fn main() !void {
     var del_dir = try std.fs.cwd().openDir(tmp_dir, .{ .iterate = true });
     defer del_dir.close();
     try del_dir.deleteTree(tmp_dir);
+
+    return std.process.cleanExit();
 }

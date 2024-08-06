@@ -2,7 +2,6 @@
 //! ---
 //! `tests`              - run unit tests
 //! `examples`           - build examples
-//! `clean`              - remove zig-cache on non-Windows OS
 //! `docs`               - run autodoc generation
 //! `update-tz-version`  - retreive version of tzdata from local copy and set in zig file
 //! `update-tz-prefix`   - update tzdata path
@@ -12,7 +11,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 5 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 6 };
 
 const example_files = [_][]const u8{
     "ex_demo",
@@ -144,7 +143,8 @@ pub fn build(b: *std.Build) !void {
         run_gen_version.addPathDir("lib");
         const out_file_v = run_gen_version.addOutputFileArg("tzdb_version.zig");
         const write_files_v = b.addWriteFiles();
-        write_files_v.addCopyFileToSource(out_file_v, "./lib/tzdb_version.zig");
+        _ = write_files_v.addCopyFile(out_file_v, "./lib/tzdb_version.zig");
+        // write_files_v.addCopyFileToSource(out_file_v, "./lib/tzdb_version.zig");
         update_tz_version_step.dependOn(&write_files_v.step);
     }
     // --------------------------------------------------------------------------------
@@ -191,7 +191,7 @@ pub fn build(b: *std.Build) !void {
     // build & run via 'zig build examples && ./zig-out/bin/[example-name]'
     const example_step = b.step("examples", "Build examples");
     {
-        for (example_files) |example_name| {
+        inline for (example_files) |example_name| {
             const example = b.addExecutable(.{
                 .name = example_name,
                 .root_source_file = b.path(b.fmt("examples/{s}.zig", .{example_name})),
@@ -203,18 +203,6 @@ pub fn build(b: *std.Build) !void {
             const install_example = b.addInstallArtifact(example, .{});
             example_step.dependOn(&example.step);
             example_step.dependOn(&install_example.step);
-        }
-    }
-    // --------------------------------------------------------------------------------
-
-    // --------------------------------------------------------------------------------
-    // clean step: remove ./zig-out and ./zig-cache
-    const clean_step = b.step("clean", "Clean up");
-    {
-        clean_step.dependOn(&b.addRemoveDirTree(b.install_path).step);
-        if (builtin.os.tag != .windows) {
-            clean_step.dependOn(&b.addRemoveDirTree(b.pathFromRoot(".zig-cache")).step);
-            clean_step.dependOn(&b.addRemoveDirTree(b.pathFromRoot("zig-cache")).step);
         }
     }
     // --------------------------------------------------------------------------------

@@ -30,6 +30,7 @@ const HKEY_LOCAL_MACHINE = trnsl.cast(HKEY, //
     .hex,
 ))));
 
+// https://learn.microsoft.com/de-de/windows/win32/api/winreg/nf-winreg-reggetvaluea
 extern fn RegGetValueA(
     hkey: ?*align(1) struct_HKEY__,
     lpSubKey: LPCSTR,

@@ -51,4 +51,6 @@ pub fn main() !void {
     try writer.print("\npub const tzdb_prefix = \"{s}\";", .{prefix});
 
     try bw.flush();
+
+    return std.process.cleanExit();
 }

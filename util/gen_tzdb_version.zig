@@ -41,4 +41,6 @@ pub fn main() !void {
     try writer.print("pub const tzdb_version = \"{s}\";\n", .{version_string});
 
     try bw.flush();
+
+    return std.process.cleanExit();
 }

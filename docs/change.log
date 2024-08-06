@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2024-08-06, v0.1.6
+
+- renamings; replace 'self' with more meaningful designation
+- remove 'clean' step from build.zig
+
 ## 2024-07-07, v0.1.5
 
 - add option to truncate fractional second via 's.:[precision]' formatting directive

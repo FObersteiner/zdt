@@ -18,16 +18,16 @@ pub fn fromTimespanMultiple(n: i128, timespan: Timespan) Duration {
 
 /// Convert a Duration to the smallest multiple of the given timespan
 /// that can contain the duration
-pub fn toTimespanMultiple(self: Duration, timespan: Timespan) i128 {
-    const ns: i128 = self.asNanoseconds();
+pub fn toTimespanMultiple(duration: Duration, timespan: Timespan) i128 {
+    const ns: i128 = duration.asNanoseconds();
     const divisor: u64 = @intFromEnum(timespan);
     const result = std.math.divCeil(i128, ns, @as(i128, divisor)) catch 0;
     return @intCast(result);
 }
 
 /// Representation with fractional seconds
-pub fn totalSeconds(self: Duration) f64 {
-    const ns = self.asNanoseconds();
+pub fn totalSeconds(duration: Duration) f64 {
+    const ns = duration.asNanoseconds();
     return @floatCast(@as(f128, @floatFromInt(ns)) / 1_000_000_000);
 }
 
@@ -53,31 +53,31 @@ pub fn sub(this: Duration, other: Duration) Duration {
 }
 
 /// Convert a duration to seconds, don't forget the nanos.
-pub fn asSeconds(self: Duration) i64 {
-    if (self.__nsec > 500_000_000) return self.__sec + 1;
-    return self.__sec;
+pub fn asSeconds(duration: Duration) i64 {
+    if (duration.__nsec > 500_000_000) return duration.__sec + 1;
+    return duration.__sec;
 }
 
 /// Convert a duration to nanos.
-pub fn asNanoseconds(self: Duration) i128 {
-    return self.__sec * 1_000_000_000 + self.__nsec;
+pub fn asNanoseconds(duration: Duration) i128 {
+    return duration.__sec * 1_000_000_000 + duration.__nsec;
 }
 
 // Formatted printing for Duration type. Defaults to ISO8601 duration format.
 pub fn format(
-    self: Duration,
+    duration: Duration,
     comptime fmt: []const u8,
     options: std.fmt.FormatOptions,
     writer: anytype,
 ) !void {
     _ = options;
     _ = fmt;
-    const is_negative = self.__sec < 0;
-    var s: u64 = if (is_negative) @intCast(self.__sec * -1) else @intCast(self.__sec);
+    const is_negative = duration.__sec < 0;
+    var s: u64 = if (is_negative) @intCast(duration.__sec * -1) else @intCast(duration.__sec);
 
     // account for fraction always being positive:
-    if (is_negative and self.__nsec > 0) s -= 1;
-    const ns = if (is_negative) 1_000_000_000 - self.__nsec else self.__nsec;
+    if (is_negative and duration.__nsec > 0) s -= 1;
+    const ns = if (is_negative) 1_000_000_000 - duration.__nsec else duration.__nsec;
 
     const hours = @divFloor(s, 3600);
     const remainder = @rem(s, 3600);
@@ -87,7 +87,7 @@ pub fn format(
     if (is_negative) try writer.print("-", .{});
     try writer.print("PT{d:0>2}H{d:0>2}M{d:0>2}", .{ hours, minutes, seconds });
 
-    if (self.__nsec > 0) {
+    if (duration.__nsec > 0) {
         try writer.print(".{d:0>9}S", .{ns});
     } else {
         try writer.print("S", .{});

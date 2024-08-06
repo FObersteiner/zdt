@@ -52,17 +52,17 @@ pub const UTC = Timezone{
 };
 
 /// A time zone's name (identifier)
-pub fn name(self: *Timezone) []const u8 {
-    // 'self' must be a pointer to TZ, otherwise returned slice would point to an out-of-scope
+pub fn name(tz: *Timezone) []const u8 {
+    // 'tz' must be a pointer to TZ, otherwise returned slice would point to an out-of-scope
     // copy of the TZ instance. See also <https://ziggit.dev/t/pointers-to-temporary-memory/>
-    return self.__name_data[0..self.__name_data_len];
+    return tz.__name_data[0..tz.__name_data_len];
 }
 
 /// Time zone abbreviation, such as "CET" for Central European Time in Europe/Berlin, winter.
 /// The tzOffset must be defined; otherwise, it is not possible to distinguish e.g. CET and CEST.
-pub fn abbreviation(self: *Timezone) []const u8 {
-    if (self.tzOffset == null) return "";
-    return std.mem.sliceTo(self.tzOffset.?.__abbrev_data[0..], 0);
+pub fn abbreviation(tz: *Timezone) []const u8 {
+    if (tz.tzOffset == null) return "";
+    return std.mem.sliceTo(tz.tzOffset.?.__abbrev_data[0..], 0);
 }
 
 /// Make a time zone from a IANA tz database TZif file. The identifier must be comptime-known.
@@ -141,15 +141,15 @@ pub fn fromOffset(offset_sec_East: i32, identifier: []const u8) TzError!Timezone
 }
 
 /// Clear a TZ instance and free potentially used memory (tzFile)
-pub fn deinit(self: *Timezone) void {
-    if (self.tzFile != null) {
-        self.tzFile.?.deinit(); // free memory allocated for the data from the tzfile
-        self.tzFile = null;
+pub fn deinit(tz: *Timezone) void {
+    if (tz.tzFile != null) {
+        tz.tzFile.?.deinit(); // free memory allocated for the data from the tzfile
+        tz.tzFile = null;
     }
-    self.tzPosix = null;
-    self.tzOffset = null;
-    self.__name_data = std.mem.zeroes([cap_name_data]u8);
-    self.__name_data_len = 0;
+    tz.tzPosix = null;
+    tz.tzOffset = null;
+    tz.__name_data = std.mem.zeroes([cap_name_data]u8);
+    tz.__name_data_len = 0;
 }
 
 /// Try to obtain the system's local time zone
@@ -176,23 +176,23 @@ pub fn tzLocal(allocator: std.mem.Allocator) !Timezone {
 /// Get the UTC offset at a certain Unix time. Creates a new UTCoffset.
 /// Priority for offset determination is tzfile > POSIX TZ > fixed offset.
 /// tzFile and tzPosix set tzOffset if possible.
-pub fn atUnixtime(self: Timezone, unixtime: i64) TzError!UTCoffset {
-    if (self.tzFile == null and self.tzPosix == null and self.tzOffset == null) {
+pub fn atUnixtime(tz: Timezone, unixtime: i64) TzError!UTCoffset {
+    if (tz.tzFile == null and tz.tzPosix == null and tz.tzOffset == null) {
         return TzError.AllTZRulesUndefined;
     }
 
-    if (self.tzFile != null) {
-        const idx = findTransition(self.tzFile.?.transitions, unixtime);
+    if (tz.tzFile != null) {
+        const idx = findTransition(tz.tzFile.?.transitions, unixtime);
         const timet = switch (idx) {
-            -1 => if (self.tzFile.?.timetypes.len == 1) // UTC offset time zones...
-                self.tzFile.?.timetypes[0]
+            -1 => if (tz.tzFile.?.timetypes.len == 1) // UTC offset time zones...
+                tz.tzFile.?.timetypes[0]
             else
                 return TzError.InvalidTz,
             // Unix time exceeds defined range of transitions => could use POSIX rule here as well
-            -2 => self.tzFile.?.transitions[self.tzFile.?.transitions.len - 1].timetype.*,
+            -2 => tz.tzFile.?.transitions[tz.tzFile.?.transitions.len - 1].timetype.*,
             // Unix time precedes defined range of transitions => use first entry in timetypes (should be LMT)
-            -3 => self.tzFile.?.timetypes[0],
-            else => self.tzFile.?.transitions[@intCast(idx)].timetype.*,
+            -3 => tz.tzFile.?.timetypes[0],
+            else => tz.tzFile.?.transitions[@intCast(idx)].timetype.*,
         };
 
         return .{
@@ -203,12 +203,12 @@ pub fn atUnixtime(self: Timezone, unixtime: i64) TzError!UTCoffset {
         };
     }
 
-    if (self.tzPosix != null) {
+    if (tz.tzPosix != null) {
         return TzError.NotImplemented; // TODO : handle posix tz
     }
 
     // if we already have an offset here but no tzFile or tzPosix, there's nothing more we can do.
-    if (self.tzOffset) |offset| {
+    if (tz.tzOffset) |offset| {
         return offset;
     }
 
@@ -216,22 +216,22 @@ pub fn atUnixtime(self: Timezone, unixtime: i64) TzError!UTCoffset {
 }
 
 pub fn format(
-    self: Timezone,
+    tz: Timezone,
     comptime fmt: []const u8,
     options: std.fmt.FormatOptions,
     writer: anytype,
 ) !void {
     _ = fmt;
     _ = options;
-    var _self = self; // need a variable copy because we have pointer methods
+    var _tz = tz; // need a variable copy because we have pointer methods
     try writer.print("Time zone, name: {c}", .{
-        _self.name(),
+        _tz.name(),
     });
-    if (_self.tzOffset) |offset| {
+    if (_tz.tzOffset) |offset| {
         try writer.print(
             ", abbreviation: {c}, offset from UTC: {d} s, daylight saving time? {}",
             .{
-                _self.abbreviation(),
+                _tz.abbreviation(),
                 offset.seconds_east,
                 offset.is_dst,
             },
