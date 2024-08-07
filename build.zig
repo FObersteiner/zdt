@@ -11,7 +11,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 1, .patch = 6 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 2, .patch = 0 };
 
 const example_files = [_][]const u8{
     "ex_demo",
@@ -32,9 +32,11 @@ const test_files = [_][]const u8{
 
 const tz_submodule_dir = "tz";
 
-const tzdb_prefix_default = "lib/tzdata/zoneinfo";
+const tzdb_prefix_default = "/usr/share/zoneinfo/";
 
-const req_zig_version = "0.12.0";
+const _zig_build_help_hangindent = "                               ";
+
+const req_zig_version = "0.13.0";
 
 comptime {
     const req_zig = std.SemanticVersion.parse(req_zig_version) catch unreachable;
@@ -53,7 +55,11 @@ pub fn build(b: *std.Build) !void {
     const tzdb_prefix = b.option(
         []const u8,
         "prefix_tzdb",
-        "Absolute path to IANA time zone database, containing TZif files",
+        ("Absolute path to IANA time zone database, containing TZif files.\n" ++
+            _zig_build_help_hangindent ++
+            "Needed if 'Timezone.runtimeFromTzfile' function is used.\n" ++
+            _zig_build_help_hangindent ++
+            "The default is '/usr/share/zoneinfo/'."),
     ) orelse tzdb_prefix_default;
 
     const zdt_module = b.addModule("zdt", .{
@@ -73,8 +79,9 @@ pub fn build(b: *std.Build) !void {
     // --------------------------------------------------------------------------------
 
     // --------------------------------------------------------------------------------
-    // path prefix to tz data should always be updated on install
+    // path prefix to tz data is always updated on install
     const install = b.getInstallStep();
+
     const tzprefix_step = b.step("update-tz-prefix", "generate timezone database prefix (path)");
 
     var gen_tzdb_prefix = b.addExecutable(.{
@@ -120,7 +127,7 @@ pub fn build(b: *std.Build) !void {
         // where to run makefile of tzdata:
         run_tzdata_update.addArg(tz_submodule_dir);
         // target directory of the compilation:
-        run_tzdata_update.addArg(tzdb_prefix);
+        run_tzdata_update.addArg("lib/tzdata/zoneinfo");
         update_tz_database.dependOn(&run_tzdata_update.step);
     }
     // update tz database version info
@@ -141,7 +148,6 @@ pub fn build(b: *std.Build) !void {
         const out_file_v = run_gen_version.addOutputFileArg("tzdb_version.zig");
         const write_files_v = b.addWriteFiles();
         _ = write_files_v.addCopyFile(out_file_v, "./lib/tzdb_version.zig");
-        // write_files_v.addCopyFileToSource(out_file_v, "./lib/tzdb_version.zig");
         update_tz_version_step.dependOn(&write_files_v.step);
     }
     // --------------------------------------------------------------------------------
@@ -160,7 +166,6 @@ pub fn build(b: *std.Build) !void {
         });
         root_test.linkLibC(); // stringIO has libc dependency
         const run_test_root = b.addRunArtifact(root_test);
-        // run_test_root.has_side_effects = true;
         root_test.root_module.addImport("zdt", zdt_module);
         test_step.dependOn(&run_test_root.step);
 
@@ -174,7 +179,6 @@ pub fn build(b: *std.Build) !void {
             });
             _test.linkLibC(); // stringIO has libc dependency
             const run_test = b.addRunArtifact(_test);
-            // run_test.has_side_effects = true;
             _test.root_module.addImport("zdt", zdt_module);
             test_step.dependOn(&run_test.step);
         }
@@ -209,6 +213,7 @@ pub fn build(b: *std.Build) !void {
     // run on a local server e.g. via
     // python -m http.server -b 127.0.0.1 [some-unused-port] -d [your-docs-dir]
     const docs_step = b.step("docs", "auto-generate documentation");
+
     {
         const install_docs = b.addInstallDirectory(.{
             .source_dir = zdt.getEmittedDocs(),

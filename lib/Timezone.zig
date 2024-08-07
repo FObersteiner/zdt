@@ -12,6 +12,8 @@ const tzvers = @import("./tzdb_version.zig");
 
 const Timezone = @This();
 
+pub const tzdata = @import("./tzdata.zig").tzdata;
+
 // longest tz name is 'America/Argentina/ComodRivadavia' --> 32 ASCII chars
 const cap_name_data: usize = 32;
 __name_data: [cap_name_data]u8 = std.mem.zeroes([cap_name_data]u8),
@@ -65,6 +67,28 @@ pub fn abbreviation(tz: *Timezone) []const u8 {
     return std.mem.sliceTo(tz.tzOffset.?.__abbrev_data[0..], 0);
 }
 
+/// Make a time zone from a IANA tz database TZif data, taken from the embedded tzdata.
+/// The caller must make sure to de-allocate memory used for storing the TZif file's content
+/// by calling the deinit method of the returned TZ instance.
+pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
+    if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
+
+    if (std.mem.eql(u8, identifier, "localtime")) return tzLocal(allocator);
+
+    if (tzdata.get(identifier)) |tzifbytes| {
+        var in_stream = std.io.fixedBufferStream(tzifbytes);
+        const tzif_tz = tzif.Tz.parse(allocator, in_stream.reader()) catch
+            return TzError.TZifUnreadable;
+        // ensure that there is a footer: requires v2+ TZif files.
+        _ = tzif_tz.footer orelse return TzError.BadTZifVersion; // TODO : handle posix tz
+        var tz = Timezone{ .tzFile = tzif_tz };
+        tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
+        @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
+        return tz;
+    }
+    return TzError.TzUndefined;
+}
+
 /// Make a time zone from a IANA tz database TZif file. The identifier must be comptime-known.
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned TZ instance.
@@ -84,16 +108,22 @@ pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator)
 }
 
 /// Same as fromTzfile but for runtime-known tz identifiers.
-pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator: std.mem.Allocator) !Timezone {
+pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&path_buffer);
     const fb_alloc = fba.allocator();
-    const p = try std.fs.path.join(fb_alloc, &[_][]const u8{ db_path, identifier });
 
-    const file = try std.fs.openFileAbsolute(p, .{});
+    const p = std.fs.path.join(fb_alloc, &[_][]const u8{ db_path, identifier }) catch
+        return TzError.InvalidIdentifier;
+
+    const file = std.fs.openFileAbsolute(p, .{}) catch
+        return TzError.TZifUnreadable;
     defer file.close();
-    const tzif_tz = try tzif.Tz.parse(allocator, file.reader());
+
+    const tzif_tz = tzif.Tz.parse(allocator, file.reader()) catch
+        return TzError.TZifUnreadable;
+
     // ensure that there is a footer: requires v2+ TZif files.
     _ = tzif_tz.footer orelse return TzError.BadTZifVersion; // TODO : handle posix tz
 
@@ -101,6 +131,7 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
     // default: use identifier as name
     tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
     @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
+
     // if db_path is empty: assume identifier is a path
     // --> look for 'zoneinfo' substring in identifier, remove if found
     if (std.mem.eql(u8, db_path, "")) {
@@ -157,17 +188,19 @@ pub fn deinit(tz: *Timezone) void {
 /// Note, Windows OS: Windows does not use the IANA time zone database;
 /// a mapping from Windows db to IANA db is prone to errors.
 /// Use with caution.
-pub fn tzLocal(allocator: std.mem.Allocator) !Timezone {
+pub fn tzLocal(allocator: std.mem.Allocator) TzError!Timezone {
     switch (builtin.os.tag) {
         .linux, .macos => {
             const default_path = "/etc/localtime";
             var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
-            const path = try std.fs.realpath(default_path, &path_buffer);
+            const path = std.fs.realpath(default_path, &path_buffer) catch
+                return TzError.TZifUnreadable;
             return try Timezone.runtimeFromTzfile(path, "", allocator);
         },
         .windows => {
-            const win_name = try tzwin.getTzName();
-            return try Timezone.runtimeFromTzfile(win_name, tzdb_prefix, allocator);
+            const win_name = tzwin.getTzName() catch
+                return TzError.InvalidIdentifier;
+            return try Timezone.fromTzdata(win_name, allocator);
         },
         else => return TzError.NotImplemented,
     }

@@ -55,7 +55,7 @@ See [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/chang
 
 ## Zig version
 
-This library is developed with Zig `0.14.0-dev`, might not compile with older versions. As of 2024-08-04, Zig-0.12 and Zig-0.13 (both stable) should work.
+This library is developed with Zig `0.14.0-dev`, might not compile with older versions. As of 2024-08-07, Zig-0.13 stable or higher should work.
 
 ## Dependencies
 
@@ -66,10 +66,6 @@ This library is developed with Zig `0.14.0-dev`, might not compile with older ve
 `zdt` comes with [eggert/tz](https://github.com/eggert/tz). The database is compiled and shipped with `zdt` (as-is; not tar-balled or compressed). If you wish to use your own version of the [IANA time zone db](https://www.iana.org/time-zones), you can set a path to it using the `-Dprefix-tzdb="path/to/your/tzdb"` option. See also `zig build --help`
 
 For development, to update the time zone database and the version info, run the following build steps: `zig build update-tz-database && zig build update-tz-version`.
-
-## Cross-Compilation
-
-Does not work at the moment, see [#50](https://codeberg.org/FObersteiner/zdt/issues/50). The main reason is that the timezone database is stored locally instead of being embedded in a build.
 
 ## License
 

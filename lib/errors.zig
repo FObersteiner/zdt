@@ -23,6 +23,7 @@ pub const TzError = error{
     NonexistentDatetime,
     TzAlreadyDefined,
     TzUndefined,
+    TZifUnreadable,
     CompareNaiveAware,
     NotImplemented,
 };

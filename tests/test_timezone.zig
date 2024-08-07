@@ -90,6 +90,22 @@ test "local tz db, from specified or default prefix" {
     try testing.expectEqualStrings("Europe/Berlin", dt.tzinfo.?.name());
 }
 
+test "embedded tzdata" {
+    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tzinfo.deinit();
+
+    var dt = try Datetime.fromFields(.{ .year = 1970, .nanosecond = 1, .tzinfo = tzinfo });
+    try testing.expect(dt.__unix == -3600);
+    try testing.expect(dt.hour == 0);
+    try testing.expect(dt.nanosecond == 1);
+    try testing.expect(dt.tzinfo != null);
+    try testing.expectEqualStrings("CET", dt.tzinfo.?.abbreviation());
+    try testing.expectEqualStrings("Europe/Berlin", dt.tzinfo.?.name());
+
+    const err = Tz.fromTzdata("Not/Defined", testing.allocator);
+    try testing.expectError(TzError.TzUndefined, err);
+}
+
 test "invalid tzfile name" {
     const db = Tz.tzdb_prefix;
     //    log.warn("tz db: {s}", .{db});
@@ -1001,7 +1017,6 @@ test "load a lot of zones" {
         "America/Virgin",
         "Africa/Conakry",
         "Etc/Universal",
-        //        "localtime",
         "Australia/Canberra",
         "MST",
         "Asia/Kuching",
@@ -1036,6 +1051,13 @@ test "load a lot of zones" {
 
     inline for (zones) |zone| {
         tz_a = try Tz.fromTzfile(zone, testing.allocator);
+        dt_a = try Datetime.fromUnix(1, Duration.Resolution.second, tz_a);
+        try testing.expectEqualStrings(zone, dt_a.tzinfo.?.name());
+        try testing.expect(dt_a.tzinfo.?.tzFile != null);
+        try testing.expect(dt_a.tzinfo.?.tzOffset != null);
+        tz_a.deinit();
+
+        tz_a = try Tz.fromTzdata(zone, testing.allocator);
         dt_a = try Datetime.fromUnix(1, Duration.Resolution.second, tz_a);
         try testing.expectEqualStrings(zone, dt_a.tzinfo.?.name());
         try testing.expect(dt_a.tzinfo.?.tzFile != null);

@@ -24,7 +24,7 @@ pub fn main() !void {
 
     println("time zone database version: {s}\n", .{Tz.tzdb_version});
 
-    var tz_berlin: Tz = try Tz.fromTzfile("Europe/Berlin", allocator);
+    var tz_berlin: Tz = try Tz.fromTzdata("Europe/Berlin", allocator);
     defer tz_berlin.deinit();
     var now_berlin: Datetime = Datetime.now(tz_berlin);
     const now_utc: Datetime = Datetime.now(Tz.UTC);
@@ -40,7 +40,7 @@ pub fn main() !void {
     println("Now, my time zone : {s} ({s})", .{ now_local, now_local.tzinfo.?.abbreviation() });
     println("", .{});
 
-    var tz_ny = try Tz.fromTzfile("America/New_York", allocator);
+    var tz_ny = try Tz.fromTzdata("America/New_York", allocator);
     defer tz_ny.deinit();
     var now_ny: Datetime = try now_local.tzConvert(tz_ny);
     println("Now in New York : {s} ({s})", .{ now_ny, now_ny.tzinfo.?.abbreviation() });

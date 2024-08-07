@@ -12,20 +12,13 @@ pub fn main() !void {
 
     _ = args.next(); // skip running binary name
 
-    var cwd_path = try std.fs.cwd().realpathAlloc(allocator, ".");
-    defer allocator.free(cwd_path);
-
     const default = args.next().?;
-    const subdir = args.next().?;
+    const user_specified = args.next().?;
 
-    // if the specified directory is not the default directory, do not prepend cwd
-    if (!std.mem.eql(u8, default, subdir)) {
-        allocator.free(cwd_path);
-        cwd_path = "";
-    }
-
-    const tmp = try std.fs.path.resolve(allocator, &.{ cwd_path, subdir });
-    defer allocator.free(tmp);
+    const tmp = if (std.mem.eql(u8, default, user_specified))
+        default
+    else
+        user_specified;
 
     const prefix = try allocator.dupe(u8, tmp);
     // POSIX sep 'should' work on Windows while backslash fails in any case.

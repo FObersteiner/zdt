@@ -121,5 +121,39 @@ pub fn main() !void {
     defer del_dir.close();
     try del_dir.deleteTree(tmp_dir);
 
+    const proc_wintzmapping = try std.process.Child.run(.{
+        .cwd = source_dir_abs,
+        .allocator = allocator,
+        .argv = &[_][]const u8{
+            "python",
+            "../util/gen_wintz_mapping.py",
+        },
+    });
+    if (proc_wintzmapping.stdout.len > 0) {
+        log.info("tzdb make win tz mappeing step, stdout: {s}", .{proc_wintzmapping.stdout});
+    }
+    if (proc_wintzmapping.stderr.len > 0) {
+        log.info("tzdb make win tz mappeing step, stderr: {s}", .{proc_wintzmapping.stderr});
+    }
+    allocator.free(proc_wintzmapping.stdout);
+    allocator.free(proc_wintzmapping.stderr);
+
+    const proc_tzembed = try std.process.Child.run(.{
+        .cwd = source_dir_abs,
+        .allocator = allocator,
+        .argv = &[_][]const u8{
+            "python",
+            "../util/gen_tzdb_embedding.py",
+        },
+    });
+    if (proc_tzembed.stdout.len > 0) {
+        log.info("tzdb embedding mappeing step, stdout: {s}", .{proc_tzembed.stdout});
+    }
+    if (proc_tzembed.stderr.len > 0) {
+        log.info("tzdb embedding step, stderr: {s}", .{proc_tzembed.stderr});
+    }
+    allocator.free(proc_tzembed.stdout);
+    allocator.free(proc_tzembed.stderr);
+
     return std.process.cleanExit();
 }

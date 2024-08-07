@@ -1,9 +1,16 @@
 # CHANGELOG
 
+## 2024-08-07, v0.2.0
+
+- add a complete embedding of the IANA tzdb that allows cross-compilation
+  - since StaticStringMap is not available with Zig 0.12, Zig 0.13+ is required
+- fix code generator steps in build.zig to only run on the host as target
+
 ## 2024-08-06, v0.1.6
 
 - renamings; replace 'self' with more meaningful designation
 - remove 'clean' step from build.zig
+- last version that supports both Zig 0.12 and 0.13
 
 ## 2024-07-07, v0.1.5
 
