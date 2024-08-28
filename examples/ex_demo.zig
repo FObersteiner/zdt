@@ -11,7 +11,7 @@ pub fn main() !void {
     var tz_Paris = try zdt.Timezone.fromTzfile("Europe/Paris", allocator);
     defer tz_Paris.deinit();
 
-    const a_datetime = try zdt.stringIO.parseISO8601("2022-03-07");
+    const a_datetime = try zdt.parseISO8601("2022-03-07");
     const this_time_LA = try a_datetime.tzLocalize(tz_LA);
     const this_time_Paris = try this_time_LA.tzConvert(tz_Paris);
 

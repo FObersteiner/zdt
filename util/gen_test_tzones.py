@@ -1,8 +1,8 @@
+import random
+import zoneinfo
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
-import zoneinfo
-import random
 
 OPEN_BRACE = "{"
 CLOSE_BRACE = "}"
@@ -60,9 +60,9 @@ for _ in range(N):
     dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second, tz_b);
     dt_c = try dt_a.tzConvert(tz_b);
     dt_b = try dt_b.tzConvert(tz_a);
-    try str.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
+    try zdt.formatDatetime(s_b.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_b);
     try testing.expectEqualStrings("{s_b}", s_b.items);
-    try str.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
+    try zdt.formatDatetime(s_c.writer(), "%Y-%m-%dT%H:%M:%S%z", dt_c);
     try testing.expectEqualStrings("{s_c}", s_c.items);
     tz_a.deinit();
     tz_b.deinit();

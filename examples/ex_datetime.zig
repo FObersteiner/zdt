@@ -5,7 +5,6 @@ const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
 const Duration = zdt.Duration;
 const Tz = zdt.Timezone;
-const str = zdt.stringIO;
 
 pub fn main() !void {
     println("---> datetime example", .{});

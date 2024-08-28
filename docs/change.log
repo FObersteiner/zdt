@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2024-08-28, v0.2.1
+
+- change of ergonomics: `formatToString`, `parseToDatetime` and `parseISO8601` functions are now methods of the `zdt` struct (formerly `stringIO.[...]`). After importing zdt, they can be called like `zdt.formatToString` etc.
+- this is the first version that will be on github only. Having the same repository at both Codeberg and github is just too cumbersome.
+
 ## 2024-08-07, v0.2.0
 
 - add a complete embedding of the IANA tzdb that allows cross-compilation

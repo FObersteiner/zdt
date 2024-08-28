@@ -6,7 +6,6 @@ const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
 const Duration = zdt.Duration;
 const Timezone = zdt.Timezone;
-const str = zdt.stringIO;
 
 pub fn main() !void {
     println("---> datetime example", .{});
@@ -18,20 +17,20 @@ pub fn main() !void {
     println("", .{});
     println("---> (usage) ISO8601: parse some allowed formats", .{});
     const date_only = "2014-08-23";
-    var parsed = try str.parseISO8601(date_only);
+    var parsed = try zdt.parseISO8601(date_only);
     assert(parsed.hour == 0);
     println("parsed '{s}'\n  to {s}", .{ date_only, parsed });
     // the default string representation of a zdt.Datetime instance is always ISO8601
 
     // we can have fractional seconds:
     const datetime_with_frac = "2014-08-23 12:15:56.123456789";
-    parsed = try str.parseISO8601(datetime_with_frac);
+    parsed = try zdt.parseISO8601(datetime_with_frac);
     assert(parsed.nanosecond == 123456789);
     println("parsed '{s}'\n  to {s}", .{ datetime_with_frac, parsed });
 
     // we can also have a leap second, and a time zone specifier (Z == UTC):
     const leap_datetime = "2016-12-31T23:59:60Z";
-    parsed = try str.parseISO8601(leap_datetime);
+    parsed = try zdt.parseISO8601(leap_datetime);
     assert(parsed.second == 60);
     assert(std.meta.eql(parsed.tzinfo.?, Timezone.UTC));
     println("parsed '{s}'\n  to {s}", .{ leap_datetime, parsed });
@@ -41,7 +40,7 @@ pub fn main() !void {
     println("", .{});
     println("---> (usage): parse some non-standard format", .{});
     const dayfirst_dtstr = "23.7.2021, 9:45h";
-    parsed = try str.parseToDatetime("%d.%m.%Y, %H:%Mh", dayfirst_dtstr);
+    parsed = try zdt.parseToDatetime("%d.%m.%Y, %H:%Mh", dayfirst_dtstr);
     assert(parsed.day == 23);
     println("parsed '{s}'\n  to {s}", .{ dayfirst_dtstr, parsed });
 
@@ -55,7 +54,7 @@ pub fn main() !void {
     var s = std.ArrayList(u8).init(allocator);
     defer s.deinit();
     // the formatting directive is comptime-known:
-    try str.formatToString(s.writer(), "%a, %b %d %Y, %H:%Mh", parsed);
+    try zdt.formatToString(s.writer(), "%a, %b %d %Y, %H:%Mh", parsed);
     println("formatted {s}\n  to '{s}'", .{ parsed, s.items });
 }
 

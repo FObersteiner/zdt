@@ -1,4 +1,5 @@
 <!-- -*- coding: utf-8 -*- -->
+[![Zig](https://img.shields.io/badge/-Zig-F7A41D?style=flat&logo=zig&logoColor=white)](https://ziglang.org/)  [![tests](https://github.com/FObersteiner/zdt/actions/workflows/zdt-tests.yml/badge.svg)](https://github.com/FObersteiner/zdt/actions/workflows/zdt-tests.yml)  [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://github.com/FObersteiner/zdt/blob/master/LICENSE)
 
 # zdt
 
@@ -7,15 +8,19 @@
 - [on Codeberg](https://codeberg.org/FObersteiner/zdt)
 - [on github](https://github.com/FObersteiner/zdt)
 
-Demo:
+[Demo](https://github.com/FObersteiner/zdt/blob/master/examples/ex_demo.zig):
 
 ```zig
+  var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+  defer _ = gpa.deinit();
+  const allocator = gpa.allocator();
+
   var tz_LA = try zdt.Timezone.fromTzfile("America/Los_Angeles", allocator);
   defer tz_LA.deinit();
   var tz_Paris = try zdt.Timezone.fromTzfile("Europe/Paris", allocator);
   defer tz_Paris.deinit();
 
-  const a_datetime = try zdt.stringIO.parseISO8601("2022-03-07");
+  const a_datetime = try zdt.parseISO8601("2022-03-07");
   const this_time_LA = try a_datetime.tzLocalize(tz_LA);
   const this_time_Paris = try this_time_LA.tzConvert(tz_Paris);
 
@@ -55,17 +60,18 @@ See [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/chang
 
 ## Zig version
 
-This library is developed with Zig `0.14.0-dev`, might not compile with older versions. As of 2024-08-07, Zig-0.13 stable or higher should work.
+This library is developed with Zig `0.14.0-dev`, might not compile with older versions. As of 2024-08-28, Zig-0.13 stable or higher should work.
 
-## Dependencies
+## IANA timezone database version
 
-- none
+- `zdt v0.2.1`: `2024a`
+- `zdt v0.2.0`: `2024a`
 
-## Time zone database
+## Dependencies, Development and Time zone database
 
 `zdt` comes with [eggert/tz](https://github.com/eggert/tz). The database is compiled and shipped with `zdt` (as-is; not tar-balled or compressed). If you wish to use your own version of the [IANA time zone db](https://www.iana.org/time-zones), you can set a path to it using the `-Dprefix-tzdb="path/to/your/tzdb"` option. See also `zig build --help`
 
-For development, to update the time zone database and the version info, run the following build steps: `zig build update-tz-database && zig build update-tz-version`.
+For development, to update the time zone database and the version info, run the following build steps: `zig build update-tz-database && zig build update-tz-version`. Some of the code generation is done with Python scripts, which require Python >= 3.9 (no third party packages required).
 
 ## License
 

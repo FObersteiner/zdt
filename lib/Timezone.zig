@@ -67,7 +67,7 @@ pub fn abbreviation(tz: *Timezone) []const u8 {
     return std.mem.sliceTo(tz.tzOffset.?.__abbrev_data[0..], 0);
 }
 
-/// Make a time zone from a IANA tz database TZif data, taken from the embedded tzdata.
+/// Make a time zone from IANA tz database TZif data, taken from the embedded tzdata.
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned TZ instance.
 pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
@@ -90,6 +90,8 @@ pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!
 }
 
 /// Make a time zone from a IANA tz database TZif file. The identifier must be comptime-known.
+/// This method allows the usage of a user-supplied tzdata; that path has to be specified
+/// via the tzdb_prefix option in the build.zig.
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned TZ instance.
 pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator) !Timezone {
