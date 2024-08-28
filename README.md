@@ -5,9 +5,6 @@
 
 **Datetime with Timezones in Zig.** Opinionated, and mostly for learning purposes.
 
-- [on Codeberg](https://codeberg.org/FObersteiner/zdt)
-- [on github](https://github.com/FObersteiner/zdt)
-
 [Demo](https://github.com/FObersteiner/zdt/blob/master/examples/ex_demo.zig):
 
 ```zig
