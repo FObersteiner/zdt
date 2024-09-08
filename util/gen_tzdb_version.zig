@@ -3,6 +3,11 @@ const std = @import("std");
 const log = std.log.scoped(.zdt__gen_tzdb_version);
 
 pub fn main() !void {
+
+    // TODO : this needs revsion.
+    // - checkout latest tag from tz repo
+    // - generate version string from tag
+
     // changed in v0.1.22: get the version info from the tzdata.zi file.
     // if this file does not exist, generation of the version file (tzdb_version.zig)
     // should fail - no data, no version!
