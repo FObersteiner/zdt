@@ -53,7 +53,7 @@ zig build examples && ./zig-out/bin/ex_datetime
 
 ## Development
 
-See [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/change.log).
+See [changelog](https://github.com/FObersteiner/zdt/blob/master/docs/change.log).
 
 ## Zig version
 

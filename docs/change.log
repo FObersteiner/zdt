@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 2024-09-08, v0.2.2
+
+- update IANA tzdata to 2024b
+
 ## 2024-08-28, v0.2.1
 
 - change of ergonomics: `formatToString`, `parseToDatetime` and `parseISO8601` functions are now methods of the `zdt` struct (formerly `stringIO.[...]`). After importing zdt, they can be called like `zdt.formatToString` etc.
