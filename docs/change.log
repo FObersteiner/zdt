@@ -4,14 +4,17 @@
 
 - datetime to string: %I directive, by @sethvincent 
 
+
 ## 2024-09-08, v0.2.2
 
 - update IANA tzdata to 2024b
+
 
 ## 2024-08-28, v0.2.1
 
 - change of ergonomics: `formatToString`, `parseToDatetime` and `parseISO8601` functions are now methods of the `zdt` struct (formerly `stringIO.[...]`). After importing zdt, they can be called like `zdt.formatToString` etc.
 - this is the first version that will be on github only. Having the same repository at both Codeberg and github is just too cumbersome.
+
 
 ## 2024-08-07, v0.2.0
 
@@ -19,17 +22,20 @@
   - since StaticStringMap is not available with Zig 0.12, Zig 0.13+ is required
 - fix code generator steps in build.zig to only run on the host as target
 
+
 ## 2024-08-06, v0.1.6
 
 - renamings; replace 'self' with more meaningful designation
 - remove 'clean' step from build.zig
 - last version that supports both Zig 0.12 and 0.13
 
+
 ## 2024-07-07, v0.1.5
 
 - add option to truncate fractional second via 's.:[precision]' formatting directive
 - limit what is exposed from ./util via the zon file
 - satisfy zig-0.14 deprecations
+
 
 ## 2024-06-18, v0.1.4
 
@@ -38,18 +44,22 @@
 - add %j directive, implement datetime --> string
 - add %T directive, implement datetime <--> string
 
+
 ## 2024-06-15, v0.1.3
 
 - introduce helper functions isAware and isNaive for Datetime struct
 - make tz name validator public (Timezone.identifierValid)
 
+
 ## 2024-06-09
 
 - cleaun-up calendar.zig
 
+
 ## 2024-05-30
 
 - add autodoc workflow, gh pages
+
 
 ## 2024-05-28, v0.1.2
 
@@ -57,14 +67,17 @@
 - some windows-tzdb generator tweaks
 - tzdb update
 
+
 ## 2024-05-19, v0.1.1
 
 - use base2 sized integers for better performance
 - TZ format: use 'c'-directive to signal that those are ASCII-encoded strings
 
+
 ## 2024-05-04, v0.1.0
 
 - cleanup
+
 
 ## 2024-04-04
 

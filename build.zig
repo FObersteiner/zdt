@@ -5,7 +5,7 @@
 //! `docs`               - run autodoc generation
 //! `update-tz-version`  - retreive version of tzdata from local copy and set in zig file
 //! `update-tz-prefix`   - update tzdata path
-//! `update-tz-database` - retreive latest version of eggert/tz and build tzdata
+//! `update-tz-database` - retreive latest tagged version of eggert/tz and build tzdata
 //! ---
 const std = @import("std");
 const builtin = @import("builtin");

@@ -13,8 +13,8 @@ pub fn main() !void {
         "git",
         "submodule",
         "update",
-        "--init", // --init and --recursive flags used here to work around a pyenv bug
-        "--recursive",
+        "--init", // --init and
+        "--recursive", // --recursive flags used here to work around a pyenv bug
         "--remote",
         "tz",
     };
@@ -25,15 +25,18 @@ pub fn main() !void {
 
     if (proc_update.stderr.len > 0) {
         log.err("update command failed : {s}", .{proc_update.stderr});
-        // error might originate from pyenv bug... try to continue
+        // error might originate from pyenv bug... try to continue.
     }
 
     if (proc_update.stdout.len > 0) {
         log.info("submodule update stdout: {s}", .{proc_update.stdout});
     } else {
         log.info("submodule update: no updates available", .{});
-        // TODO : could exit here if tz db update should not be forced
+        // TODO : consider 'force' flag (issue #4): exit here if tz db update should not be forced
     }
+
+    // TODO : check out latest tagged version, e.g. 2024b (issue #4)
+
     allocator.free(proc_update.stdout);
     allocator.free(proc_update.stderr);
 
