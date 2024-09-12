@@ -13,3 +13,6 @@ tz/
 
 # building tzdata temporarily creates a directory:
 lib/tzdata/tmp/
+
+# util / Python / pyenv
+.python-version
