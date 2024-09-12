@@ -232,6 +232,39 @@ test "format with month name" {
     try testing.expectEqualStrings(string, s.items);
 }
 
+test "format with 12 hour clock" {
+    if (!locale_ok()) return error.SkipZigTest;
+
+    const HourTestCase = struct {
+        hour: u8,
+        expected: []const u8,
+    };
+
+    const test_cases = [_]HourTestCase{
+        .{ .hour = 0, .expected = "12:00:00" },
+        .{ .hour = 1, .expected = "01:00:00" },
+        .{ .hour = 11, .expected = "11:00:00" },
+        .{ .hour = 12, .expected = "12:00:00" },
+        .{ .hour = 13, .expected = "01:00:00" },
+        .{ .hour = 23, .expected = "11:00:00" },
+    };
+
+    for (test_cases) |case| {
+        const dt = try Datetime.fromFields(.{
+            .year = 2024,
+            .month = 1,
+            .day = 1,
+            .hour = case.hour,
+        });
+
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        defer buf.deinit();
+
+        try zdt.formatToString(buf.writer(), "%I:%M:%S", dt);
+        try testing.expectEqualStrings(case.expected, buf.items);
+    }
+}
+
 // ---- String to Datetime ----
 
 test "comptime parse with comptime format string" {
