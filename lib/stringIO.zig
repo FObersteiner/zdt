@@ -21,7 +21,7 @@ const FormatCode = enum(u8) {
     // %y ?
     year = 'Y',
     hour = 'H',
-    // %I ?
+    hour12 = 'I', // 12-hour clock
     // %p ? // locale-specific
     min = 'M',
     sec = 'S',
@@ -51,6 +51,7 @@ const FormatCode = enum(u8) {
             .year => try writer.print("{d:0>4}", .{dt.year}),
             .day => try writer.print("{d:0>2}", .{dt.day}),
             .hour => try writer.print("{d:0>2}", .{dt.hour}),
+            .hour12 => try writer.print("{d:0>2}", .{twelve_hour_format(dt.hour)}),
             .min => try writer.print("{d:0>2}", .{dt.minute}),
             .sec => try writer.print("{d:0>2}", .{dt.second}),
             .nanos => try writer.print("{d:0>9}", .{dt.nanosecond}),
@@ -326,6 +327,11 @@ fn parseOffset(comptime T: type, dt_string: []const u8, idx: *usize, maxDigits: 
     const minutes = @divFloor(remainder, 100);
     const seconds = @mod(remainder, 100);
     return sign * (hours * 3600 + minutes * 60 + seconds);
+}
+
+// Turn 24 hour clock into 12 hour clock
+fn twelve_hour_format(hour: u8) u8 {
+    return if (hour == 0 or hour == 12) 12 else hour % 12;
 }
 
 // -----
