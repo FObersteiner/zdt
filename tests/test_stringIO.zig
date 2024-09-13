@@ -233,8 +233,6 @@ test "format with month name" {
 }
 
 test "format with 12 hour clock" {
-    if (!locale_ok()) return error.SkipZigTest;
-
     const HourTestCase = struct {
         hour: u8,
         expected: []const u8,
@@ -265,6 +263,37 @@ test "format with 12 hour clock" {
     }
 }
 
+test "format hour to am/pm" {
+    const HourTestCase = struct {
+        hour: u8,
+        expected: []const u8,
+    };
+
+    const test_cases = [_]HourTestCase{
+        .{ .hour = 0, .expected = "12 am" },
+        .{ .hour = 1, .expected = "01 am" },
+        .{ .hour = 11, .expected = "11 am" },
+        .{ .hour = 12, .expected = "12 pm" },
+        .{ .hour = 13, .expected = "01 pm" },
+        .{ .hour = 23, .expected = "11 pm" },
+    };
+
+    for (test_cases) |case| {
+        const dt = try Datetime.fromFields(.{
+            .year = 2024,
+            .month = 1,
+            .day = 1,
+            .hour = case.hour,
+        });
+
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        defer buf.deinit();
+
+        try zdt.formatToString(buf.writer(), "%I %p", dt);
+        try testing.expectEqualStrings(case.expected, buf.items);
+    }
+}
+
 // ---- String to Datetime ----
 
 test "comptime parse with comptime format string" {
@@ -283,6 +312,52 @@ test "comptime parse with comptime format string" {
         const dt = try zdt.parseToDatetime("%Y-%m-%d %H:%M:%S", case.string);
         try testing.expectEqual(case.dt, dt);
     }
+}
+
+test "comptime parse with comptime format string, am/pm and 12-hour input" {
+    const cases = [_]TestCase{
+        .{
+            .string = "01/01/1970, 12 am",
+            .dt = try Datetime.fromFields(.{ .year = 1970 }),
+        },
+        .{
+            .string = "18/02/2021, 11 AM",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 11 }),
+        },
+        .{
+            .string = "18/02/2021, 5 pm",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17 }),
+        },
+        .{
+            .string = "01/01/1970, 11 PM",
+            .dt = try Datetime.fromFields(.{ .year = 1970, .hour = 23 }),
+        },
+    };
+
+    for (cases) |case| {
+        const dt = try zdt.parseToDatetime("%d/%m/%Y, %I %p", case.string);
+        try testing.expectEqual(case.dt, dt);
+    }
+}
+
+test "parse %I and am/pm errors" {
+    var err = zdt.parseToDatetime("%I %p", "19 am"); // invalid hour
+    try testing.expectError(error.InvalidFormat, err);
+
+    err = zdt.parseToDatetime("%I %p", "0 am"); // invalid hour
+    try testing.expectError(error.InvalidFormat, err);
+
+    err = zdt.parseToDatetime("%I %p", "20 pm"); // invalid hour
+    try testing.expectError(error.InvalidFormat, err);
+
+    err = zdt.parseToDatetime("%I", "7"); // %I but no %p
+    try testing.expectError(error.InvalidFormat, err);
+
+    err = zdt.parseToDatetime("%H %p", "7 am"); // %H cannot be combined with %p
+    try testing.expectError(error.InvalidFormat, err);
+
+    err = zdt.parseToDatetime("%Y %p", "2007 am"); // %p only is ...strange?
+    try testing.expectError(error.InvalidFormat, err);
 }
 
 test "comptime parse ISO " {

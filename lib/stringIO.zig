@@ -22,7 +22,7 @@ const FormatCode = enum(u8) {
     year = 'Y',
     hour = 'H',
     hour12 = 'I', // 12-hour clock
-    // %p ? // locale-specific
+    am_pm = 'p',
     min = 'M',
     sec = 'S',
     nanos = 'f',
@@ -52,6 +52,7 @@ const FormatCode = enum(u8) {
             .day => try writer.print("{d:0>2}", .{dt.day}),
             .hour => try writer.print("{d:0>2}", .{dt.hour}),
             .hour12 => try writer.print("{d:0>2}", .{twelve_hour_format(dt.hour)}),
+            .am_pm => try writer.print("{s}", .{if (dt.hour < 12) "am" else "pm"}),
             .min => try writer.print("{d:0>2}", .{dt.minute}),
             .sec => try writer.print("{d:0>2}", .{dt.second}),
             .nanos => try writer.print("{d:0>9}", .{dt.nanosecond}),
@@ -108,6 +109,8 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
 
     comptime var next_char_is_specifier = false;
     var dt_string_idx: usize = 0;
+    var am_pm_flags: u8 = 0; // bits; 0 - am, 1 - pm, 2 - found %I
+
     inline for (format) |fc| {
         if (next_char_is_specifier) {
             switch (fc) {
@@ -115,8 +118,14 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
                 'm' => fields.month = try parseDigits(u8, dt_string, &dt_string_idx, 2),
                 'd' => fields.day = try parseDigits(u8, dt_string, &dt_string_idx, 2),
                 'H' => fields.hour = try parseDigits(u8, dt_string, &dt_string_idx, 2),
+                'I' => fields.hour = blk: { // must be in [1..12]
+                    const h = try parseDigits(u8, dt_string, &dt_string_idx, 2);
+                    am_pm_flags |= 4;
+                    if (h >= 1 and h <= 12) break :blk h else return error.InvalidFormat;
+                },
                 'M' => fields.minute = try parseDigits(u8, dt_string, &dt_string_idx, 2),
                 'S' => fields.second = try parseDigits(u8, dt_string, &dt_string_idx, 2),
+                'p' => am_pm_flags |= try parseAmPm(dt_string, &dt_string_idx),
                 'f' => {
                     // if we only parse n digits out of 9, we have to multiply the result by
                     // 10^n to get nanoseconds
@@ -152,6 +161,13 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
                 dt_string_idx += 1;
             }
         }
+    }
+
+    switch (am_pm_flags) {
+        0 => {}, // neither %I nor am/pm in input string
+        5 => fields.hour = fields.hour % 12, // 0101, %I and 'am'
+        6 => fields.hour = fields.hour % 12 + 12, // 0110, %I and 'pm'
+        else => return error.InvalidFormat, // might be %I but no %p or vice versa
     }
 
     // if we come here, the string must be completely consumed
@@ -273,6 +289,21 @@ pub fn parseISO8601(dt_string: []const u8) !Datetime {
 }
 
 // ----- String to Datetime Helpers -----------------
+
+fn parseAmPm(dt_string: []const u8, idx: *usize) !u8 {
+    var flag: u8 = 0;
+    flag = switch (std.ascii.toLower(dt_string[idx.*])) {
+        'a' => 1,
+        'p' => 2,
+        else => return error.InvalidFormat,
+    };
+
+    idx.* += 1;
+    if (std.ascii.toLower(dt_string[idx.*]) != 'm') return error.InvalidFormat;
+
+    idx.* += 1;
+    return flag;
+}
 
 // for any numeric quantity
 fn parseDigits(comptime T: type, dt_string: []const u8, idx: *usize, maxDigits: usize) !T {
