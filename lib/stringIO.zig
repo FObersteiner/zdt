@@ -291,6 +291,8 @@ pub fn parseISO8601(dt_string: []const u8) !Datetime {
 // ----- String to Datetime Helpers -----------------
 
 fn parseAmPm(dt_string: []const u8, idx: *usize) !u8 {
+    if (idx.* + 2 > dt_string.len) return error.InvalidFormat;
+
     var flag: u8 = 0;
     flag = switch (std.ascii.toLower(dt_string[idx.*])) {
         'a' => 1,

@@ -344,6 +344,9 @@ test "parse %I and am/pm errors" {
     var err = zdt.parseToDatetime("%I %p", "19 am"); // invalid hour
     try testing.expectError(error.InvalidFormat, err);
 
+    err = zdt.parseToDatetime("%I %p", "9 a"); // incomplete 'am'
+    try testing.expectError(error.InvalidFormat, err);
+
     err = zdt.parseToDatetime("%I %p", "0 am"); // invalid hour
     try testing.expectError(error.InvalidFormat, err);
 
