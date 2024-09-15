@@ -31,6 +31,7 @@ const test_files = [_][]const u8{
 };
 
 const tz_submodule_dir = "tz";
+const tz_database_tag = "2024b";
 
 const tzdb_prefix_default = "/usr/share/zoneinfo/";
 
@@ -124,6 +125,8 @@ pub fn build(b: *std.Build) !void {
 
         const run_tzdata_update = b.addRunArtifact(gen_tzdb);
         run_tzdata_update.step.dependOn(&gen_tzdb.step);
+        // tag to checkout:
+        run_tzdata_update.addArg(tz_database_tag);
         // where to run makefile of tzdata:
         run_tzdata_update.addArg(tz_submodule_dir);
         // target directory of the compilation:

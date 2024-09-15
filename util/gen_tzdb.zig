@@ -1,5 +1,7 @@
 //! Update eggert/tz submodule, build the time zone database and move
 //! its 'zoneinfo' directory to /lib/tzdata. Remove all other build artifacts.
+//
+// to add the submodule, run `git submodule add -f https://github.com/eggert/tz ./tz`
 const std = @import("std");
 const log = std.log.scoped(.zdt__gen_tzdb);
 
@@ -7,6 +9,12 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
+
+    var args = try std.process.argsWithAllocator(allocator);
+    defer args.deinit();
+    _ = args.next(); // skip running binary name
+    // tag to check out
+    const tzdbtag = args.next();
 
     // update submodule
     const argv_update = [_][]const u8{
@@ -16,7 +24,7 @@ pub fn main() !void {
         "--init", // --init and
         "--recursive", // --recursive flags used here to work around a pyenv bug
         "--remote",
-        "tz",
+        "./tz",
     };
     const proc_update = try std.process.Child.run(.{
         .allocator = allocator,
@@ -34,16 +42,31 @@ pub fn main() !void {
         log.info("submodule update: no updates available", .{});
         // TODO : consider 'force' flag (issue #4): exit here if tz db update should not be forced
     }
-
-    // TODO : check out latest tagged version, e.g. 2024b (issue #4)
-
     allocator.free(proc_update.stdout);
     allocator.free(proc_update.stderr);
 
+    log.info("tz database tag: {s}", .{tzdbtag.?});
+    const argv_tagcheckout = [_][]const u8{
+        "git",
+        "-C",
+        "./tz",
+        "checkout",
+        tzdbtag.?,
+    };
+    const proc_tag = try std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &argv_tagcheckout,
+    });
+
+    if (proc_tag.stderr.len > 0) {
+        log.err("update command failed : {s}", .{proc_update.stderr});
+    }
+    if (proc_tag.stdout.len > 0) {
+        log.info("submodule update stdout: {s}", .{proc_update.stdout});
+    }
+    allocator.free(proc_tag.stdout);
+    allocator.free(proc_tag.stderr);
     // in tz dir, run makefile
-    var args = try std.process.argsWithAllocator(allocator);
-    defer args.deinit();
-    _ = args.next(); // skip running binary name
 
     // where to run makefile
     const tzdir = args.next();
