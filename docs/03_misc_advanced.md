@@ -4,10 +4,16 @@
 
 ## similar projects in Zig
 
+- [zeit](https://github.com/rockorager/zeit), datetime and time zone library
+- [datetime](https://github.com/clickingbuttons/datetime), generic Date, Time, and DateTime library, time zone handling not implemented
+- [tempus](https://github.com/jnordwick/tempus), time library with focus on performance & low level stuff
 - [zig-datetime](https://github.com/frmdstryr/zig-datetime), Python-arrow like semantics, time zones only represented by fixed offsets
 - [zig-time](https://github.com/nektro/zig-time), date/time parsing/formatting, no time zone features
 - [chrono-zig](https://codeberg.org/geemili/chrono-zig), a port of Rust's `chrono` crate
 - Karl Seguin's [zig utility library](https://github.com/karlseguin/zul) also offers some date/time functionality (no time zone features)
+
+Related:
+- [zig-tzif](https://github.com/leroycep/zig-tzif), TZif and POSIX TZ string parsing library
 
 ## why does `Datetime.now(null)` give a UTC-like datetime ?
 

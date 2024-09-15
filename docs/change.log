@@ -1,9 +1,10 @@
 # CHANGELOG
 
-## xxxxxxxxxx, v0.2.3
+## 2024-09-15, v0.2.3
 
 - datetime to string: %I directive, by @sethvincent 
 - datetime to string, string to datetime: 'am' and 'pm' added, to complement %I
+- formatting directives (dt-->str) mostly completed, missing: locale-specific `%c`, `%x` and `%X`
 
 
 ## 2024-09-08, v0.2.2
