@@ -4,7 +4,8 @@
 
 - datetime to string: %I directive, by @sethvincent 
 - datetime to string, string to datetime: 'am' and 'pm' added, to complement %I
-- formatting directives (dt-->str) mostly completed, missing: locale-specific `%c`, `%x` and `%X`
+- formatting directives (dt-->str) mostly completed, missing: locale-specific `%c`, `%x` and `%X` (addresses part of issue #5)
+- generator script, tz database: checkout specific tag before building the database (addresses part of issue #4)
 
 
 ## 2024-09-08, v0.2.2
