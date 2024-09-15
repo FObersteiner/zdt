@@ -19,7 +19,7 @@ pub fn main() !void {
     // string output also requires allocation...
     var formatted = std.ArrayList(u8).init(allocator);
     defer formatted.deinit();
-    try zdt.formatToString(formatted.writer(), "%I %p, %Z", this_time_LA);
+    try this_time_LA.strftime(formatted.writer(), "%I %p, %Z");
 
     const this_time_Paris = try this_time_LA.tzConvert(tz_Paris);
 

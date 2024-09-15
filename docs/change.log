@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2024-xx-xx, v0.2.4
+
+- add strftime/strptime methods to Datetime struct
+
+
 ## 2024-09-15, v0.2.3
 
 - datetime to string: %I directive, by @sethvincent 

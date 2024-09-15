@@ -120,6 +120,9 @@ test "format datetime with literal characters in format string" {
         defer s.deinit();
         try zdt.formatToString(s.writer(), case.directive, case.dt);
         try testing.expectEqualStrings(case.string, s.items);
+        s.clearAndFree();
+        try case.dt.strftime(s.writer(), case.directive);
+        try testing.expectEqualStrings(case.string, s.items);
     }
 }
 
@@ -132,6 +135,9 @@ test "format with z" {
     const directive = "%Y-%m-%dT%H:%M:%S%z";
     try zdt.formatToString(s.writer(), directive, dt);
     try testing.expectEqualStrings(string, s.items);
+    s.clearAndFree();
+    try dt.strftime(s.writer(), directive);
+    try testing.expectEqualStrings(string, s.items);
 }
 
 test "format with z, full day off" {
@@ -143,6 +149,9 @@ test "format with z, full day off" {
     const directive = "%Y-%m-%dT%H:%M:%S%z";
     try zdt.formatToString(s.writer(), directive, dt);
     try testing.expectEqualStrings(string, s.items);
+    s.clearAndFree();
+    try dt.strftime(s.writer(), directive);
+    try testing.expectEqualStrings(string, s.items);
 }
 
 test "format with z, strange directive" {
@@ -153,6 +162,9 @@ test "format with z, strange directive" {
     const string = "% 2023-12-09 % 01:02:03 % +00:15";
     const directive = "%% %Y-%m-%d %% %H:%M:%S %% %z";
     try zdt.formatToString(s.writer(), directive, dt);
+    try testing.expectEqualStrings(string, s.items);
+    s.clearAndFree();
+    try dt.strftime(s.writer(), directive);
     try testing.expectEqualStrings(string, s.items);
 }
 
@@ -343,6 +355,8 @@ test "comptime parse with comptime format string #1" {
     for (cases) |case| {
         const dt = try zdt.parseToDatetime("%Y-%m-%d %H:%M:%S", case.string);
         try testing.expectEqual(case.dt, dt);
+        const dt_strp = try zdt.Datetime.strptime(case.string, "%Y-%m-%d %H:%M:%S");
+        try testing.expectEqual(case.dt, dt_strp);
     }
 }
 

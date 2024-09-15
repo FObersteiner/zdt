@@ -41,6 +41,7 @@ pub fn main() !void {
     println("---> (usage): parse some non-standard format", .{});
     const dayfirst_dtstr = "23.7.2021, 9:45h";
     parsed = try zdt.parseToDatetime("%d.%m.%Y, %H:%Mh", dayfirst_dtstr);
+    // zdt.Datetime.strptime is also available for people used to strftime/strptime
     assert(parsed.day == 23);
     println("parsed '{s}'\n  to {s}", .{ dayfirst_dtstr, parsed });
 
@@ -55,6 +56,10 @@ pub fn main() !void {
     defer s.deinit();
     // the formatting directive is comptime-known:
     try zdt.formatToString(s.writer(), "%a, %b %d %Y, %H:%Mh", parsed);
+    println("formatted {s}\n  to '{s}'", .{ parsed, s.items });
+    // this can also be achieved with strftime for convenience:
+    s.clearAndFree();
+    try parsed.strftime(s.writer(), "%a, %b %d %Y, %H:%Mh");
     println("formatted {s}\n  to '{s}'", .{ parsed, s.items });
 }
 

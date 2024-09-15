@@ -4,6 +4,7 @@ const std = @import("std");
 const log = std.log.scoped(.zdt__Datetime);
 
 const cal = @import("./calendar.zig");
+const str = @import("./stringIO.zig");
 const Duration = @import("./Duration.zig");
 const Timezone = @import("./Timezone.zig");
 const tzif = @import("./tzif.zig");
@@ -567,6 +568,16 @@ pub fn isocalendar(dt: Datetime) ISOCalendar {
     }
     isocal.isoweek = @truncate(w);
     return isocal;
+}
+
+/// Format a datetime into a string
+pub fn strftime(dt: Datetime, writer: anytype, fmt: []const u8) !void {
+    return str.formatToString(writer, fmt, dt);
+}
+
+/// Parse a datetime from a string
+pub fn strptime(dt_string: []const u8, comptime fmt: []const u8) !Datetime {
+    return str.parseToDatetime(fmt, dt_string);
 }
 
 /// Formatted printing for UTC offset
