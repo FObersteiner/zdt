@@ -118,7 +118,7 @@ test "invalid tzfile name" {
 
 test "local tz" {
     var now = try Datetime.nowLocal(testing.allocator);
-    defer _ = now.tzinfo.?.deinit();
+    defer now.tzDeinit();
     try testing.expect(now.tzinfo != null);
     try testing.expect(!std.mem.eql(u8, now.tzinfo.?.name(), ""));
     try testing.expect(!std.mem.eql(u8, now.tzinfo.?.abbreviation(), ""));

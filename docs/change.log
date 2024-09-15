@@ -3,6 +3,7 @@
 ## 2024-xx-xx, v0.2.4
 
 - add strftime/strptime methods to Datetime struct
+- add method for datetime instance that deinits memory allocated for a timezone - required for nowLocal with timezone
 
 
 ## 2024-09-15, v0.2.3
