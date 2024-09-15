@@ -33,8 +33,8 @@ pub const max_year: u16 = 9999;
 pub const unix_s_min: i64 = -62135596800;
 pub const unix_s_max: i64 = 253402300799;
 pub const epoch = Datetime{ .year = 1970, .__unix = 0, .tzinfo = Timezone.UTC };
+pub const century: u16 = 2000;
 
-// constants with the number of bits limited to what is required
 const s_per_minute: u8 = 60;
 const s_per_hour: u16 = 3600;
 const s_per_day: u32 = 86400;
@@ -536,7 +536,7 @@ pub fn nthWeekday(year: u16, month: u8, wd: Weekday, nth: u8) ZdtError!Datetime 
 /// Week number of the year (Sunday as the first day of the week) as returned from
 /// strftime's %U
 pub fn weekOfYearSun(dt: Datetime) u8 {
-    const doy = dt.dayOfYear();
+    const doy = dt.dayOfYear() - 1; // [0..365]
     const dow = dt.weekdayNumber();
     return @truncate(@divFloor(doy + 7 - dow, 7));
 }
@@ -544,7 +544,7 @@ pub fn weekOfYearSun(dt: Datetime) u8 {
 /// Week number of the year (Monday as the first day of the week) as returned from
 /// strftime's %W
 pub fn weekOfYearMon(dt: Datetime) u8 {
-    const doy = dt.dayOfYear();
+    const doy = dt.dayOfYear(); // [1..366]
     const dow = dt.weekdayNumber();
     return @truncate(@divFloor((doy + 7 - if (dow > 0) dow - 1 else 6), 7));
 }

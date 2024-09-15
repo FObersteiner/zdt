@@ -30,7 +30,7 @@ test "is_leap_month" {
     try testing.expect(cal.isLeapMonth(2022, 2) == false);
 }
 
-test "weekday" {
+test "weekday difference" {
     // How many days to add to y to get to x
     try testing.expect(cal.weekdayDifference(0, 0) == 0);
     try testing.expect(cal.weekdayDifference(6, 5) == 1);

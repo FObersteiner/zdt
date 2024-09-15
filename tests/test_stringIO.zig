@@ -171,15 +171,15 @@ test "format with Z" {
     const dt_std = try dt.tzConvert(tz_pacific);
     var s_std = std.ArrayList(u8).init(testing.allocator);
     defer s_std.deinit();
-    const directive_us = "%Y-%m-%dT%H:%M:%S%z %Z";
-    const string_std = "2023-12-08T17:02:03-08:00 PST";
+    const directive_us = "%Y-%m-%dT%H:%M:%S%z %Z (%i)";
+    const string_std = "2023-12-08T17:02:03-08:00 PST (America/Los_Angeles)";
     try zdt.formatToString(s_std.writer(), directive_us, dt_std);
     try testing.expectEqualStrings(string_std, s_std.items);
 
     const dt_dst = try dt_std.add(td.fromTimespanMultiple(6 * 4, td.Timespan.week));
     var s_dst = std.ArrayList(u8).init(testing.allocator);
     defer s_dst.deinit();
-    const string_dst = "2024-05-24T18:02:03-07:00 PDT";
+    const string_dst = "2024-05-24T18:02:03-07:00 PDT (America/Los_Angeles)";
     try zdt.formatToString(s_dst.writer(), directive_us, dt_dst);
     try testing.expectEqualStrings(string_dst, s_dst.items);
 }
@@ -250,8 +250,6 @@ test "format with 12 hour clock" {
     for (test_cases) |case| {
         const dt = try Datetime.fromFields(.{
             .year = 2024,
-            .month = 1,
-            .day = 1,
             .hour = case.hour,
         });
 
@@ -281,8 +279,6 @@ test "format hour to am/pm" {
     for (test_cases) |case| {
         const dt = try Datetime.fromFields(.{
             .year = 2024,
-            .month = 1,
-            .day = 1,
             .hour = case.hour,
         });
 
@@ -294,9 +290,45 @@ test "format hour to am/pm" {
     }
 }
 
+test "format with 2-digit year plus different weeknum and weekday variants" {
+    const cases = [_]TestCase{
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 1, .day = 1 }),
+            .string = "24/01 00 01 01 1 1 001",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 9, .day = 15 }),
+            .string = "24/09 37 37 37 0 7 259",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 9, .day = 19 }),
+            .string = "24/09 37 38 38 4 4 263",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 9, .day = 21 }),
+            .string = "24/09 37 38 38 6 6 265",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 9, .day = 22 }),
+            .string = "24/09 38 38 38 0 7 266",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 12, .day = 31 }),
+            .string = "24/12 52 53 01 2 2 366",
+        },
+    };
+
+    for (cases) |case| {
+        var s = std.ArrayList(u8).init(testing.allocator);
+        defer s.deinit();
+        try zdt.formatToString(s.writer(), "%y/%m %U %W %V %w %u %j", case.dt);
+        try testing.expectEqualStrings(case.string, s.items);
+    }
+}
+
 // ---- String to Datetime ----
 
-test "comptime parse with comptime format string" {
+test "comptime parse with comptime format string #1" {
     const cases = [_]TestCase{
         .{
             .string = "2021-02-18 17:00:01",
@@ -310,6 +342,24 @@ test "comptime parse with comptime format string" {
 
     for (cases) |case| {
         const dt = try zdt.parseToDatetime("%Y-%m-%d %H:%M:%S", case.string);
+        try testing.expectEqual(case.dt, dt);
+    }
+}
+
+test "comptime parse with comptime format string #2" {
+    const cases = [_]TestCase{
+        .{
+            .string = "21-02-18 17:00:01",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .second = 1 }),
+        },
+        .{
+            .string = "7-01-01 00:00:00",
+            .dt = try Datetime.fromFields(.{ .year = 2007 }),
+        },
+    };
+
+    for (cases) |case| {
+        const dt = try zdt.parseToDatetime("%y-%m-%d %H:%M:%S", case.string);
         try testing.expectEqual(case.dt, dt);
     }
 }

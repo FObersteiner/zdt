@@ -11,15 +11,15 @@ const windows_specific = @import("./windows/windows_mdnames.zig");
 
 /// directives to create string representation of a datetime
 const FormatCode = enum(u8) {
+    day = 'd',
     day_name_abbr = 'a', // locale-specific
     day_name = 'A', // locale-specific
-    // %w
-    day = 'd',
     month_name_abbr = 'b', // locale-specific
     month_name = 'B', // locale-specific
     month = 'm',
-    // %y ?
     year = 'Y',
+    year_2digit = 'y',
+    year_iso = 'G',
     hour = 'H',
     hour12 = 'I', // 12-hour clock
     am_pm = 'p',
@@ -28,13 +28,14 @@ const FormatCode = enum(u8) {
     nanos = 'f',
     offset = 'z',
     tz_abbrev = 'Z',
+    iana_tz_name = 'i',
     doy = 'j',
-    // %U - weeknum, sun = 00
-    // %W - weeknum, mon = 00
-    // %G - ISO year 0000
-    // %u - ISO weekday, mon = 1
-    // %V - ISO weeknum, mon = 01 (contains Jan 4)
-    isofmt = 'T', // %T - ISO8601
+    weekday = 'w',
+    weekday_iso = 'u',
+    week_of_year = 'U',
+    week_of_year_mon = 'W',
+    week_of_year_iso = 'V', // %V - ISO weeknum, mon = 01 (contains Jan 4)
+    iso8601 = 'T', // %T - ISO8601
     // %c // locale-specific
     // %x // locale-specific
     // %X // locale-specific
@@ -47,9 +48,15 @@ const FormatCode = enum(u8) {
         dt: Datetime,
     ) !void {
         switch (fc) {
-            .month => try writer.print("{d:0>2}", .{dt.month}),
-            .year => try writer.print("{d:0>4}", .{dt.year}),
             .day => try writer.print("{d:0>2}", .{dt.day}),
+            .day_name_abbr => try writer.print("{s}", .{std.mem.sliceTo(getDayNameAbbr(dt.weekdayNumber())[0..], 0)}),
+            .day_name => try writer.print("{s}", .{std.mem.sliceTo(getDayName(dt.weekdayNumber())[0..], 0)}),
+            .month => try writer.print("{d:0>2}", .{dt.month}),
+            .month_name_abbr => try writer.print("{s}", .{std.mem.sliceTo(getMonthNameAbbr(dt.month - 1)[0..], 0)}),
+            .month_name => try writer.print("{s}", .{std.mem.sliceTo(getMonthName(dt.month - 1)[0..], 0)}),
+            .year => try writer.print("{d:0>4}", .{dt.year}),
+            .year_2digit => try writer.print("{d:0>2}", .{dt.year % 100}),
+            .year_iso => try writer.print("{d:0>4}", .{dt.year}),
             .hour => try writer.print("{d:0>2}", .{dt.hour}),
             .hour12 => try writer.print("{d:0>2}", .{twelve_hour_format(dt.hour)}),
             .am_pm => try writer.print("{s}", .{if (dt.hour < 12) "am" else "pm"}),
@@ -59,28 +66,18 @@ const FormatCode = enum(u8) {
             .offset => try dt.formatOffset(writer),
             .tz_abbrev => try writer.print(
                 "{s}", // use __abbrev_data directly since we have a copy of dt:
-                .{std.mem.sliceTo(dt.tzinfo.?.tzOffset.?.__abbrev_data[0..], 0)},
+                .{std.mem.sliceTo(dt.tzinfo.?.tzOffset.?.__abbrev_data[0..], 0)}, // TODO catch tz = null
             ),
+            .iana_tz_name => try writer.print("{s}", .{@constCast(&dt.tzinfo.?).name()}), // TODO catch tz = null
             .doy => try writer.print("{d:0>3}", .{dt.dayOfYear()}),
-            .percent_lit => try writer.print("%", .{}),
             // locale-specific:
-            .day_name_abbr => try writer.print(
-                "{s}",
-                .{std.mem.sliceTo(getDayNameAbbr(dt.weekdayNumber())[0..], 0)},
-            ),
-            .day_name => try writer.print(
-                "{s}",
-                .{std.mem.sliceTo(getDayName(dt.weekdayNumber())[0..], 0)},
-            ),
-            .month_name_abbr => try writer.print(
-                "{s}",
-                .{std.mem.sliceTo(getMonthNameAbbr(dt.month - 1)[0..], 0)},
-            ),
-            .month_name => try writer.print(
-                "{s}",
-                .{std.mem.sliceTo(getMonthName(dt.month - 1)[0..], 0)},
-            ),
-            .isofmt => try dt.format("", .{}, writer),
+            .weekday => try writer.print("{d}", .{Datetime.weekdayNumber(dt)}),
+            .weekday_iso => try writer.print("{d}", .{Datetime.weekdayIsoNumber(dt)}),
+            .week_of_year => try writer.print("{d:0>2}", .{Datetime.weekOfYearSun(dt)}),
+            .week_of_year_mon => try writer.print("{d:0>2}", .{Datetime.weekOfYearMon(dt)}),
+            .week_of_year_iso => try writer.print("{d:0>2}", .{Datetime.isocalendar(dt).isoweek}),
+            .iso8601 => try dt.format("", .{}, writer),
+            .percent_lit => try writer.print("%", .{}),
         }
     }
 };
@@ -114,9 +111,15 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
     inline for (format) |fc| {
         if (next_char_is_specifier) {
             switch (fc) {
-                'Y' => fields.year = try parseDigits(u16, dt_string, &dt_string_idx, 4),
-                'm' => fields.month = try parseDigits(u8, dt_string, &dt_string_idx, 2),
                 'd' => fields.day = try parseDigits(u8, dt_string, &dt_string_idx, 2),
+                // 'a'
+                // 'A'
+                'm' => fields.month = try parseDigits(u8, dt_string, &dt_string_idx, 2),
+                // 'b'
+                // 'B'
+                'Y' => fields.year = try parseDigits(u16, dt_string, &dt_string_idx, 4),
+                'y' => fields.year = try parseDigits(u16, dt_string, &dt_string_idx, 2) + Datetime.century,
+                // 'G'
                 'H' => fields.hour = try parseDigits(u8, dt_string, &dt_string_idx, 2),
                 'I' => fields.hour = blk: { // must be in [1..12]
                     const h = try parseDigits(u8, dt_string, &dt_string_idx, 2);
@@ -143,6 +146,15 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
                         fields.tzinfo = try Tz.fromOffset(utcoffset, "");
                     }
                 },
+                // 'j'
+                // 'w'
+                // 'u'
+                // 'W'
+                // 'U'
+                // 'V'
+                // 'c' // locale-specific
+                // 'x' // locale-specific
+                // 'X' // locale-specific
                 'T' => return parseISO8601(dt_string),
                 '%' => { // literal characters
                     if (dt_string[dt_string_idx] != fc) return error.InvalidFormat;
