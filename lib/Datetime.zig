@@ -351,6 +351,11 @@ pub fn tzConvert(dt: Datetime, new_tz: Timezone) ZdtError!Datetime {
     );
 }
 
+/// Wrapper to deinit the timezone of a datetime
+pub fn tzDeinit(dt: *Datetime) void {
+    if (dt.isAware()) (&dt.tzinfo.?).deinit();
+}
+
 /// Floor a datetime to a certain timespan. Creates a new datetime instance.
 pub fn floorTo(dt: Datetime, timespan: Duration.Timespan) !Datetime {
     // any other timespan than second can lead to ambiguous or non-existent
