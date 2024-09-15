@@ -66,7 +66,7 @@ See [changelog](https://github.com/FObersteiner/zdt/blob/master/docs/change.log)
 
 ## Zig version
 
-This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2024-09-09, Zig-0.13 stable or higher should work.
+This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2024-09-15, Zig-0.13 stable or higher should work.
 
 ## IANA timezone database version
 

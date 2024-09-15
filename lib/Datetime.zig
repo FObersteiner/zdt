@@ -407,6 +407,7 @@ pub fn now(tzinfo: ?Timezone) Datetime {
 
 /// Try to obtain datetime in the local time zone.
 /// Requires allocator for the time zone object; must be de-initialized by the caller.
+/// User the 'tzDeinit()' method of the datetime to do so.
 pub fn nowLocal(allocator: std.mem.Allocator) !Datetime {
     const tz = try Timezone.tzLocal(allocator); // NOTE : use tzDeinit method of the datetime to deinit this
     const t = std.time.nanoTimestamp();
