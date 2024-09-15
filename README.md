@@ -56,9 +56,9 @@ zig build examples && ./zig-out/bin/ex_datetime
 
 ## Documentation
 
-- [Introduction](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/01_intro.md)
-- [Usage](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/02_usage.md)
-- [Misc & Advanced](https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/03_misc_advanced.md)
+- [Introduction](https://github.com/FObersteiner/zdt/tree/master/docs/01_intro.md)
+- [Usage](https://github.com/FObersteiner/zdt/tree/master/docs/02_usage.md)
+- [Misc & Advanced](https://github.com/FObersteiner/zdt/tree/master/docs/03_misc_advanced.md)
 
 ## Development
 
