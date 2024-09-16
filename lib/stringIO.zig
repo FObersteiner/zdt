@@ -14,14 +14,14 @@ const FormatCode = enum(u8) {
     day = 'd',
     day_name_abbr = 'a', // locale-specific
     day_name = 'A', // locale-specific
+    month = 'm',
     month_name_abbr = 'b', // locale-specific
     month_name = 'B', // locale-specific
-    month = 'm',
     year = 'Y',
     year_2digit = 'y',
     year_iso = 'G',
     hour = 'H',
-    hour12 = 'I', // 12-hour clock
+    hour12 = 'I', // 12-hour clock, requires %p as well
     am_pm = 'p',
     min = 'M',
     sec = 'S',
@@ -34,11 +34,11 @@ const FormatCode = enum(u8) {
     weekday_iso = 'u',
     week_of_year = 'U',
     week_of_year_mon = 'W',
-    week_of_year_iso = 'V', // %V - ISO weeknum, mon = 01 (contains Jan 4)
-    iso8601 = 'T', // %T - ISO8601
-    // %c // locale-specific
-    // %x // locale-specific
-    // %X // locale-specific
+    week_of_year_iso = 'V',
+    iso8601 = 'T',
+    // loc_date = 'x', // locale-specific
+    // loc_time = 'X', // locale-specific
+    // loc_datetime = 'c', // locale-specific
     percent_lit = '%',
 
     /// create string representation of datetime fields and properties
@@ -64,19 +64,24 @@ const FormatCode = enum(u8) {
             .sec => try writer.print("{d:0>2}", .{dt.second}),
             .nanos => try writer.print("{d:0>9}", .{dt.nanosecond}),
             .offset => try dt.formatOffset(writer),
-            .tz_abbrev => try writer.print(
-                "{s}", // use __abbrev_data directly since we have a copy of dt:
-                .{std.mem.sliceTo(dt.tzinfo.?.tzOffset.?.__abbrev_data[0..], 0)}, // TODO catch tz = null
-            ),
-            .iana_tz_name => try writer.print("{s}", .{@constCast(&dt.tzinfo.?).name()}), // TODO catch tz = null
+            .tz_abbrev => blk: {
+                if (dt.isNaive()) break :blk;
+                try writer.print("{s}", .{@constCast(&dt.tzinfo.?).abbreviation()});
+            },
+            .iana_tz_name => blk: {
+                if (dt.isNaive()) break :blk;
+                try writer.print("{s}", .{@constCast(&dt.tzinfo.?).name()});
+            },
             .doy => try writer.print("{d:0>3}", .{dt.dayOfYear()}),
-            // locale-specific:
             .weekday => try writer.print("{d}", .{Datetime.weekdayNumber(dt)}),
             .weekday_iso => try writer.print("{d}", .{Datetime.weekdayIsoNumber(dt)}),
             .week_of_year => try writer.print("{d:0>2}", .{Datetime.weekOfYearSun(dt)}),
             .week_of_year_mon => try writer.print("{d:0>2}", .{Datetime.weekOfYearMon(dt)}),
             .week_of_year_iso => try writer.print("{d:0>2}", .{Datetime.isocalendar(dt).isoweek}),
             .iso8601 => try dt.format("", .{}, writer),
+            // .loc_date => @compileError("not implemented"),
+            // .loc_time => @compileError("not implemented"),
+            // .loc_datetime => @compileError("not implemented"),
             .percent_lit => try writer.print("%", .{}),
         }
     }
@@ -152,9 +157,9 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
                 // 'W'
                 // 'U'
                 // 'V'
-                // 'c' // locale-specific
                 // 'x' // locale-specific
                 // 'X' // locale-specific
+                // 'c' // locale-specific
                 'T' => return parseISO8601(dt_string),
                 '%' => { // literal characters
                     if (dt_string[dt_string_idx] != fc) return error.InvalidFormat;
@@ -207,7 +212,8 @@ pub fn parseToDatetime(comptime format: []const u8, dt_string: []const u8) !Date
 /// 2014-08-23T12:15:56-0530       24   2014-08-23T12:15:56-05:30
 /// 2014-08-23T12:15:56+02:15:30   28   2014-08-23T12:15:56+02:15:30
 pub fn parseISO8601(dt_string: []const u8) !Datetime {
-    if (dt_string.len > 38) return error.InvalidFormat;
+    if (dt_string.len > 38) // 9 digits of fractional seconds and hh:mm:ss UTC offset
+        return error.InvalidFormat;
     if (dt_string[dt_string.len - 1] != 'Z' and !std.ascii.isDigit(dt_string[dt_string.len - 1])) {
         return error.InvalidFormat;
     }

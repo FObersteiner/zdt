@@ -34,7 +34,7 @@ fn locale_ok() bool {
         std.mem.eql(u8, env_locale, "English_United States.1252") or
         std.mem.eql(u8, env_locale, "C")))
     {
-        log.warn("can only run test with English locale; got {s}", .{env_locale});
+        log.warn("can run locale-specific tests only with English locale; got {s}", .{env_locale});
         return false;
     }
     return true;
@@ -131,13 +131,22 @@ test "format with z" {
     defer s.deinit();
     const tzinfo = try Tz.fromOffset(3600, "");
     const dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
-    const string = "2021-02-18T17:00:00+01:00";
-    const directive = "%Y-%m-%dT%H:%M:%S%z";
-    try zdt.formatToString(s.writer(), directive, dt);
-    try testing.expectEqualStrings(string, s.items);
+    try zdt.formatToString(s.writer(), "%Y-%m-%dT%H:%M:%S%z", dt);
+    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", s.items);
     s.clearAndFree();
-    try dt.strftime(s.writer(), directive);
-    try testing.expectEqualStrings(string, s.items);
+    try dt.strftime(s.writer(), "%Y-%m-%dT%H:%M:%S%z");
+    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", s.items);
+
+    // 'z' has no effect on naive datetime:
+    const dt_naive = try dt.tzLocalize(null);
+    try testing.expect(dt_naive.tzinfo == null);
+    s.clearAndFree();
+    try dt_naive.strftime(s.writer(), "%Y-%m-%dT%H:%M:%S%z");
+    try testing.expectEqualStrings("2021-02-18T17:00:00", s.items);
+    // 'i' also has no effect on naive datetime:
+    s.clearAndFree();
+    try dt_naive.strftime(s.writer(), "%Y-%m-%dT%H:%M:%S %i");
+    try testing.expectEqualStrings("2021-02-18T17:00:00 ", s.items);
 }
 
 test "format with z, full day off" {
@@ -171,12 +180,16 @@ test "format with z, strange directive" {
 test "format with Z" {
     var s = std.ArrayList(u8).init(testing.allocator);
     defer s.deinit();
+    var dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3 });
+    try zdt.formatToString(s.writer(), "%Y-%m-%dT%H:%M:%S%z%Z", dt);
+    // 'Z' has no effect on naive datetime:
+    try testing.expectEqualStrings("2023-12-09T01:02:03", s.items);
+    s.clearAndFree();
+
     const tz_utc = Tz.UTC;
-    const dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3, .tzinfo = tz_utc });
-    const string = "2023-12-09T01:02:03+00:00Z";
-    const directive = "%Y-%m-%dT%H:%M:%S%z%Z";
-    try zdt.formatToString(s.writer(), directive, dt);
-    try testing.expectEqualStrings(string, s.items);
+    dt = try dt.tzLocalize(tz_utc);
+    try zdt.formatToString(s.writer(), "%Y-%m-%dT%H:%M:%S%z%Z", dt);
+    try testing.expectEqualStrings("2023-12-09T01:02:03+00:00Z", s.items);
 
     var tz_pacific = try Tz.fromTzfile("America/Los_Angeles", testing.allocator);
     defer tz_pacific.deinit();
