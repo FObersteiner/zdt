@@ -409,7 +409,7 @@ pub fn now(tzinfo: ?Timezone) Datetime {
 /// Requires allocator for the time zone object; must be de-initialized by the caller.
 /// User the 'tzDeinit()' method of the datetime to do so.
 pub fn nowLocal(allocator: std.mem.Allocator) !Datetime {
-    const tz = try Timezone.tzLocal(allocator); // NOTE : use tzDeinit method of the datetime to deinit this
+    const tz = try Timezone.tzLocal(allocator);
     const t = std.time.nanoTimestamp();
     return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, tz);
 }
@@ -556,9 +556,24 @@ pub fn weekOfYearMon(dt: Datetime) u8 {
     return @truncate(@divFloor((doy + 7 - if (dow > 0) dow - 1 else 6), 7));
 }
 
+/// Parse a datetime from a string
+pub fn fromString(dt_string: []const u8, comptime fmt: []const u8) !Datetime {
+    return str.parseToDatetime(fmt, dt_string);
+}
+
+/// Parse a datetime from a string
+pub fn fromISO8601(dt_string: []const u8) !Datetime {
+    return str.parseISO8601(dt_string);
+}
+
+/// Format a datetime into a string
+pub fn toString(dt: Datetime, writer: anytype, fmt: []const u8) !void {
+    return str.formatToString(writer, fmt, dt);
+}
+
 /// Calculate the ISO week of the year and generate ISOCalendar.
 /// Algorithm from <https://en.wikipedia.org/wiki/ISO_week_date>.
-pub fn isocalendar(dt: Datetime) ISOCalendar {
+pub fn toISOCalendar(dt: Datetime) ISOCalendar {
     const doy: u16 = dt.dayOfYear();
     const dow: u16 = @as(u16, dt.weekdayIsoNumber());
     const w: u16 = @divFloor(10 + doy - dow, 7);
@@ -576,17 +591,8 @@ pub fn isocalendar(dt: Datetime) ISOCalendar {
     return isocal;
 }
 
-/// Format a datetime into a string
-pub fn strftime(dt: Datetime, writer: anytype, fmt: []const u8) !void {
-    return str.formatToString(writer, fmt, dt);
-}
-
-/// Parse a datetime from a string
-pub fn strptime(dt_string: []const u8, comptime fmt: []const u8) !Datetime {
-    return str.parseToDatetime(fmt, dt_string);
-}
-
 /// Formatted printing for UTC offset
+// TODO : does this need to be pub ?
 pub fn formatOffset(dt: Datetime, writer: anytype) !void {
     // if the tzinfo or tzOffset is null, we cannot do anything:
     if (dt.isNaive()) return;

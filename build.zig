@@ -11,7 +11,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 2, .patch = 4 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 3, .patch = 0 };
 
 const example_files = [_][]const u8{
     "ex_demo",

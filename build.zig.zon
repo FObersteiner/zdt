@@ -1,6 +1,6 @@
 .{
     .name = "zdt",
-    .version = "0.2.4",
+    .version = "0.3.0",
     .paths = .{
         "zdt.zig",
         "lib", // anything from lib
