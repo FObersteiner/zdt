@@ -3,7 +3,8 @@ const std = @import("std");
 const testing = std.testing;
 const print = std.debug.print;
 
-const cal = @import("zdt").calendar;
+// NOTE : this test directly imports calendar.zig
+const cal = @import("../lib/calendar.zig");
 const Datetime = @import("zdt").Datetime;
 
 test "days_in_month" {

@@ -415,43 +415,43 @@ test "week of year" {
 
 test "iso calendar" {
     var dt = try Datetime.fromFields(.{ .year = 2024, .month = 1, .day = 9 });
-    var isocal = dt.isocalendar();
+    var isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 2), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1977, .month = 1, .day = 1 });
-    isocal = dt.isocalendar();
+    isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 53), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1977, .month = 12, .day = 31 });
-    isocal = dt.isocalendar();
+    isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 52), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1978, .month = 1, .day = 1 });
-    isocal = dt.isocalendar();
+    isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 52), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1978, .month = 1, .day = 2 });
-    isocal = dt.isocalendar();
+    isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 1), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1978, .month = 12, .day = 31 });
-    isocal = dt.isocalendar();
+    isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 52), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1979, .month = 12, .day = 28 });
-    isocal = dt.isocalendar();
+    isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 52), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1979, .month = 12, .day = 29 });
-    isocal = dt.isocalendar();
+    isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 52), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1979, .month = 12, .day = 30 });
-    isocal = dt.isocalendar();
+    isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 52), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1979, .month = 12, .day = 31 });
-    isocal = dt.isocalendar();
+    isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 1), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1980, .month = 1, .day = 1 });
-    isocal = dt.isocalendar();
+    isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 1), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1981, .month = 12, .day = 31 });
-    isocal = dt.isocalendar();
+    isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 53), isocal.isoweek);
     dt = try Datetime.fromFields(.{ .year = 1982, .month = 1, .day = 3 });
-    isocal = dt.isocalendar();
+    isocal = dt.toISOCalendar();
     try testing.expectEqual(@as(u8, 53), isocal.isoweek);
 }
 

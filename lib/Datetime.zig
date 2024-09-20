@@ -4,7 +4,7 @@ const std = @import("std");
 const log = std.log.scoped(.zdt__Datetime);
 
 const cal = @import("./calendar.zig");
-const str = @import("./stringIO.zig");
+const str = @import("./string.zig");
 const Duration = @import("./Duration.zig");
 const Timezone = @import("./Timezone.zig");
 const tzif = @import("./tzif.zig");
@@ -567,7 +567,7 @@ pub fn fromISO8601(dt_string: []const u8) !Datetime {
 }
 
 /// Format a datetime into a string
-pub fn toString(dt: Datetime, writer: anytype, fmt: []const u8) !void {
+pub fn toString(dt: Datetime, fmt: []const u8, writer: anytype) !void {
     return str.formatToString(writer, fmt, dt);
 }
 

@@ -55,10 +55,13 @@ test "format naive datetimes with format string api" {
     };
 
     for (cases) |case| {
-        var s = std.ArrayList(u8).init(testing.allocator);
-        defer s.deinit();
-        try zdt.formatToString(s.writer(), "%Y-%m-%d %H:%M:%S", case.dt);
-        try testing.expectEqualStrings(case.string, s.items);
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        defer buf.deinit();
+        try Datetime.toString(case.dt, "%Y-%m-%d %H:%M:%S", buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.clearAndFree();
+        try case.dt.toString("%Y-%m-%d %H:%M:%S", buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
     }
 }
 test "format with precision" {
@@ -81,10 +84,10 @@ test "format with precision" {
     };
 
     for (cases) |case| {
-        var s = std.ArrayList(u8).init(testing.allocator);
-        defer s.deinit();
-        try case.dt.format("s", .{ .precision = case.prc }, s.writer());
-        try testing.expectEqualStrings(case.string, s.items);
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        defer buf.deinit();
+        try case.dt.format("s", .{ .precision = case.prc }, buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
     }
 }
 
@@ -116,80 +119,81 @@ test "format datetime with literal characters in format string" {
     } };
 
     for (cases) |case| {
-        var s = std.ArrayList(u8).init(testing.allocator);
-        defer s.deinit();
-        try zdt.formatToString(s.writer(), case.directive, case.dt);
-        try testing.expectEqualStrings(case.string, s.items);
-        s.clearAndFree();
-        try case.dt.strftime(s.writer(), case.directive);
-        try testing.expectEqualStrings(case.string, s.items);
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        defer buf.deinit();
+        try Datetime.toString(case.dt, case.directive, buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.clearAndFree();
+        try case.dt.toString(case.directive, buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
     }
 }
 
 test "format with z" {
-    var s = std.ArrayList(u8).init(testing.allocator);
-    defer s.deinit();
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
     const tzinfo = try Tz.fromOffset(3600, "");
     const dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
-    try zdt.formatToString(s.writer(), "%Y-%m-%dT%H:%M:%S%z", dt);
-    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", s.items);
-    s.clearAndFree();
-    try dt.strftime(s.writer(), "%Y-%m-%dT%H:%M:%S%z");
-    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", s.items);
+    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z", buf.writer());
+    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", buf.items);
+    buf.clearAndFree();
+    try dt.toString("%Y-%m-%dT%H:%M:%S%z", buf.writer());
+    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", buf.items);
 
     // 'z' has no effect on naive datetime:
     const dt_naive = try dt.tzLocalize(null);
     try testing.expect(dt_naive.tzinfo == null);
-    s.clearAndFree();
-    try dt_naive.strftime(s.writer(), "%Y-%m-%dT%H:%M:%S%z");
-    try testing.expectEqualStrings("2021-02-18T17:00:00", s.items);
+    buf.clearAndFree();
+    try dt_naive.toString("%Y-%m-%dT%H:%M:%S%z", buf.writer());
+    try testing.expectEqualStrings("2021-02-18T17:00:00", buf.items);
     // 'i' also has no effect on naive datetime:
-    s.clearAndFree();
-    try dt_naive.strftime(s.writer(), "%Y-%m-%dT%H:%M:%S %i");
-    try testing.expectEqualStrings("2021-02-18T17:00:00 ", s.items);
+    buf.clearAndFree();
+    try dt_naive.toString("%Y-%m-%dT%H:%M:%S %i", buf.writer());
+    try testing.expectEqualStrings("2021-02-18T17:00:00 ", buf.items);
 }
 
 test "format with z, full day off" {
-    var s = std.ArrayList(u8).init(testing.allocator);
-    defer s.deinit();
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
     const tzinfo = try Tz.fromOffset(-86400, "");
     const dt = try Datetime.fromFields(.{ .year = 1970, .month = 2, .day = 13, .hour = 12, .tzinfo = tzinfo });
     const string = "1970-02-13T12:00:00-24:00";
     const directive = "%Y-%m-%dT%H:%M:%S%z";
-    try zdt.formatToString(s.writer(), directive, dt);
-    try testing.expectEqualStrings(string, s.items);
-    s.clearAndFree();
-    try dt.strftime(s.writer(), directive);
-    try testing.expectEqualStrings(string, s.items);
+
+    try Datetime.toString(dt, directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+    buf.clearAndFree();
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
 }
 
 test "format with z, strange directive" {
-    var s = std.ArrayList(u8).init(testing.allocator);
-    defer s.deinit();
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
     const tzinfo = try Tz.fromOffset(900, "");
     const dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3, .tzinfo = tzinfo });
     const string = "% 2023-12-09 % 01:02:03 % +00:15";
     const directive = "%% %Y-%m-%d %% %H:%M:%S %% %z";
-    try zdt.formatToString(s.writer(), directive, dt);
-    try testing.expectEqualStrings(string, s.items);
-    s.clearAndFree();
-    try dt.strftime(s.writer(), directive);
-    try testing.expectEqualStrings(string, s.items);
+    try Datetime.toString(dt, directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+    buf.clearAndFree();
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
 }
 
 test "format with Z" {
-    var s = std.ArrayList(u8).init(testing.allocator);
-    defer s.deinit();
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
     var dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3 });
-    try zdt.formatToString(s.writer(), "%Y-%m-%dT%H:%M:%S%z%Z", dt);
+    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z%Z", buf.writer());
     // 'Z' has no effect on naive datetime:
-    try testing.expectEqualStrings("2023-12-09T01:02:03", s.items);
-    s.clearAndFree();
+    try testing.expectEqualStrings("2023-12-09T01:02:03", buf.items);
+    buf.clearAndFree();
 
     const tz_utc = Tz.UTC;
     dt = try dt.tzLocalize(tz_utc);
-    try zdt.formatToString(s.writer(), "%Y-%m-%dT%H:%M:%S%z%Z", dt);
-    try testing.expectEqualStrings("2023-12-09T01:02:03+00:00Z", s.items);
+    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z%Z", buf.writer());
+    try testing.expectEqualStrings("2023-12-09T01:02:03+00:00Z", buf.items);
 
     var tz_pacific = try Tz.fromTzfile("America/Los_Angeles", testing.allocator);
     defer tz_pacific.deinit();
@@ -198,63 +202,75 @@ test "format with Z" {
     defer s_std.deinit();
     const directive_us = "%Y-%m-%dT%H:%M:%S%z %Z (%i)";
     const string_std = "2023-12-08T17:02:03-08:00 PST (America/Los_Angeles)";
-    try zdt.formatToString(s_std.writer(), directive_us, dt_std);
+    try Datetime.toString(dt_std, directive_us, s_std.writer());
     try testing.expectEqualStrings(string_std, s_std.items);
 
     const dt_dst = try dt_std.add(td.fromTimespanMultiple(6 * 4, td.Timespan.week));
     var s_dst = std.ArrayList(u8).init(testing.allocator);
     defer s_dst.deinit();
     const string_dst = "2024-05-24T18:02:03-07:00 PDT (America/Los_Angeles)";
-    try zdt.formatToString(s_dst.writer(), directive_us, dt_dst);
+    try Datetime.toString(dt_dst, directive_us, s_dst.writer());
     try testing.expectEqualStrings(string_dst, s_dst.items);
 }
 
 test "format with abbreviated day name" {
     if (!locale_ok()) return error.SkipZigTest;
 
-    var s = std.ArrayList(u8).init(testing.allocator);
-    defer s.deinit();
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
     const dt = Datetime.epoch;
     const string = "Thu";
     const directive = "%a";
-    try zdt.formatToString(s.writer(), directive, dt);
-    try testing.expectEqualStrings(string, s.items);
+    try Datetime.toString(dt, directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+    buf.clearAndFree();
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
 }
 
 test "format with day name" {
     if (!locale_ok()) return error.SkipZigTest;
 
-    var s = std.ArrayList(u8).init(testing.allocator);
-    defer s.deinit();
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
     const dt = Datetime.epoch;
     const string = "Thursday";
     const directive = "%A";
-    try zdt.formatToString(s.writer(), directive, dt);
-    try testing.expectEqualStrings(string, s.items);
+    try Datetime.toString(dt, directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+    buf.clearAndFree();
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
 }
 
 test "format with abbreviated month name" {
     if (!locale_ok()) return error.SkipZigTest;
 
-    var s = std.ArrayList(u8).init(testing.allocator);
-    defer s.deinit();
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
     const dt = Datetime.epoch;
     const string = "Jan";
     const directive = "%b";
-    try zdt.formatToString(s.writer(), directive, dt);
-    try testing.expectEqualStrings(string, s.items);
+    try Datetime.toString(dt, directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+    buf.clearAndFree();
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
 }
 
 test "format with month name" {
     if (!locale_ok()) return error.SkipZigTest;
 
-    var s = std.ArrayList(u8).init(testing.allocator);
-    defer s.deinit();
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
     const dt = Datetime.epoch;
     const string = "January";
     const directive = "%B";
-    try zdt.formatToString(s.writer(), directive, dt);
-    try testing.expectEqualStrings(string, s.items);
+    try Datetime.toString(dt, directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+    buf.clearAndFree();
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
 }
 
 test "format with 12 hour clock" {
@@ -281,7 +297,7 @@ test "format with 12 hour clock" {
         var buf = std.ArrayList(u8).init(testing.allocator);
         defer buf.deinit();
 
-        try zdt.formatToString(buf.writer(), "%I:%M:%S", dt);
+        try dt.toString("%I:%M:%S", buf.writer());
         try testing.expectEqualStrings(case.expected, buf.items);
     }
 }
@@ -310,7 +326,7 @@ test "format hour to am/pm" {
         var buf = std.ArrayList(u8).init(testing.allocator);
         defer buf.deinit();
 
-        try zdt.formatToString(buf.writer(), "%I %p", dt);
+        try dt.toString("%I %p", buf.writer());
         try testing.expectEqualStrings(case.expected, buf.items);
     }
 }
@@ -344,10 +360,10 @@ test "format with 2-digit year plus different weeknum and weekday variants" {
     };
 
     for (cases) |case| {
-        var s = std.ArrayList(u8).init(testing.allocator);
-        defer s.deinit();
-        try zdt.formatToString(s.writer(), "%y/%m %U %W %V %w %u %j", case.dt);
-        try testing.expectEqualStrings(case.string, s.items);
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        try case.dt.toString("%y/%m %U %W %V %w %u %j", buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.deinit();
     }
 }
 
@@ -366,10 +382,8 @@ test "comptime parse with comptime format string #1" {
     };
 
     for (cases) |case| {
-        const dt = try zdt.parseToDatetime("%Y-%m-%d %H:%M:%S", case.string);
+        const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
-        const dt_strp = try zdt.Datetime.strptime(case.string, "%Y-%m-%d %H:%M:%S");
-        try testing.expectEqual(case.dt, dt_strp);
     }
 }
 
@@ -386,7 +400,7 @@ test "comptime parse with comptime format string #2" {
     };
 
     for (cases) |case| {
-        const dt = try zdt.parseToDatetime("%y-%m-%d %H:%M:%S", case.string);
+        const dt = try Datetime.fromString(case.string, "%y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
     }
 }
@@ -412,31 +426,31 @@ test "comptime parse with comptime format string, am/pm and 12-hour input" {
     };
 
     for (cases) |case| {
-        const dt = try zdt.parseToDatetime("%d/%m/%Y, %I %p", case.string);
+        const dt = try Datetime.fromString(case.string, "%d/%m/%Y, %I %p");
         try testing.expectEqual(case.dt, dt);
     }
 }
 
 test "parse %I and am/pm errors" {
-    var err = zdt.parseToDatetime("%I %p", "19 am"); // invalid hour
+    var err = Datetime.fromString("19 am", "%I %p"); // invalid hour
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseToDatetime("%I %p", "9 a"); // incomplete 'am'
+    err = Datetime.fromString("9 a", "%I %p"); // incomplete 'am'
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseToDatetime("%I %p", "0 am"); // invalid hour
+    err = Datetime.fromString("0 am", "%I %p"); // invalid hour
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseToDatetime("%I %p", "20 pm"); // invalid hour
+    err = Datetime.fromString("20 pm", "%I %p"); // invalid hour
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseToDatetime("%I", "7"); // %I but no %p
+    err = Datetime.fromString("7", "%I"); // %I but no %p
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseToDatetime("%H %p", "7 am"); // %H cannot be combined with %p
+    err = Datetime.fromString("7 am", "%H %p"); // %H cannot be combined with %p
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseToDatetime("%Y %p", "2007 am"); // %p only is ...strange?
+    err = Datetime.fromString("2007 am", "%Y %p"); // %p only is ...strange?
     try testing.expectError(error.InvalidFormat, err);
 }
 
@@ -453,7 +467,7 @@ test "comptime parse ISO " {
     };
 
     for (cases) |case| {
-        const dt = try zdt.parseToDatetime("%T", case.string);
+        const dt = try Datetime.fromString(case.string, "%T");
         try testing.expectEqual(case.dt, dt);
     }
 }
@@ -499,7 +513,7 @@ test "comptime parse with fractional part" {
     };
 
     for (cases) |case| {
-        const dt = try zdt.parseToDatetime("%Y-%m-%dT%H:%M:%S.%f", case.string);
+        const dt = try Datetime.fromString(case.string, "%Y-%m-%dT%H:%M:%S.%f");
         try testing.expectEqual(case.dt, dt);
     }
 }
@@ -517,22 +531,22 @@ test "parse single digits" {
     };
 
     for (cases) |case| {
-        const dt = try zdt.parseToDatetime("%Y-%m-%d %H:%M:%S", case.string);
+        const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
     }
 }
 
 test "parsing directives do not match fields in string" {
-    var err = zdt.parseToDatetime("%Y-%m-%d %H%%%M%%%S", "1970-01-01 00:00:00");
+    var err = Datetime.fromString("1970-01-01 00:00:00", "%Y-%m-%d %H%%%M%%%S");
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseToDatetime("%Y-%m-%dT%H:%M:%S", "1970-01-01 00:00:00");
+    err = Datetime.fromString("1970-01-01 00:00:00", "%Y-%m-%dT%H:%M:%S");
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseToDatetime("%", "1970-01-01 00:00:00");
+    err = Datetime.fromString("1970-01-01 00:00:00", "%");
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseToDatetime("%Y-%m-%d %H:%M:%S %z", "1970-01-01 00:00:00 +7");
+    err = Datetime.fromString("1970-01-01 00:00:00 +7", "%Y-%m-%d %H:%M:%S %z");
     try testing.expectError(error.InvalidFormat, err);
 }
 
@@ -548,7 +562,7 @@ test "parse with literal characters" {
         },
     };
     for (cases) |case| {
-        const dt = try zdt.parseToDatetime("datetime %Y-%m-%d %H:%M:%S", case.string);
+        const dt = try Datetime.fromString(case.string, "datetime %Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
     }
@@ -564,7 +578,7 @@ test "parse with literal characters" {
         },
     };
     for (cases) |case| {
-        const dt = try zdt.parseToDatetime("%Y-%m-%d %H:%M:%S datetime", case.string);
+        const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H:%M:%S datetime");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
     }
@@ -579,7 +593,7 @@ test "parse with literal characters" {
         },
     };
     for (cases) |case| {
-        const dt = try zdt.parseToDatetime("%Y-%m-%d %%%% %H:%M:%S", case.string);
+        const dt = try Datetime.fromString(case.string, "%Y-%m-%d %%%% %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
     }
@@ -594,7 +608,7 @@ test "parse with literal characters" {
         },
     };
     for (cases) |case| {
-        const dt = try zdt.parseToDatetime("%%%Y-%m-%d %H:%M:%S", case.string);
+        const dt = try Datetime.fromString(case.string, "%%%Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
     }
@@ -609,7 +623,7 @@ test "parse with literal characters" {
         },
     };
     for (cases) |case| {
-        const dt = try zdt.parseToDatetime("%Y-%m-%d %H%%%M%%%S", case.string);
+        const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H%%%M%%%S");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
     }
@@ -619,7 +633,7 @@ test "parse with z" {
     var tzinfo = try Tz.fromOffset(3600, "");
     var dt_ref = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
     const s_hhmm = "2021-02-18T17:00:00+01:00";
-    var dt = try zdt.parseToDatetime("%Y-%m-%dT%H:%M:%S%z", s_hhmm);
+    var dt = try Datetime.fromString(s_hhmm, "%Y-%m-%dT%H:%M:%S%z");
     try testing.expectEqual(dt_ref.year, dt.year);
 
     var off_want = dt_ref.tzinfo.?.tzOffset.?.seconds_east;
@@ -631,7 +645,7 @@ test "parse with z" {
     tzinfo = try Tz.fromOffset(-3601, "");
     dt_ref = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
     const s_hhmmss = "2021-02-18T17:00:00-01:00:01";
-    dt = try zdt.parseToDatetime("%Y-%m-%dT%H:%M:%S%z", s_hhmmss);
+    dt = try Datetime.fromString(s_hhmmss, "%Y-%m-%dT%H:%M:%S%z");
     try testing.expectEqual(dt_ref.year, dt.year);
 
     off_want = dt_ref.tzinfo.?.tzOffset.?.seconds_east;
@@ -645,7 +659,7 @@ test "parse with z" {
     tzinfo = try Tz.fromOffset(0, "");
     dt_ref = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
     const Z = "2021-02-18T17:00:00Z";
-    dt = try zdt.parseToDatetime("%Y-%m-%dT%H:%M:%S%z", Z);
+    dt = try Datetime.fromString(Z, "%Y-%m-%dT%H:%M:%S%z");
     try testing.expectEqual(dt_ref.year, dt.year);
     off_want = dt_ref.tzinfo.?.tzOffset.?.seconds_east;
     off_have = dt.tzinfo.?.tzOffset.?.seconds_east;
@@ -655,13 +669,13 @@ test "parse with z" {
 }
 
 test "string -> datetime -> string roundtrip with offset TZ" {
-    var string_out = std.ArrayList(u8).init(testing.allocator);
-    defer string_out.deinit();
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
     const string_in = "2023-12-09T01:02:03+09:15";
     const directive = "%Y-%m-%dT%H:%M:%S%z";
-    const dt = try zdt.parseToDatetime(directive, string_in);
-    try zdt.formatToString(string_out.writer(), directive, dt);
-    try testing.expectEqualStrings(string_in, string_out.items);
+    const dt = try Datetime.fromString(string_in, directive);
+    try Datetime.toString(dt, directive, buf.writer());
+    try testing.expectEqualStrings(string_in, buf.items);
     // no name or abbreviation if it's only a UTC offset
     try testing.expectEqual(@as(usize, 0), dt.tzinfo.?.__name_data_len);
     try testing.expectEqualStrings("", std.mem.sliceTo(dt.tzinfo.?.tzOffset.?.__abbrev_data[0..], 0));
@@ -670,100 +684,100 @@ test "string -> datetime -> string roundtrip with offset TZ" {
 test "parse ISO" {
     const tzutc = Tz.UTC;
     var dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8 });
-    var dt = try zdt.parseISO8601("2014-08");
+    var dt = try Datetime.fromISO8601("2014-08");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23 });
-    dt = try zdt.parseISO8601("2014-08-23");
+    dt = try Datetime.fromISO8601("2014-08-23");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15 });
-    dt = try zdt.parseISO8601("2014-08-23 12:15");
+    dt = try Datetime.fromISO8601("2014-08-23 12:15");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56 });
-    dt = try zdt.parseISO8601("2014-08-23 12:15:56");
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2016, .month = 12, .day = 31, .hour = 23, .minute = 59, .second = 60 });
-    dt = try zdt.parseISO8601("2016-12-31T23:59:60");
+    dt = try Datetime.fromISO8601("2016-12-31T23:59:60");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123400000 });
-    dt = try zdt.parseISO8601("2014-08-23 12:15:56,1234");
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56,1234");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123000000 });
-    dt = try zdt.parseISO8601("2014-08-23 12:15:56,123");
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56,123");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123456000 });
-    dt = try zdt.parseISO8601("2014-08-23 12:15:56,123456");
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56,123456");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .tzinfo = tzutc });
-    dt = try zdt.parseISO8601("2014-08-23 12:15:56Z");
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56Z");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123400000, .tzinfo = tzutc });
-    dt = try zdt.parseISO8601("2014-08-23 12:15:56.1234Z");
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.1234Z");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 99, .tzinfo = tzutc });
-    dt = try zdt.parseISO8601("2014-08-23 12:15:56.000000099Z");
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099Z");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     var tzinfo = try Tz.fromOffset(0, "");
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 99, .tzinfo = tzinfo });
-    dt = try zdt.parseISO8601("2014-08-23 12:15:56.000000099+00");
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00");
     try testing.expect(std.meta.eql(dt_ref, dt));
-    dt = try zdt.parseISO8601("2014-08-23 12:15:56.000000099+00:00");
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00:00");
     try testing.expect(std.meta.eql(dt_ref, dt));
-    dt = try zdt.parseISO8601("2014-08-23 12:15:56.000000099+00:00:00");
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00:00:00");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     tzinfo = try Tz.fromOffset(2 * 3600 + 15 * 60 + 30, "");
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .tzinfo = tzinfo });
-    dt = try zdt.parseISO8601("2014-08-23T12:15:56+02:15:30");
+    dt = try Datetime.fromISO8601("2014-08-23T12:15:56+02:15:30");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
     tzinfo = try Tz.fromOffset(-2 * 3600, "");
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .tzinfo = tzinfo });
-    dt = try zdt.parseISO8601("2014-08-23T12:15:56-0200");
+    dt = try Datetime.fromISO8601("2014-08-23T12:15:56-0200");
     try testing.expect(std.meta.eql(dt_ref, dt));
 }
 
 test "not ISO8601" {
-    var err = zdt.parseISO8601("2014-08-23T12:15:56+-0200"); // invalid offset
+    var err = Datetime.fromISO8601("2014-08-23T12:15:56+-0200"); // invalid offset
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseISO8601("2014"); // year-only not allowed
+    err = Datetime.fromISO8601("2014"); // year-only not allowed
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseISO8601("2014-12-32"); // invalid month
+    err = Datetime.fromISO8601("2014-12-32"); // invalid month
     try testing.expectError(error.DayOutOfRange, err);
 
-    err = zdt.parseISO8601("2014-12-31Z"); // date cannot have tz
+    err = Datetime.fromISO8601("2014-12-31Z"); // date cannot have tz
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseISO8601("2014-12-31-12:15"); // - is not a date/time separator
+    err = Datetime.fromISO8601("2014-12-31-12:15"); // - is not a date/time separator
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseISO8601("2014-2-03"); // 1-digit fields not allowed
+    err = Datetime.fromISO8601("2014-2-03"); // 1-digit fields not allowed
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseISO8601("14-02-03"); // 2-digit year not allowed
+    err = Datetime.fromISO8601("14-02-03"); // 2-digit year not allowed
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseISO8601("2014-02-03T13:60"); // invlid minute
+    err = Datetime.fromISO8601("2014-02-03T13:60"); // invlid minute
     try testing.expectError(error.MinuteOutOfRange, err);
 
-    err = zdt.parseISO8601("2014-02-03T24:00"); // invlid hour
+    err = Datetime.fromISO8601("2014-02-03T24:00"); // invlid hour
     try testing.expectError(error.HourOutOfRange, err);
 
-    err = zdt.parseISO8601("2014-02-03T23:00:00."); // ends with non-numeric
+    err = Datetime.fromISO8601("2014-02-03T23:00:00."); // ends with non-numeric
     try testing.expectError(error.InvalidFormat, err);
 
-    err = zdt.parseISO8601("2014-02-03T23:00:00..314"); // invlid fractional secs separator
+    err = Datetime.fromISO8601("2014-02-03T23:00:00..314"); // invlid fractional secs separator
     try testing.expectError(error.InvalidFormat, err);
 }

@@ -17,30 +17,29 @@ pub fn main() !void {
     println("", .{});
     println("---> (usage) ISO8601: parse some allowed formats", .{});
     const date_only = "2014-08-23";
-    var parsed = try zdt.parseISO8601(date_only);
+    var parsed = try Datetime.fromISO8601(date_only);
     assert(parsed.hour == 0);
     println("parsed '{s}'\n  to {s}", .{ date_only, parsed });
     // the default string representation of a zdt.Datetime instance is always ISO8601
 
     // we can have fractional seconds:
     const datetime_with_frac = "2014-08-23 12:15:56.123456789";
-    parsed = try zdt.parseISO8601(datetime_with_frac);
+    parsed = try Datetime.fromISO8601(datetime_with_frac);
     assert(parsed.nanosecond == 123456789);
     println("parsed '{s}'\n  to {s}", .{ datetime_with_frac, parsed });
 
     // we can also have a leap second, and a time zone specifier (Z == UTC):
     const leap_datetime = "2016-12-31T23:59:60Z";
-    parsed = try zdt.parseISO8601(leap_datetime);
+    parsed = try Datetime.fromISO8601(leap_datetime);
     assert(parsed.second == 60);
     assert(std.meta.eql(parsed.tzinfo.?, Timezone.UTC));
     println("parsed '{s}'\n  to {s}", .{ leap_datetime, parsed });
 
-    // The format might be less-standard, so we need to provide parsing directives
-    // à la strptime (zdt as of v0.1.20 has a subset of those).
+    // The format might be less-standard, so we need to provide parsing directives à la strptime
     println("", .{});
     println("---> (usage): parse some non-standard format", .{});
     const dayfirst_dtstr = "23.7.2021, 9:45h";
-    parsed = try zdt.parseToDatetime("%d.%m.%Y, %H:%Mh", dayfirst_dtstr);
+    parsed = try Datetime.fromString("%d.%m.%Y, %H:%Mh", dayfirst_dtstr);
     // zdt.Datetime.strptime is also available for people used to strftime/strptime
     assert(parsed.day == 23);
     println("parsed '{s}'\n  to {s}", .{ dayfirst_dtstr, parsed });
@@ -52,15 +51,10 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
-    var s = std.ArrayList(u8).init(allocator);
-    defer s.deinit();
-    // the formatting directive is comptime-known:
-    try zdt.formatToString(s.writer(), "%a, %b %d %Y, %H:%Mh", parsed);
-    println("formatted {s}\n  to '{s}'", .{ parsed, s.items });
-    // this can also be achieved with strftime for convenience:
-    s.clearAndFree();
-    try parsed.strftime(s.writer(), "%a, %b %d %Y, %H:%Mh");
-    println("formatted {s}\n  to '{s}'", .{ parsed, s.items });
+    var buf = std.ArrayList(u8).init(allocator);
+    defer buf.deinit();
+    try parsed.toString("%a, %b %d %Y, %H:%Mh", buf.writer());
+    println("formatted {s}\n  to '{s}'", .{ parsed, buf.items });
 }
 
 fn println(comptime fmt: []const u8, args: anytype) void {
