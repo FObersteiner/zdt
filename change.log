@@ -9,6 +9,7 @@
 - remove method `nowLocal` from Datetime; this can be achieved with `now` plus `Timezone.tzLocal`
 - added method `nowUTC` to Datetime that returns UTC (aware datetime) without needing a timezone argument and returns no error
 - change `now` to return an error union, in case loading the timezone causes an error
+- remove POSIX TZ provisions since this is currently not planned
 
 
 ## 2024-09-15, v0.2.3

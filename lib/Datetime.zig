@@ -130,8 +130,8 @@ pub const Fields = struct {
         // one of the types to be not-null:
         if (fields.tzinfo) |tzinfo| {
             if (tzinfo.tzFile == null and
-                tzinfo.tzOffset == null and
-                tzinfo.tzPosix == null)
+                // and tzinfo.tzPosix == null
+                tzinfo.tzOffset == null)
             {
                 return ZdtError.AllTZRulesUndefined;
             }

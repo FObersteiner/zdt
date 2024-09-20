@@ -21,7 +21,7 @@ pub fn fromTimespanMultiple(n: i128, timespan: Timespan) Duration {
 pub fn toTimespanMultiple(duration: Duration, timespan: Timespan) i128 {
     const ns: i128 = duration.asNanoseconds();
     const divisor: u64 = @intFromEnum(timespan);
-    const result = std.math.divCeil(i128, ns, @as(i128, divisor)) catch 0;
+    const result = std.math.divCeil(i128, ns, @as(i128, divisor)) catch unreachable;
     return @intCast(result);
 }
 
