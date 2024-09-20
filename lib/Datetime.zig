@@ -250,28 +250,28 @@ fn __equalFields(this: Datetime, other: Datetime) bool {
 }
 
 /// Construct a datetime from Unix time with a specific precision (time unit)
-pub fn fromUnix(n: i128, resolution: Duration.Resolution, tzinfo: ?Timezone) ZdtError!Datetime {
-    if (n > @as(i128, unix_s_max) * @intFromEnum(resolution) or
-        n < @as(i128, unix_s_min) * @intFromEnum(resolution))
+pub fn fromUnix(quantity: i128, resolution: Duration.Resolution, tzinfo: ?Timezone) ZdtError!Datetime {
+    if (quantity > @as(i128, unix_s_max) * @intFromEnum(resolution) or
+        quantity < @as(i128, unix_s_min) * @intFromEnum(resolution))
     {
         return ZdtError.UnixOutOfRange;
     }
     var _dt = Datetime{ .tzinfo = tzinfo };
     switch (resolution) {
         .second => {
-            _dt.__unix = @intCast(n);
+            _dt.__unix = @intCast(quantity);
         },
         .millisecond => {
-            _dt.__unix = @intCast(@divFloor(n, @as(i128, ms_per_s)));
-            _dt.nanosecond = @intCast(@mod(n, @as(i128, ms_per_s)) * us_per_s);
+            _dt.__unix = @intCast(@divFloor(quantity, @as(i128, ms_per_s)));
+            _dt.nanosecond = @intCast(@mod(quantity, @as(i128, ms_per_s)) * us_per_s);
         },
         .microsecond => {
-            _dt.__unix = @intCast(@divFloor(n, @as(i128, us_per_s)));
-            _dt.nanosecond = @intCast(@mod(n, @as(i128, us_per_s)) * ms_per_s);
+            _dt.__unix = @intCast(@divFloor(quantity, @as(i128, us_per_s)));
+            _dt.nanosecond = @intCast(@mod(quantity, @as(i128, us_per_s)) * ms_per_s);
         },
         .nanosecond => {
-            _dt.__unix = @intCast(@divFloor(n, @as(i128, ns_per_s)));
-            _dt.nanosecond = @intCast(@mod(n, @as(i128, ns_per_s)));
+            _dt.__unix = @intCast(@divFloor(quantity, @as(i128, ns_per_s)));
+            _dt.nanosecond = @intCast(@mod(quantity, @as(i128, ns_per_s)));
         },
     }
 
