@@ -5,7 +5,8 @@
 
 **Datetime with Timezones in Zig.** Opinionated, and mostly for learning purposes.
 
-[Demo](https://github.com/FObersteiner/zdt/blob/master/examples/ex_demo.zig):
+- [API overview](https://github.com/FObersteiner/zdt/wiki/API-overview)
+- [Demo](https://github.com/FObersteiner/zdt/blob/master/examples/ex_demo.zig):
 
 ```zig
   // need an allocator for the time zones since the size of the rule-files varies
@@ -59,22 +60,20 @@ zig build examples && ./zig-out/bin/ex_datetime
 
 ## Documentation
 
-- [Introduction](https://github.com/FObersteiner/zdt/tree/master/docs/01_intro.md)
-- [Usage](https://github.com/FObersteiner/zdt/tree/master/docs/02_usage.md)
-- [Misc & Advanced](https://github.com/FObersteiner/zdt/tree/master/docs/03_misc_advanced.md)
+- [see the Wiki](https://github.com/FObersteiner/zdt/wiki)
 
 ## Development
 
-See [changelog](https://github.com/FObersteiner/zdt/blob/master/docs/change.log).
+See [changelog](https://github.com/FObersteiner/zdt/blob/master/change.log).
 
 ## Zig version
 
-This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2024-09-15, Zig-0.13 stable or higher should work.
+This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2024-09-20, Zig-0.13 stable or higher should work.
 
 ## IANA timezone database version
 
-- `zdt v0.2.2`: `2024b`
-- `zdt v0.2.1` and older: `2024a`
+- `v0.2.2+` (current): `2024b`
+- `>= v0.2.1`: `2024a`
 
 ## Dependencies, Development and Time zone database
 

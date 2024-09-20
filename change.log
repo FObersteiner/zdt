@@ -1,10 +1,12 @@
 # CHANGELOG
 
-## 2024-xx-xx, v0.2.4
+## 2024-09-20, v0.3.0
 
-- add strftime/strptime methods to Datetime struct
-- strftime: correctly handle naive datetime with 'i', 'z' and 'Z' directives
-- add method 'tzDeinit()' for datetime instance that frees memory allocated for a timezone - required for nowLocal with timezone
+- breaking changes!: major API revision, mainly string input/output
+  - Datetime now has `toString` and `fromString`, as well as `fromISO8601` as a shortcut for ISO8601-compatible input
+  - string.zig and calendar.zig aren't exported anymore (stringIO.zig is now string.zig), to keep the API concise
+- `toString`: correctly handle naive datetime with 'i', 'z' and 'Z' directives
+- add method `tzDeinit()` for datetime instance that frees memory allocated for a timezone - required for nowLocal with timezone
 
 
 ## 2024-09-15, v0.2.3
