@@ -1,4 +1,5 @@
 <!-- -*- coding: utf-8 -*- -->
+
 [![Zig](https://img.shields.io/badge/-Zig-F7A41D?style=flat&logo=zig&logoColor=white)](https://ziglang.org/) ⚡ [![tests](https://github.com/FObersteiner/zdt/actions/workflows/zdt-tests.yml/badge.svg)](https://github.com/FObersteiner/zdt/actions/workflows/zdt-tests.yml)  [![GitHub Release](https://img.shields.io/github/v/release/FObersteiner/zdt)](https://github.com/FObersteiner/zdt/releases)  [![tzdata](https://img.shields.io/badge/tzdata-2024b-blue)](https://www.iana.org/time-zones)  [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://github.com/FObersteiner/zdt/blob/master/LICENSE)
 
 # zdt
@@ -60,11 +61,11 @@ zig build examples && ./zig-out/bin/ex_datetime
 
 ## Documentation
 
-- [see the Wiki](https://github.com/FObersteiner/zdt/wiki)
+See [Wiki](https://github.com/FObersteiner/zdt/wiki)
 
 ## Development
 
-See [changelog](https://github.com/FObersteiner/zdt/blob/master/change.log).
+See [changelog](https://github.com/FObersteiner/zdt/blob/master/change.log)
 
 ## Zig version
 
