@@ -21,7 +21,7 @@ __name_data_len: usize = 0,
 
 // time zone rule sources:
 tzFile: ?tzif.Tz = null, // a IANA db file with transitions list etc.
-tzPosix: ?bool = null, // TODO : implement // POSIX TZ string with rule
+// tzPosix: ?bool = null,
 tzOffset: ?UTCoffset = null,
 
 /// auto-generated string of the current eggert/tz version
@@ -80,7 +80,7 @@ pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!
         const tzif_tz = tzif.Tz.parse(allocator, in_stream.reader()) catch
             return TzError.TZifUnreadable;
         // ensure that there is a footer: requires v2+ TZif files.
-        _ = tzif_tz.footer orelse return TzError.BadTZifVersion; // TODO : handle posix tz
+        _ = tzif_tz.footer orelse return TzError.BadTZifVersion;
         var tz = Timezone{ .tzFile = tzif_tz };
         tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
         @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
@@ -100,8 +100,7 @@ pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator)
     var in_stream = std.io.fixedBufferStream(data);
     const tzif_tz = try tzif.Tz.parse(allocator, in_stream.reader());
     // ensure that there is a footer: requires v2+ TZif files.
-    _ = tzif_tz.footer orelse return TzError.BadTZifVersion; // TODO : handle posix tz
-
+    _ = tzif_tz.footer orelse return TzError.BadTZifVersion;
     var tz = Timezone{ .tzFile = tzif_tz };
     tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
     @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
@@ -127,7 +126,7 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
         return TzError.TZifUnreadable;
 
     // ensure that there is a footer: requires v2+ TZif files.
-    _ = tzif_tz.footer orelse return TzError.BadTZifVersion; // TODO : handle posix tz
+    _ = tzif_tz.footer orelse return TzError.BadTZifVersion;
 
     var tz = Timezone{ .tzFile = tzif_tz };
     // default: use identifier as name
@@ -179,7 +178,7 @@ pub fn deinit(tz: *Timezone) void {
         tz.tzFile.?.deinit(); // free memory allocated for the data from the tzfile
         tz.tzFile = null;
     }
-    tz.tzPosix = null;
+    // tz.tzPosix = null;
     tz.tzOffset = null;
     tz.__name_data = std.mem.zeroes([cap_name_data]u8);
     tz.__name_data_len = 0;
@@ -212,7 +211,7 @@ pub fn tzLocal(allocator: std.mem.Allocator) TzError!Timezone {
 /// Priority for offset determination is tzfile > POSIX TZ > fixed offset.
 /// tzFile and tzPosix set tzOffset if possible.
 pub fn atUnixtime(tz: Timezone, unixtime: i64) TzError!UTCoffset {
-    if (tz.tzFile == null and tz.tzPosix == null and tz.tzOffset == null) {
+    if (tz.tzFile == null and tz.tzOffset == null) { // and tz.tzPosix == null
         return TzError.AllTZRulesUndefined;
     }
 
@@ -238,9 +237,9 @@ pub fn atUnixtime(tz: Timezone, unixtime: i64) TzError!UTCoffset {
         };
     }
 
-    if (tz.tzPosix != null) {
-        return TzError.NotImplemented; // TODO : handle posix tz
-    }
+    // if (tz.tzPosix != null) {
+    //     return TzError.NotImplemented;
+    // }
 
     // if we already have an offset here but no tzFile or tzPosix, there's nothing more we can do.
     if (tz.tzOffset) |offset| {
