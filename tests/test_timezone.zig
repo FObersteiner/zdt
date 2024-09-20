@@ -16,6 +16,11 @@ test "utc" {
     try testing.expect(utc.tzOffset.?.seconds_east == 0);
     try testing.expectEqualStrings(utc.name(), "UTC");
     try testing.expectEqualStrings(utc.abbreviation(), "Z");
+    var utc_now = Datetime.nowUTC();
+    try testing.expectEqualStrings(@constCast(&utc_now.tzinfo.?).name(), "UTC");
+    try testing.expectEqualStrings(@constCast(&utc_now.tzinfo.?).abbreviation(), "Z");
+    try testing.expectEqualStrings(utc_now.tzName(), "UTC");
+    try testing.expectEqualStrings(utc_now.tzAbbreviation(), "Z");
 }
 
 test "offset tz never changes offset" {
@@ -117,8 +122,10 @@ test "invalid tzfile name" {
 }
 
 test "local tz" {
-    var now = try Datetime.nowLocal(testing.allocator);
-    defer now.tzDeinit();
+    var tzinfo = try Tz.tzLocal(testing.allocator);
+    defer tzinfo.deinit();
+    var now = try Datetime.now(tzinfo);
+
     try testing.expect(now.tzinfo != null);
     try testing.expect(!std.mem.eql(u8, now.tzinfo.?.name(), ""));
     try testing.expect(!std.mem.eql(u8, now.tzinfo.?.abbreviation(), ""));
@@ -233,11 +240,11 @@ test "tz name and abbr correct after localize" {
     var tz_ny = try Tz.fromTzfile("America/New_York", testing.allocator);
     defer _ = tz_ny.deinit();
 
-    var now_local: Datetime = Datetime.now(tz_ny);
+    var now_local: Datetime = try Datetime.now(tz_ny);
     try testing.expectEqualStrings("America/New_York", now_local.tzinfo.?.name());
     try testing.expect(now_local.tzinfo.?.abbreviation().len > 0);
 
-    now_local = Datetime.now(null);
+    now_local = try Datetime.now(null);
     now_local = try now_local.tzLocalize(tz_ny);
     try testing.expectEqualStrings("America/New_York", now_local.tzinfo.?.name());
     try testing.expect(now_local.tzinfo.?.abbreviation().len > 0);

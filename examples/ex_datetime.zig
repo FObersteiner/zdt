@@ -27,7 +27,7 @@ pub fn main() !void {
 
     println("", .{});
     println("---> (usage) Now: datetime from system time", .{});
-    const now = Datetime.now(Tz.UTC);
+    const now = Datetime.nowUTC();
     println("'now', UTC      : {s}", .{now});
     println("'now', UTC      : {s:.3} (only ms shown)", .{now});
     const now_s = try now.floorTo(Duration.Timespan.second);

@@ -6,7 +6,9 @@
   - Datetime now has `toString` and `fromString`, as well as `fromISO8601` as a shortcut for ISO8601-compatible input
   - string.zig and calendar.zig aren't exported anymore (stringIO.zig is now string.zig), to keep the API concise
 - `toString`: correctly handle naive datetime with 'i', 'z' and 'Z' directives
-- add method `tzDeinit()` for datetime instance that frees memory allocated for a timezone - required for nowLocal with timezone
+- remove method `nowLocal` from Datetime; this can be achieved with `now` plus `Timezone.tzLocal`
+- added method `nowUTC` to Datetime that returns UTC (aware datetime) without needing a timezone argument and returns no error
+- change `now` to return an error union, in case loading the timezone causes an error
 
 
 ## 2024-09-15, v0.2.3

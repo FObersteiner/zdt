@@ -25,8 +25,8 @@ pub fn main() !void {
 
     var tz_berlin: Tz = try Tz.fromTzdata("Europe/Berlin", allocator);
     defer tz_berlin.deinit();
-    var now_berlin: Datetime = Datetime.now(tz_berlin);
-    const now_utc: Datetime = Datetime.now(Tz.UTC);
+    var now_berlin: Datetime = try Datetime.now(tz_berlin);
+    const now_utc: Datetime = Datetime.nowUTC();
     println("Now, UTC time    : {s}", .{now_utc});
     println("Now, Berlin time : {s} ({s})", .{ now_berlin, now_berlin.tzinfo.?.abbreviation() });
     println("Datetimes have timezone? {}, {}\n", .{ now_utc.isAware(), now_berlin.isAware() });

@@ -15,19 +15,19 @@ pub fn main() !void {
     }
     println("", .{});
 
-    const now = zdt.Datetime.now(zdt.Timezone.UTC);
-    println("now, UTC : {s}", .{now});
-    const past_midnight = try now.floorTo(zdt.Duration.Timespan.day);
+    const now_utc = zdt.Datetime.nowUTC();
+    println("now, UTC : {s}", .{now_utc});
+    const past_midnight = try now_utc.floorTo(zdt.Duration.Timespan.day);
     println(
         "{d:.3} seconds have passed since midnight ({s})\n",
-        .{ now.diff(past_midnight).totalSeconds(), past_midnight },
+        .{ now_utc.diff(past_midnight).totalSeconds(), past_midnight },
     );
 
-    const tomorrow = try now.add(zdt.Duration.fromTimespanMultiple(1, zdt.Duration.Timespan.day));
+    const tomorrow = try now_utc.add(zdt.Duration.fromTimespanMultiple(1, zdt.Duration.Timespan.day));
     println("tomorrow, same time : {s}", .{tomorrow});
-    println("tomorrow, same time, is {d} seconds away from now\n", .{tomorrow.diff(now).asSeconds()});
+    println("tomorrow, same time, is {d} seconds away from now\n", .{tomorrow.diff(now_utc).asSeconds()});
 
-    const two_weeks_ago = try now.sub(zdt.Duration.fromTimespanMultiple(2, zdt.Duration.Timespan.week));
+    const two_weeks_ago = try now_utc.sub(zdt.Duration.fromTimespanMultiple(2, zdt.Duration.Timespan.week));
     println("two weeks ago : {s}", .{two_weeks_ago});
 }
 

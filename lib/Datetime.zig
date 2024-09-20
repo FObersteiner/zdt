@@ -351,11 +351,6 @@ pub fn tzConvert(dt: Datetime, new_tz: Timezone) ZdtError!Datetime {
     );
 }
 
-/// Wrapper to deinit the timezone of a datetime
-pub fn tzDeinit(dt: *Datetime) void {
-    if (dt.isAware()) (&dt.tzinfo.?).deinit();
-}
-
 /// Floor a datetime to a certain timespan. Creates a new datetime instance.
 pub fn floorTo(dt: Datetime, timespan: Duration.Timespan) !Datetime {
     // any other timespan than second can lead to ambiguous or non-existent
@@ -400,18 +395,15 @@ pub fn floorTo(dt: Datetime, timespan: Duration.Timespan) !Datetime {
 
 /// The current time with nanosecond resolution.
 /// If 'null' is supplied as tzinfo, naive datetime resembling UTC is returned.
-pub fn now(tzinfo: ?Timezone) Datetime {
+pub fn now(tzinfo: ?Timezone) ZdtError!Datetime {
     const t = std.time.nanoTimestamp();
-    return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, tzinfo) catch Datetime{};
+    return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, tzinfo);
 }
 
-/// Try to obtain datetime in the local time zone.
-/// Requires allocator for the time zone object; must be de-initialized by the caller.
-/// User the 'tzDeinit()' method of the datetime to do so.
-pub fn nowLocal(allocator: std.mem.Allocator) !Datetime {
-    const tz = try Timezone.tzLocal(allocator);
+/// Current UTC time is fail-safe since it contains a pre-defined time zone.
+pub fn nowUTC() Datetime {
     const t = std.time.nanoTimestamp();
-    return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, tz);
+    return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, Timezone.UTC) catch unreachable;
 }
 
 /// Compare two instances with respect to their Unix time.
@@ -556,21 +548,6 @@ pub fn weekOfYearMon(dt: Datetime) u8 {
     return @truncate(@divFloor((doy + 7 - if (dow > 0) dow - 1 else 6), 7));
 }
 
-/// Parse a datetime from a string
-pub fn fromString(dt_string: []const u8, comptime fmt: []const u8) !Datetime {
-    return str.parseToDatetime(fmt, dt_string);
-}
-
-/// Parse a datetime from a string
-pub fn fromISO8601(dt_string: []const u8) !Datetime {
-    return str.parseISO8601(dt_string);
-}
-
-/// Format a datetime into a string
-pub fn toString(dt: Datetime, fmt: []const u8, writer: anytype) !void {
-    return str.formatToString(writer, fmt, dt);
-}
-
 /// Calculate the ISO week of the year and generate ISOCalendar.
 /// Algorithm from <https://en.wikipedia.org/wiki/ISO_week_date>.
 pub fn toISOCalendar(dt: Datetime) ISOCalendar {
@@ -591,8 +568,29 @@ pub fn toISOCalendar(dt: Datetime) ISOCalendar {
     return isocal;
 }
 
+/// Parse a datetime from a string
+pub fn fromString(dt_string: []const u8, comptime fmt: []const u8) !Datetime {
+    return str.parseToDatetime(fmt, dt_string);
+}
+
+/// Parse a datetime from a string
+pub fn fromISO8601(dt_string: []const u8) !Datetime {
+    return str.parseISO8601(dt_string);
+}
+
+/// Format a datetime into a string
+pub fn toString(dt: Datetime, fmt: []const u8, writer: anytype) !void {
+    return str.formatToString(writer, fmt, dt);
+}
+
+pub fn tzName(dt: *Datetime) []const u8 {
+    return @constCast(&dt.tzinfo.?).name();
+}
+pub fn tzAbbreviation(dt: *Datetime) []const u8 {
+    return @constCast(&dt.tzinfo.?).abbreviation();
+}
+
 /// Formatted printing for UTC offset
-// TODO : does this need to be pub ?
 pub fn formatOffset(dt: Datetime, writer: anytype) !void {
     // if the tzinfo or tzOffset is null, we cannot do anything:
     if (dt.isNaive()) return;
