@@ -19,10 +19,12 @@ const cap_name_data: usize = 32;
 __name_data: [cap_name_data]u8 = std.mem.zeroes([cap_name_data]u8),
 __name_data_len: usize = 0,
 
-// time zone rule sources:
-tzFile: ?tzif.Tz = null, // a IANA db file with transitions list etc.
-// tzPosix: ?bool = null,
+// --- time zone rule sources ---
+// IANA tzdata file:
+tzFile: ?tzif.Tz = null,
+// pure offset from UTC:
 tzOffset: ?UTCoffset = null,
+// ---
 
 /// auto-generated string of the current eggert/tz version
 pub const tzdb_version = tzvers.tzdb_version;
@@ -38,17 +40,21 @@ const comptime_tzdb_prefix = "./tzdata/zoneinfo/"; // IANA db as provided by the
 /// RFC8536, sect. 3.2, TZif data block.
 pub const UTC_off_range = [2]i32{ -89999, 93599 };
 
-/// offset from UTC, in seconds East of Greenwich
+/// offset from UTC, in seconds East of Greenwich.
+/// this type can be used for any datetime, given a time zone rule.
 pub const UTCoffset = struct {
     seconds_east: i32 = 0,
     is_dst: bool = false,
     __abbrev_data: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 },
-    __transition_index: i32 = -1, // TZif transitions index. -1 means invalid
+    __transition_index: i32 = -1, // TZif transitions index. < 0 means invalid
 };
 
-/// Create the UTC "time zone"
+/// UTC is constant
 pub const UTC = Timezone{
-    .tzOffset = UTCoffset{ .seconds_east = 0, .__abbrev_data = [6:0]u8{ 90, 0, 0, 0, 0, 0 } },
+    .tzOffset = UTCoffset{
+        .seconds_east = 0,
+        .__abbrev_data = [6:0]u8{ 90, 0, 0, 0, 0, 0 },
+    },
     .__name_data_len = 3,
     .__name_data = [3]u8{ 85, 84, 67 } ++ std.mem.zeroes([cap_name_data - 3]u8),
 };
@@ -57,7 +63,7 @@ pub const UTC = Timezone{
 pub fn name(tz: *Timezone) []const u8 {
     // 'tz' must be a pointer to TZ, otherwise returned slice would point to an out-of-scope
     // copy of the TZ instance. See also <https://ziggit.dev/t/pointers-to-temporary-memory/>
-    return tz.__name_data[0..tz.__name_data_len];
+    return std.mem.sliceTo(tz.__name_data[0..], 0);
 }
 
 /// Time zone abbreviation, such as "CET" for Central European Time in Europe/Berlin, winter.
