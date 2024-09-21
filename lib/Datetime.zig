@@ -21,7 +21,7 @@ hour: u8 = 0, // [0, 23]
 minute: u8 = 0, // [0, 59]
 second: u8 = 0, // [0, 60]
 nanosecond: u32 = 0, // [0, 999999999]
-tzinfo: ?Timezone = null,
+tzinfo: ?*Timezone = null,
 dst_fold: ?u1 = null, // DST fold position; 0 = early side, 1 = late side
 
 // Internal field.
@@ -33,7 +33,7 @@ pub const min_year: u16 = 1; // r.d.; 0001-01-01
 pub const max_year: u16 = 9999;
 pub const unix_s_min: i64 = -62135596800;
 pub const unix_s_max: i64 = 253402300799;
-pub const epoch = Datetime{ .year = 1970, .__unix = 0, .tzinfo = Timezone.UTC };
+pub const epoch = Datetime{ .year = 1970, .__unix = 0, .tzinfo = &Timezone.UTC };
 pub const century: u16 = 2000;
 
 const s_per_minute: u8 = 60;
@@ -113,7 +113,7 @@ pub const Fields = struct {
     minute: u8 = 0, // [0, 59]
     second: u8 = 0, // [0, 60]
     nanosecond: u32 = 0, // [0, 999999999]
-    tzinfo: ?Timezone = null,
+    tzinfo: ?*Timezone = null,
     dst_fold: ?u1 = null, // DST fold position; 0 = early side, 1 = late side
 
     pub fn validate(fields: Fields) ZdtError!void {
@@ -250,7 +250,7 @@ fn __equalFields(this: Datetime, other: Datetime) bool {
 }
 
 /// Construct a datetime from Unix time with a specific precision (time unit)
-pub fn fromUnix(quantity: i128, resolution: Duration.Resolution, tzinfo: ?Timezone) ZdtError!Datetime {
+pub fn fromUnix(quantity: i128, resolution: Duration.Resolution, tzinfo: ?*Timezone) ZdtError!Datetime {
     if (quantity > @as(i128, unix_s_max) * @intFromEnum(resolution) or
         quantity < @as(i128, unix_s_min) * @intFromEnum(resolution))
     {
@@ -327,7 +327,7 @@ pub fn isNaive(dt: Datetime) bool {
 /// Make a datetime local to a given time zone.
 ///
 /// 'null' can be supplied to make an aware datetime naive.
-pub fn tzLocalize(dt: Datetime, tzinfo: ?Timezone) ZdtError!Datetime {
+pub fn tzLocalize(dt: Datetime, tzinfo: ?*Timezone) ZdtError!Datetime {
     return Datetime.fromFields(.{
         .year = dt.year,
         .month = dt.month,
@@ -342,12 +342,12 @@ pub fn tzLocalize(dt: Datetime, tzinfo: ?Timezone) ZdtError!Datetime {
 
 /// Convert datetime to another time zone. The datetime must be aware;
 /// can only convert to another time zone if initial time zone is defined
-pub fn tzConvert(dt: Datetime, new_tz: Timezone) ZdtError!Datetime {
+pub fn tzConvert(dt: Datetime, new_tz: *Timezone) ZdtError!Datetime {
     if (dt.isNaive()) return ZdtError.TzUndefined;
     return Datetime.fromUnix(
         @as(i128, dt.__unix) * ns_per_s + dt.nanosecond,
         Duration.Resolution.nanosecond,
-        new_tz,
+        &new_tz,
     );
 }
 
@@ -395,7 +395,7 @@ pub fn floorTo(dt: Datetime, timespan: Duration.Timespan) !Datetime {
 
 /// The current time with nanosecond resolution.
 /// If 'null' is supplied as tzinfo, naive datetime resembling UTC is returned.
-pub fn now(tzinfo: ?Timezone) ZdtError!Datetime {
+pub fn now(tzinfo: ?*Timezone) ZdtError!Datetime {
     const t = std.time.nanoTimestamp();
     return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, tzinfo);
 }
@@ -403,7 +403,7 @@ pub fn now(tzinfo: ?Timezone) ZdtError!Datetime {
 /// Current UTC time is fail-safe since it contains a pre-defined time zone.
 pub fn nowUTC() Datetime {
     const t = std.time.nanoTimestamp();
-    return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, Timezone.UTC) catch unreachable;
+    return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, &Timezone.UTC) catch unreachable;
 }
 
 /// Compare two instances with respect to their Unix time.
