@@ -5,9 +5,11 @@ const log = std.log.scoped(.zdt__Datetime);
 
 const cal = @import("./calendar.zig");
 const str = @import("./string.zig");
+const tzif = @import("./tzif.zig");
+
 const Duration = @import("./Duration.zig");
 const Timezone = @import("./Timezone.zig");
-const tzif = @import("./tzif.zig");
+
 const RangeError = @import("./errors.zig").RangeError;
 const TzError = @import("./errors.zig").TzError;
 const ZdtError = @import("./errors.zig").ZdtError;
@@ -473,6 +475,11 @@ pub fn dayOfYear(dt: Datetime) u16 {
     return cal.dayOfYear(dt.year, dt.month, dt.day);
 }
 
+/// Number of ISO weeks per year, same as weeksPerYear but taking a datetime instance
+pub fn weeksInYear(dt: Datetime) u8 {
+    return cal.weeksPerYear(dt.year);
+}
+
 /// Day of the week as an enum value; Sun as first day of the week
 pub fn weekday(dt: Datetime) Weekday {
     return std.meta.intToEnum(Weekday, dt.weekdayNumber()) catch unreachable;
@@ -554,7 +561,7 @@ pub fn toISOCalendar(dt: Datetime) ISOCalendar {
     const doy: u16 = dt.dayOfYear();
     const dow: u16 = @as(u16, dt.weekdayIsoNumber());
     const w: u16 = @divFloor(10 + doy - dow, 7);
-    const weeks: u8 = cal.weeksPerYear(dt.year);
+    const weeks: u8 = dt.weeksInYear();
     var isocal = ISOCalendar{ .year = dt.year, .isoweek = 0, .isoweekday = @truncate(dow) };
     if (w > weeks) {
         isocal.isoweek = 1;
@@ -568,19 +575,19 @@ pub fn toISOCalendar(dt: Datetime) ISOCalendar {
     return isocal;
 }
 
-/// Parse a datetime from a string
+/// Parse a string to a datetime, given a comptime-known format
 pub fn fromString(dt_string: []const u8, comptime fmt: []const u8) !Datetime {
-    return str.parseToDatetime(fmt, dt_string);
+    return str.parseToDatetime(dt_string, fmt);
 }
 
-/// Parse a datetime from a string
+/// Make a datetime from a string with an ISO8601-compatibel format
 pub fn fromISO8601(dt_string: []const u8) !Datetime {
     return str.parseISO8601(dt_string);
 }
 
 /// Format a datetime into a string
 pub fn toString(dt: Datetime, fmt: []const u8, writer: anytype) !void {
-    return str.formatToString(writer, fmt, dt);
+    return str.formatToString(dt, fmt, writer);
 }
 
 pub fn tzName(dt: *Datetime) []const u8 {
@@ -600,7 +607,6 @@ pub fn formatOffset(dt: Datetime, writer: anytype) !void {
     // a fixed offset (calculated from tzfile etc.). It should not be necessary to
     // make the calculation here:
     const off = dt.tzinfo.?.tzOffset.?.seconds_east;
-
     const absoff: u32 = if (off < 0) @intCast(off * -1) else @intCast(off);
     const sign = if (off < 0) "-" else "+";
     const hours = absoff / 3600;
@@ -629,9 +635,7 @@ pub fn format(
     );
 
     if (options.precision) |p| switch (p) {
-        3 => {
-            try writer.print(".{d:0>3}", .{dt.nanosecond / 1_000_000});
-        },
+        3 => try writer.print(".{d:0>3}", .{dt.nanosecond / 1_000_000}),
         6 => try writer.print(".{d:0>6}", .{dt.nanosecond / 1_000}),
         9 => try writer.print(".{d:0>9}", .{dt.nanosecond}),
         else => if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond}),

@@ -1,4 +1,5 @@
 //! test timezone from a users's perspective (no internal functionality)
+
 const builtin = @import("builtin");
 const std = @import("std");
 const testing = std.testing;
@@ -61,7 +62,7 @@ test "offset manifests in Unix time" {
 test "mem error" {
     const allocator = testing.failing_allocator;
     const err = Tz.fromTzfile("UTC", allocator);
-    try testing.expectError(error.OutOfMemory, err);
+    try testing.expectError(ZdtError.TZifUnreadable, err);
 }
 
 test "tzfile tz manifests in Unix time" {

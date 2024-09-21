@@ -1,6 +1,15 @@
 //! errors
 
-pub const ZdtError = RangeError || TzError || WinTzError;
+pub const ZdtError = FormatError || RangeError || TzError || WinTzError;
+
+pub const FormatError = error{
+    InvalidFormat,
+    InvalidDirective,
+    InvalidFraction,
+    ParseIntError,
+    WriterError,
+    OutOfMemory,
+};
 
 pub const RangeError = error{
     YearOutOfRange,

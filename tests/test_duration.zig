@@ -1,4 +1,5 @@
 //! test duration from a users's perspective (no internal functionality)
+
 const std = @import("std");
 const testing = std.testing;
 

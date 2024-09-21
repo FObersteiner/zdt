@@ -49,7 +49,7 @@ pub const UTCoffset = struct {
     __transition_index: i32 = -1, // TZif transitions index. < 0 means invalid
 };
 
-/// UTC is constant
+/// UTC is constant. Presumably.
 pub const UTC = Timezone{
     .tzOffset = UTCoffset{
         .seconds_east = 0,
@@ -100,11 +100,12 @@ pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!
 /// via the tzdb_prefix option in the build.zig.
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned TZ instance.
-pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator) !Timezone {
+pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     const data = @embedFile(comptime_tzdb_prefix ++ identifier);
     var in_stream = std.io.fixedBufferStream(data);
-    const tzif_tz = try tzif.Tz.parse(allocator, in_stream.reader());
+    const tzif_tz = tzif.Tz.parse(allocator, in_stream.reader()) catch
+        return TzError.TZifUnreadable;
     // ensure that there is a footer: requires v2+ TZif files.
     _ = tzif_tz.footer orelse return TzError.BadTZifVersion;
     var tz = Timezone{ .tzFile = tzif_tz };
