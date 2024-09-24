@@ -1,4 +1,4 @@
-//! a set of rules to describe date and time somewhere on earth, relative to universal time (UTC)
+//! A set of rules to describe date and time somewhere on earth, relative to universal time (UTC).
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -19,10 +19,12 @@ const cap_name_data: usize = 32;
 __name_data: [cap_name_data]u8 = std.mem.zeroes([cap_name_data]u8),
 __name_data_len: usize = 0,
 
-// time zone rule sources:
-tzFile: ?tzif.Tz = null, // a IANA db file with transitions list etc.
-// tzPosix: ?bool = null,
+// --- time zone rule sources ---
+// IANA tzdata file:
+tzFile: ?tzif.Tz = null,
+// pure offset from UTC:
 tzOffset: ?UTCoffset = null,
+// ---
 
 /// auto-generated string of the current eggert/tz version
 pub const tzdb_version = tzvers.tzdb_version;
@@ -38,26 +40,30 @@ const comptime_tzdb_prefix = "./tzdata/zoneinfo/"; // IANA db as provided by the
 /// RFC8536, sect. 3.2, TZif data block.
 pub const UTC_off_range = [2]i32{ -89999, 93599 };
 
-/// offset from UTC, in seconds East of Greenwich
+/// Offset from UTC, in seconds East of Greenwich.
+/// This type can be used for any datetime, given a time zone rule.
 pub const UTCoffset = struct {
     seconds_east: i32 = 0,
     is_dst: bool = false,
     __abbrev_data: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 },
-    __transition_index: i32 = -1, // TZif transitions index. -1 means invalid
+    __transition_index: i32 = -1, // TZif transitions index. < 0 means invalid
 };
 
-/// Create the UTC "time zone"
+/// UTC is constant. Presumably.
 pub const UTC = Timezone{
-    .tzOffset = UTCoffset{ .seconds_east = 0, .__abbrev_data = [6:0]u8{ 90, 0, 0, 0, 0, 0 } },
+    .tzOffset = UTCoffset{
+        .seconds_east = 0,
+        .__abbrev_data = [6:0]u8{ 90, 0, 0, 0, 0, 0 },
+    },
     .__name_data_len = 3,
     .__name_data = [3]u8{ 85, 84, 67 } ++ std.mem.zeroes([cap_name_data - 3]u8),
 };
 
-/// A time zone's name (identifier)
+/// A time zone's name (identifier).
 pub fn name(tz: *Timezone) []const u8 {
     // 'tz' must be a pointer to TZ, otherwise returned slice would point to an out-of-scope
     // copy of the TZ instance. See also <https://ziggit.dev/t/pointers-to-temporary-memory/>
-    return tz.__name_data[0..tz.__name_data_len];
+    return std.mem.sliceTo(tz.__name_data[0..], 0);
 }
 
 /// Time zone abbreviation, such as "CET" for Central European Time in Europe/Berlin, winter.
@@ -94,11 +100,12 @@ pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!
 /// via the tzdb_prefix option in the build.zig.
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned TZ instance.
-pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator) !Timezone {
+pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     const data = @embedFile(comptime_tzdb_prefix ++ identifier);
     var in_stream = std.io.fixedBufferStream(data);
-    const tzif_tz = try tzif.Tz.parse(allocator, in_stream.reader());
+    const tzif_tz = tzif.Tz.parse(allocator, in_stream.reader()) catch
+        return TzError.TZifUnreadable;
     // ensure that there is a footer: requires v2+ TZif files.
     _ = tzif_tz.footer orelse return TzError.BadTZifVersion;
     var tz = Timezone{ .tzFile = tzif_tz };
@@ -172,7 +179,7 @@ pub fn fromOffset(offset_sec_East: i32, identifier: []const u8) TzError!Timezone
     };
 }
 
-/// Clear a TZ instance and free potentially used memory (tzFile)
+/// Clear a TZ instance and free potentially used memory (tzFile).
 pub fn deinit(tz: *Timezone) void {
     if (tz.tzFile != null) {
         tz.tzFile.?.deinit(); // free memory allocated for the data from the tzfile
@@ -184,9 +191,9 @@ pub fn deinit(tz: *Timezone) void {
     tz.__name_data_len = 0;
 }
 
-/// Try to obtain the system's local time zone
+/// Try to obtain the system's local time zone.
 ///
-/// Note, Windows OS: Windows does not use the IANA time zone database;
+/// Note: Windows does not use the IANA time zone database;
 /// a mapping from Windows db to IANA db is prone to errors.
 /// Use with caution.
 pub fn tzLocal(allocator: std.mem.Allocator) TzError!Timezone {
@@ -302,7 +309,7 @@ fn findTransition(array: []const tzif.Transition, target: i64) i32 {
     return @as(i32, @intCast(left - 1));
 }
 
-/// time zone identifiers must only contain alpha-numeric characters
+/// Time zone identifiers must only contain alpha-numeric characters
 /// as well as '+', '-', '_' and '/' (path separator).
 pub fn identifierValid(idf: []const u8) bool {
     for (idf, 0..) |c, i| {

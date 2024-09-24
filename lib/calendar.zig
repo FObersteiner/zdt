@@ -1,7 +1,7 @@
 //! calendric stuff
+
 const std = @import("std");
 const assert = std.debug.assert;
-const Datetime = @import("./Datetime.zig");
 
 pub const isLeapYear = std.time.epoch.isLeapYear;
 
@@ -54,14 +54,6 @@ fn firstday(y: i16) i16 {
 /// Number of ISO weeks per year
 pub fn weeksPerYear(y: u16) u8 {
     return if (firstday(@as(i16, @intCast(y))) == 4 or firstday(@as(i16, @intCast(y - 1))) == 3) 53 else 52;
-}
-
-/// Number of ISO weeks per year, same as weeksPerYear but taking a datetime instance
-pub fn weeksPerYear_(dt: Datetime) u8 {
-    const this_y = Datetime.fromFields(.{ .year = dt.year }) catch unreachable;
-    if (this_y.weekday() == Datetime.Weekday.Thursday) return 53;
-    if (isLeapYear(dt.year) and this_y.weekday() == Datetime.Weekday.Wednesday) return 53;
-    return 52;
 }
 
 /// Mapping of Unix time [s] to number of leap seconds n_leap; n_leap = array-index + 11;

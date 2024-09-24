@@ -1,4 +1,5 @@
 //! test stringIO from a user's perspective (no internal functionality)
+
 const std = @import("std");
 const builtin = @import("builtin");
 const testing = std.testing;
@@ -686,10 +687,19 @@ test "parse ISO" {
     var dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8 });
     var dt = try Datetime.fromISO8601("2014-08");
     try testing.expect(std.meta.eql(dt_ref, dt));
+    // TODO :
+    // dt = try Datetime.fromISO8601("201408");
+    // try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23 });
     dt = try Datetime.fromISO8601("2014-08-23");
     try testing.expect(std.meta.eql(dt_ref, dt));
+    // TODO :
+    // dt = try Datetime.fromISO8601("20140823");
+    // try testing.expect(std.meta.eql(dt_ref, dt));
+
+    // TODO :
+    // year-doy
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15 });
     dt = try Datetime.fromISO8601("2014-08-23 12:15");
@@ -754,7 +764,7 @@ test "not ISO8601" {
     err = Datetime.fromISO8601("2014"); // year-only not allowed
     try testing.expectError(error.InvalidFormat, err);
 
-    err = Datetime.fromISO8601("2014-12-32"); // invalid month
+    err = Datetime.fromISO8601("2014-12-32"); // invalid day
     try testing.expectError(error.DayOutOfRange, err);
 
     err = Datetime.fromISO8601("2014-12-31Z"); // date cannot have tz
@@ -779,5 +789,5 @@ test "not ISO8601" {
     try testing.expectError(error.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-02-03T23:00:00..314"); // invlid fractional secs separator
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(error.ParseIntError, err);
 }

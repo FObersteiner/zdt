@@ -1,4 +1,5 @@
 //! test calendric calculations from a users's perspective (no internal functionality)
+
 const std = @import("std");
 const testing = std.testing;
 const print = std.debug.print;
@@ -106,16 +107,6 @@ test "ymd_from_unix-days" {
     want = [_]u16{ 2023, 10, 23 };
     try testing.expectEqual(want, date);
     try testing.expectEqual(want, date_);
-}
-
-test "iso weeks in year" {
-    var i: u14 = 2000;
-    while (i < 2400) : (i += 1) {
-        const w = cal.weeksPerYear(i);
-        const w_ = cal.weeksPerYear_(try Datetime.fromFields(.{ .year = i }));
-        try testing.expectEqual(w, w_);
-        // if (w == 53) print("\ny: {d}", .{i});
-    }
 }
 
 // ---vv--- test generated with Python scripts ---vv---

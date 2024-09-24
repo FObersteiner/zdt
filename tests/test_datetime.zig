@@ -1,4 +1,5 @@
 //! test datetime from a users's perspective (no internal functionality)
+
 const std = @import("std");
 const testing = std.testing;
 
@@ -7,7 +8,7 @@ const Datetime = zdt.Datetime;
 const Duration = zdt.Duration;
 const Tz = zdt.Timezone;
 const ZdtError = zdt.ZdtError;
-const cal = zdt.calendar;
+const cal = @import("../lib/calendar.zig");
 
 const log = std.log.scoped(.test_datetime);
 
