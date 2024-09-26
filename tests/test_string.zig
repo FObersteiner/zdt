@@ -789,5 +789,5 @@ test "not ISO8601" {
     try testing.expectError(error.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-02-03T23:00:00..314"); // invlid fractional secs separator
-    try testing.expectError(error.ParseIntError, err);
+    try testing.expectError(error.InvalidFormat, err);
 }

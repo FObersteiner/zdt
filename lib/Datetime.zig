@@ -575,19 +575,20 @@ pub fn toISOCalendar(dt: Datetime) ISOCalendar {
     return isocal;
 }
 
-/// Parse a string to a datetime, given a comptime-known format
-pub fn fromString(dt_string: []const u8, comptime fmt: []const u8) !Datetime {
-    return str.parseToDatetime(dt_string, fmt);
+/// Parse a string to a datetime.
+pub fn fromString(string: []const u8, directives: []const u8) !Datetime {
+    return try str.tokenizeAndParse(string, directives);
 }
 
-/// Make a datetime from a string with an ISO8601-compatibel format
-pub fn fromISO8601(dt_string: []const u8) !Datetime {
-    return str.parseISO8601(dt_string);
+/// Make a datetime from a string with an ISO8601-compatibel format.
+pub fn fromISO8601(string: []const u8) !Datetime {
+    var idx: usize = 0; // assume datetime starts at beginning of string
+    return try Datetime.fromFields(try str.parseISO8601(string, &idx));
 }
 
 /// Format a datetime into a string
-pub fn toString(dt: Datetime, fmt: []const u8, writer: anytype) !void {
-    return str.formatToString(dt, fmt, writer);
+pub fn toString(dt: Datetime, directives: []const u8, writer: anytype) !void {
+    return try str.tokenizeAndPrint(&dt, directives, writer);
 }
 
 pub fn tzName(dt: *Datetime) []const u8 {
