@@ -55,7 +55,7 @@ test "format naive datetimes with format string api" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         var buf = std.ArrayList(u8).init(testing.allocator);
         defer buf.deinit();
         try Datetime.toString(case.dt, "%Y-%m-%d %H:%M:%S", buf.writer());
@@ -84,7 +84,7 @@ test "format with precision" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         var buf = std.ArrayList(u8).init(testing.allocator);
         defer buf.deinit();
         try case.dt.format("s", .{ .precision = case.prc }, buf.writer());
@@ -119,7 +119,7 @@ test "format datetime with literal characters in format string" {
         .directive = "%Y-%m-%d %H:%M:%S.%f",
     } };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         var buf = std.ArrayList(u8).init(testing.allocator);
         defer buf.deinit();
         try Datetime.toString(case.dt, case.directive, buf.writer());
@@ -289,7 +289,7 @@ test "format with 12 hour clock" {
         .{ .hour = 23, .expected = "11:00:00" },
     };
 
-    for (test_cases) |case| {
+    inline for (test_cases) |case| {
         const dt = try Datetime.fromFields(.{
             .year = 2024,
             .hour = case.hour,
@@ -318,7 +318,7 @@ test "format hour to am/pm" {
         .{ .hour = 23, .expected = "11 pm" },
     };
 
-    for (test_cases) |case| {
+    inline for (test_cases) |case| {
         const dt = try Datetime.fromFields(.{
             .year = 2024,
             .hour = case.hour,
@@ -360,7 +360,7 @@ test "format with 2-digit year plus different weeknum and weekday variants" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         var buf = std.ArrayList(u8).init(testing.allocator);
         try case.dt.toString("%y/%m %U %W %V %w %u %j", buf.writer());
         try testing.expectEqualStrings(case.string, buf.items);
@@ -382,7 +382,7 @@ test "comptime parse with comptime format string #1" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
     }
@@ -400,7 +400,7 @@ test "comptime parse with comptime format string #2" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
     }
@@ -426,7 +426,7 @@ test "comptime parse with comptime format string, am/pm and 12-hour input" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%d/%m/%Y, %I %p");
         try testing.expectEqual(case.dt, dt);
     }
@@ -467,7 +467,7 @@ test "comptime parse ISO " {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%T");
         try testing.expectEqual(case.dt, dt);
     }
@@ -513,7 +513,7 @@ test "comptime parse with fractional part" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%dT%H:%M:%S.%f");
         try testing.expectEqual(case.dt, dt);
     }
@@ -531,7 +531,7 @@ test "parse single digits" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
     }
@@ -562,7 +562,7 @@ test "parse with literal characters" {
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
         },
     };
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "datetime %Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
@@ -578,7 +578,7 @@ test "parse with literal characters" {
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
         },
     };
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H:%M:%S datetime");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
@@ -593,7 +593,7 @@ test "parse with literal characters" {
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
         },
     };
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %%%% %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
@@ -608,7 +608,7 @@ test "parse with literal characters" {
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
         },
     };
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%%%Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
@@ -623,7 +623,7 @@ test "parse with literal characters" {
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
         },
     };
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H%%%M%%%S");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
