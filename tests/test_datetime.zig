@@ -8,7 +8,6 @@ const Datetime = zdt.Datetime;
 const Duration = zdt.Duration;
 const Tz = zdt.Timezone;
 const ZdtError = zdt.ZdtError;
-const cal = @import("../lib/calendar.zig");
 
 const log = std.log.scoped(.test_datetime);
 
