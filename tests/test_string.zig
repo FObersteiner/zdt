@@ -108,7 +108,7 @@ test "format datetime with literal characters in format string" {
     }, .{
         .dt = try Datetime.fromFields(.{ .year = 2024, .month = 12, .day = 31 }),
         .string = "2024-12-31T00:00:00",
-        .directive = "%T",
+        .directive = "%+",
     }, .{
         .dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3 }),
         .string = "% 2023-12-09 % 01:02:03 %",
@@ -136,10 +136,19 @@ test "format with z" {
     const tzinfo = try Tz.fromOffset(3600, "");
     const dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
     try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z", buf.writer());
-    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", buf.items);
+    try testing.expectEqualStrings("2021-02-18T17:00:00+0100", buf.items);
     buf.clearAndFree();
     try dt.toString("%Y-%m-%dT%H:%M:%S%z", buf.writer());
+    try testing.expectEqualStrings("2021-02-18T17:00:00+0100", buf.items);
+    buf.clearAndFree();
+    try dt.toString("%Y-%m-%dT%H:%M:%S%:z", buf.writer());
     try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", buf.items);
+    buf.clearAndFree();
+    try dt.toString("%Y-%m-%dT%H:%M:%S%::z", buf.writer());
+    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00:00", buf.items);
+    buf.clearAndFree();
+    try dt.toString("%Y-%m-%dT%H:%M:%S%:::z", buf.writer());
+    try testing.expectEqualStrings("2021-02-18T17:00:00+01", buf.items);
 
     // 'z' has no effect on naive datetime:
     const dt_naive = try dt.tzLocalize(null);
@@ -158,7 +167,7 @@ test "format with z, full day off" {
     defer buf.deinit();
     const tzinfo = try Tz.fromOffset(-86400, "");
     const dt = try Datetime.fromFields(.{ .year = 1970, .month = 2, .day = 13, .hour = 12, .tzinfo = tzinfo });
-    const string = "1970-02-13T12:00:00-24:00";
+    const string = "1970-02-13T12:00:00-2400";
     const directive = "%Y-%m-%dT%H:%M:%S%z";
 
     try Datetime.toString(dt, directive, buf.writer());
@@ -173,7 +182,7 @@ test "format with z, strange directive" {
     defer buf.deinit();
     const tzinfo = try Tz.fromOffset(900, "");
     const dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3, .tzinfo = tzinfo });
-    const string = "% 2023-12-09 % 01:02:03 % +00:15";
+    const string = "% 2023-12-09 % 01:02:03 % +0015";
     const directive = "%% %Y-%m-%d %% %H:%M:%S %% %z";
     try Datetime.toString(dt, directive, buf.writer());
     try testing.expectEqualStrings(string, buf.items);
@@ -193,7 +202,7 @@ test "format with Z" {
 
     const tz_utc = Tz.UTC;
     dt = try dt.tzLocalize(tz_utc);
-    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z%Z", buf.writer());
+    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%:z%Z", buf.writer());
     try testing.expectEqualStrings("2023-12-09T01:02:03+00:00Z", buf.items);
 
     var tz_pacific = try Tz.fromTzfile("America/Los_Angeles", testing.allocator);
@@ -201,7 +210,7 @@ test "format with Z" {
     const dt_std = try dt.tzConvert(tz_pacific);
     var s_std = std.ArrayList(u8).init(testing.allocator);
     defer s_std.deinit();
-    const directive_us = "%Y-%m-%dT%H:%M:%S%z %Z (%i)";
+    const directive_us = "%Y-%m-%dT%H:%M:%S%:z %Z (%i)";
     const string_std = "2023-12-08T17:02:03-08:00 PST (America/Los_Angeles)";
     try Datetime.toString(dt_std, directive_us, s_std.writer());
     try testing.expectEqualStrings(string_std, s_std.items);
@@ -368,6 +377,42 @@ test "format with 2-digit year plus different weeknum and weekday variants" {
     }
 }
 
+test "format with 2-digit century" {
+    const cases = [_]TestCase{
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 1 }),
+            .string = "19",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1691, .month = 9, .day = 15 }),
+            .string = "16",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1624, .month = 9, .day = 19 }),
+            .string = "16",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 9, .day = 21 }),
+            .string = "20",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1101, .month = 9, .day = 22 }),
+            .string = "11",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 47, .month = 12, .day = 31 }),
+            .string = "00",
+        },
+    };
+
+    inline for (cases) |case| {
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        try case.dt.toString("%C", buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.deinit();
+    }
+}
+
 // ---- String to Datetime ----
 
 test "comptime parse with comptime format string #1" {
@@ -468,7 +513,7 @@ test "comptime parse ISO " {
     };
 
     inline for (cases) |case| {
-        const dt = try Datetime.fromString(case.string, "%T");
+        const dt = try Datetime.fromString(case.string, "%+");
         try testing.expectEqual(case.dt, dt);
     }
 }
@@ -673,9 +718,8 @@ test "string -> datetime -> string roundtrip with offset TZ" {
     var buf = std.ArrayList(u8).init(testing.allocator);
     defer buf.deinit();
     const string_in = "2023-12-09T01:02:03+09:15";
-    const directive = "%Y-%m-%dT%H:%M:%S%z";
-    const dt = try Datetime.fromString(string_in, directive);
-    try Datetime.toString(dt, directive, buf.writer());
+    const dt = try Datetime.fromString(string_in, "%Y-%m-%dT%H:%M:%S%z");
+    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%:z", buf.writer());
     try testing.expectEqualStrings(string_in, buf.items);
     // no name or abbreviation if it's only a UTC offset
     try testing.expectEqual(@as(usize, 0), dt.tzinfo.?.__name_data_len);

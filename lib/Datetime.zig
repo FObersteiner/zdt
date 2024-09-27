@@ -599,7 +599,11 @@ pub fn tzAbbreviation(dt: *Datetime) []const u8 {
 }
 
 /// Formatted printing for UTC offset
-pub fn formatOffset(dt: Datetime, writer: anytype) !void {
+pub fn formatOffset(
+    dt: Datetime,
+    options: std.fmt.FormatOptions,
+    writer: anytype,
+) !void {
     // if the tzinfo or tzOffset is null, we cannot do anything:
     if (dt.isNaive()) return;
     if (dt.tzinfo.?.tzOffset == null) return;
@@ -614,9 +618,17 @@ pub fn formatOffset(dt: Datetime, writer: anytype) !void {
     const minutes = (absoff % 3600) / 60;
     const seconds = (absoff % 3600) % 60;
 
-    try writer.print("{s}{d:0>2}:{d:0>2}", .{ sign, hours, minutes });
-    if (seconds > 0) {
-        try writer.print(":{d:0>2}", .{seconds});
+    // precision: 0 - hours, 1 - hours:minutes, 2 - hours:minutes:seconds
+    const precision = if (options.precision) |p| p else 1;
+
+    if (options.fill != 0) {
+        try writer.print("{s}{d:0>2}", .{ sign, hours });
+        if (precision > 0)
+            try writer.print("{u}{d:0>2}", .{ options.fill, minutes });
+        if (precision > 1)
+            try writer.print("{u}{d:0>2}", .{ options.fill, seconds });
+    } else {
+        try writer.print("{s}{d:0>2}{d:0>2}", .{ sign, hours, minutes });
     }
 }
 
@@ -642,7 +654,7 @@ pub fn format(
         else => if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond}),
     } else if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond});
 
-    if (dt.tzinfo != null) try dt.formatOffset(writer);
+    if (dt.tzinfo != null) try dt.formatOffset(.{ .fill = ':', .precision = 1 }, writer);
 }
 
 /// Surrounding timetypes at a given transition index. This index might be

@@ -191,14 +191,14 @@ test "format offset" {
     var dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
 
     var str = std.ArrayList(u8).init(testing.allocator);
-    try dt.formatOffset(str.writer());
+    try dt.formatOffset(.{ .fill = ':' }, str.writer());
     try testing.expectEqualStrings("+01:00", str.items);
     str.deinit();
 
     tzinfo = try Tz.fromOffset(3600 * 9 + 942, "");
     dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
     str = std.ArrayList(u8).init(testing.allocator);
-    try dt.formatOffset(str.writer());
+    try dt.formatOffset(.{ .fill = ':', .precision = 2 }, str.writer());
     try testing.expectEqualStrings("+09:15:42", str.items);
     str.deinit();
 }

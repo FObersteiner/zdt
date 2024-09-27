@@ -19,17 +19,20 @@ const TokenizerState = enum(u8) {
     Finalize,
 };
 
+const token_start: u8 = '%';
+const modifier: u8 = ':';
+
 /// Tokenize the parsing directives and parse the datetime string accordingly.
 pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
     var fmt_idx: usize = 0;
     var data_idx: usize = 0;
-    var modifier: bool = false;
     var am_pm_flags: u8 = 0; // bits; 0 - am, 1 - pm, 2 - found %I
     var fields = Datetime.Fields{};
 
+    // zig 0.14+ :
     tokenize: switch (TokenizerState.ExpectChar) {
         TokenizerState.ExpectChar => {
-            if (directives[fmt_idx] == '%') {
+            if (directives[fmt_idx] == token_start) {
                 fmt_idx += 1;
                 if (fmt_idx >= directives.len) return error.InvalidFormat;
                 continue :tokenize .ExpectDirectiveOrModifier;
@@ -37,13 +40,7 @@ pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
             continue :tokenize .ProcessChar;
         },
         TokenizerState.ExpectDirectiveOrModifier => {
-            if (directives[fmt_idx] == '+') { // special case #1: modifier
-                modifier = true;
-                fmt_idx += 1;
-                if (fmt_idx >= directives.len) continue :tokenize .Finalize;
-                continue :tokenize .ExpectDirectiveOrModifier;
-            }
-            if (directives[fmt_idx] == '%') { // special case #2: literal %
+            if (directives[fmt_idx] == token_start) { // special case: literal 'token_start'
                 continue :tokenize .ProcessChar;
             }
             continue :tokenize .ProcessDirective;
@@ -56,15 +53,12 @@ pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
             continue :tokenize .ExpectChar;
         },
         TokenizerState.ProcessDirective => {
-            try parseIntoFields(&fields, data, directives[fmt_idx], &data_idx, modifier, &am_pm_flags);
-            modifier = false;
+            try parseIntoFields(&fields, data, directives[fmt_idx], &data_idx, &am_pm_flags);
             fmt_idx += 1;
             if (fmt_idx >= directives.len) continue :tokenize .Finalize;
             continue :tokenize .ExpectChar;
         },
         TokenizerState.Finalize => {
-            // log.info("fmt: {d}, total {d}", .{ fmt_idx, directives.len });
-            // log.info("data: {d}, total {d}", .{ data_idx, data.len });
             if (fmt_idx != directives.len) return error.InvalidDirective;
             if (data_idx != data.len) return error.InvalidFormat;
             switch (am_pm_flags) {
@@ -83,11 +77,12 @@ pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
 /// Tokenize the formatting directives and print to the writer interface.
 pub fn tokenizeAndPrint(dt: *const Datetime, directives: []const u8, writer: anytype) !void {
     var fmt_idx: usize = 0;
-    var modifier: bool = false;
+    var mod: usize = 0;
 
+    // zig 0.14+ :
     tokenize: switch (TokenizerState.ExpectChar) {
         TokenizerState.ExpectChar => {
-            if (directives[fmt_idx] == '%') {
+            if (directives[fmt_idx] == token_start) {
                 fmt_idx += 1;
                 if (fmt_idx >= directives.len) return error.InvalidFormat;
                 continue :tokenize .ExpectDirectiveOrModifier;
@@ -95,8 +90,8 @@ pub fn tokenizeAndPrint(dt: *const Datetime, directives: []const u8, writer: any
             continue :tokenize .ProcessChar;
         },
         TokenizerState.ExpectDirectiveOrModifier => {
-            if (directives[fmt_idx] == '+') {
-                modifier = true;
+            if (directives[fmt_idx] == modifier) {
+                mod += 1;
                 fmt_idx += 1;
                 if (fmt_idx >= directives.len) continue :tokenize .Finalize;
                 continue :tokenize .ExpectDirectiveOrModifier;
@@ -110,8 +105,8 @@ pub fn tokenizeAndPrint(dt: *const Datetime, directives: []const u8, writer: any
             continue :tokenize .ExpectChar;
         },
         TokenizerState.ProcessDirective => {
-            try printIntoWriter(dt, directives[fmt_idx], modifier, writer);
-            modifier = false;
+            try printIntoWriter(dt, directives[fmt_idx], mod, writer);
+            mod = 0;
             fmt_idx += 1;
             if (fmt_idx >= directives.len) continue :tokenize .Finalize;
             continue :tokenize .ExpectChar;
@@ -129,10 +124,8 @@ fn parseIntoFields(
     string: []const u8,
     directive: u8,
     idx: *usize,
-    modifier: bool,
     am_pm_flags: *u8,
 ) !void {
-    _ = modifier;
     switch (directive) {
         'd' => fields.day = try parseDigits(u8, string, idx, 2),
         // 'a', // locale-specific, day name short
@@ -177,7 +170,7 @@ fn parseIntoFields(
         // 'U',
         // 'W',
         // 'V',
-        'T' => fields.* = try parseISO8601(string, idx),
+        '+' => fields.* = try parseISO8601(string, idx),
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
         // 'c', // locale-specific, datetime
@@ -189,7 +182,7 @@ fn parseIntoFields(
 fn printIntoWriter(
     dt: *const Datetime,
     directive: u8,
-    modifier: bool,
+    mod: usize,
     writer: anytype,
 ) !void {
     switch (directive) {
@@ -201,24 +194,24 @@ fn printIntoWriter(
         'B' => try writer.print("{s}", .{std.mem.sliceTo(getMonthName(dt.month - 1)[0..], 0)}), // locale-specific, month name
         'Y' => try writer.print("{d:0>4}", .{dt.year}),
         'y' => try writer.print("{d:0>2}", .{dt.year % 100}),
+        'C' => try writer.print("{d:0>2}", .{dt.year / 100}),
         'G' => try writer.print("{d:0>4}", .{dt.year}),
         'H' => try writer.print("{d:0>2}", .{dt.hour}),
-        'I' => {
-            if (modifier)
-                try writer.print("{d}", .{twelve_hour_format(dt.hour)})
-            else
-                try writer.print("{d:0>2}", .{twelve_hour_format(dt.hour)});
-        },
-        'p' => {
-            if (modifier)
-                try writer.print("{s}", .{if (dt.hour < 12) "AM" else "PM"})
-            else
-                try writer.print("{s}", .{if (dt.hour < 12) "am" else "pm"});
-        },
+        'I' => try writer.print("{d:0>2}", .{twelve_hour_format(dt.hour)}),
+        'p' => try writer.print("{s}", .{if (dt.hour < 12) "am" else "pm"}),
         'M' => try writer.print("{d:0>2}", .{dt.minute}),
         'S' => try writer.print("{d:0>2}", .{dt.second}),
         'f' => try writer.print("{d:0>9}", .{dt.nanosecond}),
-        'z' => try dt.formatOffset(writer),
+        'z' => blk: {
+            if (dt.isNaive()) break :blk;
+            switch (mod) {
+                0 => try dt.formatOffset(.{ .fill = 0, .precision = 1 }, writer), // 'z' +0100
+                1 => try dt.formatOffset(.{ .fill = ':', .precision = 1 }, writer), // 'z:' +01:00
+                2 => try dt.formatOffset(.{ .fill = ':', .precision = 2 }, writer), // 'z::' +01:00:00
+                3 => try dt.formatOffset(.{ .fill = ':', .precision = 0 }, writer), // 'z:::' +01
+                else => return error.InvalidFormat,
+            }
+        },
         'Z' => blk: {
             if (dt.isNaive()) break :blk;
             try writer.print("{s}", .{@constCast(&dt.tzinfo.?).abbreviation()});
@@ -233,7 +226,7 @@ fn printIntoWriter(
         'U' => try writer.print("{d:0>2}", .{dt.weekOfYearSun()}),
         'W' => try writer.print("{d:0>2}", .{dt.weekOfYearMon()}),
         'V' => try writer.print("{d:0>2}", .{dt.toISOCalendar().isoweek}),
-        'T' => try dt.format("", .{}, writer),
+        '+' => try dt.format("", .{}, writer),
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
         // 'c', // locale-specific, datetime

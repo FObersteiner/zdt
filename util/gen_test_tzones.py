@@ -51,7 +51,11 @@ for _ in range(N):
     dta = datetime.fromtimestamp(ta, tz=ZoneInfo(za))
     dtb = datetime.fromtimestamp(tb, tz=ZoneInfo(zb))
     s_b = dtb.astimezone(ZoneInfo(za)).isoformat(timespec="seconds")
+    if s_b.count(":") < 4:
+        s_b += ":00"
     s_c = dta.astimezone(ZoneInfo(zb)).isoformat(timespec="seconds")
+    if s_c.count(":") < 4:
+        s_c += ":00"
     content.append(
         f"""
     tz_a = try Tz.fromTzfile("{za}", std.testing.allocator);
@@ -60,9 +64,9 @@ for _ in range(N):
     dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second, tz_b);
     dt_c = try dt_a.tzConvert(tz_b);
     dt_b = try dt_b.tzConvert(tz_a);
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%z", s_b.writer());
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
     try testing.expectEqualStrings("{s_b}", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%z", s_c.writer());
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
     try testing.expectEqualStrings("{s_c}", s_c.items);
     tz_a.deinit();
     tz_b.deinit();
