@@ -13,9 +13,16 @@ Types of changes
 
 ## Unreleased
 
+### Added
+
+- datetime to string
+  - formatting directive modifier ':', like Rust's chrono strftime has for '%z'
+  - '%C' formatting directive to get 2-digit century
+
 ### Changed
 
-- internal: string methods error handling
+- internal: re-write datetime string parser / formatter
+- datetime string parsing/formatting: directive '%+' now parses/formats to ISO8601
 
 ## 2024-09-20, v0.3.0
 
