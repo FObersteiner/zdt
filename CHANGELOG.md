@@ -22,7 +22,7 @@ Types of changes
 ### Changed
 
 - internal: re-write datetime string parser / formatter
-- datetime string parsing/formatting: directive '%+' now parses/formats to ISO8601
+- datetime string parsing/formatting: directive '%+' now parses/formats to ISO8601 (was: '%T')
 
 ## 2024-09-20, v0.3.0
 

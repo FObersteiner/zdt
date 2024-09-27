@@ -29,47 +29,104 @@ pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
     var am_pm_flags: u8 = 0; // bits; 0 - am, 1 - pm, 2 - found %I
     var fields = Datetime.Fields{};
 
-    // zig 0.14+ :
-    tokenize: switch (TokenizerState.ExpectChar) {
-        TokenizerState.ExpectChar => {
-            if (directives[fmt_idx] == token_start) {
+    // Zig 0.13 :
+    var state = TokenizerState.ExpectChar;
+    while (true) {
+        switch (state) {
+            .ExpectChar => {
+                if (directives[fmt_idx] == token_start) {
+                    fmt_idx += 1;
+                    if (fmt_idx >= directives.len) return error.InvalidFormat;
+                    state = .ExpectDirectiveOrModifier;
+                    continue;
+                }
+                state = .ProcessChar;
+                continue;
+            },
+            .ExpectDirectiveOrModifier => {
+                if (directives[fmt_idx] == token_start) { // special case: literal 'token_start'
+                    state = .ProcessChar;
+                    continue;
+                }
+                state = .ProcessDirective;
+                continue;
+            },
+            .ProcessChar => {
+                if (data[data_idx] != directives[fmt_idx]) return error.InvalidFormat;
+                data_idx += 1;
                 fmt_idx += 1;
-                if (fmt_idx >= directives.len) return error.InvalidFormat;
-                continue :tokenize .ExpectDirectiveOrModifier;
-            }
-            continue :tokenize .ProcessChar;
-        },
-        TokenizerState.ExpectDirectiveOrModifier => {
-            if (directives[fmt_idx] == token_start) { // special case: literal 'token_start'
-                continue :tokenize .ProcessChar;
-            }
-            continue :tokenize .ProcessDirective;
-        },
-        TokenizerState.ProcessChar => {
-            if (data[data_idx] != directives[fmt_idx]) return error.InvalidFormat;
-            data_idx += 1;
-            fmt_idx += 1;
-            if ((data_idx >= data.len) or (fmt_idx >= directives.len)) continue :tokenize .Finalize;
-            continue :tokenize .ExpectChar;
-        },
-        TokenizerState.ProcessDirective => {
-            try parseIntoFields(&fields, data, directives[fmt_idx], &data_idx, &am_pm_flags);
-            fmt_idx += 1;
-            if (fmt_idx >= directives.len) continue :tokenize .Finalize;
-            continue :tokenize .ExpectChar;
-        },
-        TokenizerState.Finalize => {
-            if (fmt_idx != directives.len) return error.InvalidDirective;
-            if (data_idx != data.len) return error.InvalidFormat;
-            switch (am_pm_flags) {
-                0b000 => {}, // neither %I nor am/pm in input string
-                0b101 => fields.hour = fields.hour % 12, //  %I and 'am'
-                0b110 => fields.hour = fields.hour % 12 + 12, //  %I and 'pm'
-                else => return error.InvalidFormat, // might be %I but no %p or vice versa
-            }
-            break :tokenize;
-        },
+                if ((data_idx >= data.len) or (fmt_idx >= directives.len)) {
+                    state = .Finalize;
+                    continue;
+                }
+                state = .ExpectChar;
+                continue;
+            },
+            .ProcessDirective => {
+                try parseIntoFields(&fields, data, directives[fmt_idx], &data_idx, &am_pm_flags);
+                fmt_idx += 1;
+                if (fmt_idx >= directives.len) {
+                    state = .Finalize;
+                    continue;
+                }
+                state = .ExpectChar;
+                continue;
+            },
+            .Finalize => {
+                if (fmt_idx != directives.len) return error.InvalidDirective;
+                if (data_idx != data.len) return error.InvalidFormat;
+                switch (am_pm_flags) {
+                    0b000 => {}, // neither %I nor am/pm in input string
+                    0b101 => fields.hour = fields.hour % 12, //  %I and 'am'
+                    0b110 => fields.hour = fields.hour % 12 + 12, //  %I and 'pm'
+                    else => return error.InvalidFormat, // might be %I but no %p or vice versa
+                }
+                break;
+            },
+        }
     }
+
+    // // Zig 0.14+ :
+    // tokenize: switch (TokenizerState.ExpectChar) {
+    //     TokenizerState.ExpectChar => {
+    //         if (directives[fmt_idx] == token_start) {
+    //             fmt_idx += 1;
+    //             if (fmt_idx >= directives.len) return error.InvalidFormat;
+    //             continue :tokenize .ExpectDirectiveOrModifier;
+    //         }
+    //         continue :tokenize .ProcessChar;
+    //     },
+    //     TokenizerState.ExpectDirectiveOrModifier => {
+    //         if (directives[fmt_idx] == token_start) { // special case: literal 'token_start'
+    //             continue :tokenize .ProcessChar;
+    //         }
+    //         continue :tokenize .ProcessDirective;
+    //     },
+    //     TokenizerState.ProcessChar => {
+    //         if (data[data_idx] != directives[fmt_idx]) return error.InvalidFormat;
+    //         data_idx += 1;
+    //         fmt_idx += 1;
+    //         if ((data_idx >= data.len) or (fmt_idx >= directives.len)) continue :tokenize .Finalize;
+    //         continue :tokenize .ExpectChar;
+    //     },
+    //     TokenizerState.ProcessDirective => {
+    //         try parseIntoFields(&fields, data, directives[fmt_idx], &data_idx, &am_pm_flags);
+    //         fmt_idx += 1;
+    //         if (fmt_idx >= directives.len) continue :tokenize .Finalize;
+    //         continue :tokenize .ExpectChar;
+    //     },
+    //     TokenizerState.Finalize => {
+    //         if (fmt_idx != directives.len) return error.InvalidDirective;
+    //         if (data_idx != data.len) return error.InvalidFormat;
+    //         switch (am_pm_flags) {
+    //             0b000 => {}, // neither %I nor am/pm in input string
+    //             0b101 => fields.hour = fields.hour % 12, //  %I and 'am'
+    //             0b110 => fields.hour = fields.hour % 12 + 12, //  %I and 'pm'
+    //             else => return error.InvalidFormat, // might be %I but no %p or vice versa
+    //         }
+    //         break :tokenize;
+    //     },
+    // }
 
     return try Datetime.fromFields(fields);
 }
@@ -79,43 +136,99 @@ pub fn tokenizeAndPrint(dt: *const Datetime, directives: []const u8, writer: any
     var fmt_idx: usize = 0;
     var mod: usize = 0;
 
-    // zig 0.14+ :
-    tokenize: switch (TokenizerState.ExpectChar) {
-        TokenizerState.ExpectChar => {
-            if (directives[fmt_idx] == token_start) {
+    // Zig 0.13 :
+    var state = TokenizerState.ExpectChar;
+    while (true) {
+        switch (state) {
+            .ExpectChar => {
+                if (directives[fmt_idx] == token_start) {
+                    fmt_idx += 1;
+                    if (fmt_idx >= directives.len) return error.InvalidFormat;
+                    state = .ExpectDirectiveOrModifier;
+                    continue;
+                }
+                state = .ProcessChar;
+                continue;
+            },
+            .ExpectDirectiveOrModifier => {
+                if (directives[fmt_idx] == modifier) {
+                    mod += 1;
+                    fmt_idx += 1;
+                    if (fmt_idx >= directives.len) {
+                        state = .Finalize;
+                        continue;
+                    }
+                    state = .ExpectDirectiveOrModifier;
+                    continue;
+                }
+                state = .ProcessDirective;
+                continue;
+            },
+            .ProcessChar => {
+                try writer.print("{c}", .{directives[fmt_idx]});
                 fmt_idx += 1;
-                if (fmt_idx >= directives.len) return error.InvalidFormat;
-                continue :tokenize .ExpectDirectiveOrModifier;
-            }
-            continue :tokenize .ProcessChar;
-        },
-        TokenizerState.ExpectDirectiveOrModifier => {
-            if (directives[fmt_idx] == modifier) {
-                mod += 1;
+                if (fmt_idx >= directives.len) {
+                    state = .Finalize;
+                    continue;
+                }
+                state = .ExpectChar;
+                continue;
+            },
+            .ProcessDirective => {
+                try printIntoWriter(dt, directives[fmt_idx], mod, writer);
+                mod = 0;
                 fmt_idx += 1;
-                if (fmt_idx >= directives.len) continue :tokenize .Finalize;
-                continue :tokenize .ExpectDirectiveOrModifier;
-            }
-            continue :tokenize .ProcessDirective;
-        },
-        TokenizerState.ProcessChar => {
-            try writer.print("{c}", .{directives[fmt_idx]});
-            fmt_idx += 1;
-            if (fmt_idx >= directives.len) continue :tokenize .Finalize;
-            continue :tokenize .ExpectChar;
-        },
-        TokenizerState.ProcessDirective => {
-            try printIntoWriter(dt, directives[fmt_idx], mod, writer);
-            mod = 0;
-            fmt_idx += 1;
-            if (fmt_idx >= directives.len) continue :tokenize .Finalize;
-            continue :tokenize .ExpectChar;
-        },
-        TokenizerState.Finalize => {
-            if (fmt_idx != directives.len) return error.InvalidDirective;
-            break :tokenize;
-        },
+                if (fmt_idx >= directives.len) {
+                    state = .Finalize;
+                    continue;
+                }
+                state = .ExpectChar;
+                continue;
+            },
+            .Finalize => {
+                if (fmt_idx != directives.len) return error.InvalidDirective;
+                break;
+            },
+        }
     }
+
+    // // zig 0.14+ :
+    // tokenize: switch (TokenizerState.ExpectChar) {
+    //     TokenizerState.ExpectChar => {
+    //         if (directives[fmt_idx] == token_start) {
+    //             fmt_idx += 1;
+    //             if (fmt_idx >= directives.len) return error.InvalidFormat;
+    //             continue :tokenize .ExpectDirectiveOrModifier;
+    //         }
+    //         continue :tokenize .ProcessChar;
+    //     },
+    //     TokenizerState.ExpectDirectiveOrModifier => {
+    //         if (directives[fmt_idx] == modifier) {
+    //             mod += 1;
+    //             fmt_idx += 1;
+    //             if (fmt_idx >= directives.len) continue :tokenize .Finalize;
+    //             continue :tokenize .ExpectDirectiveOrModifier;
+    //         }
+    //         continue :tokenize .ProcessDirective;
+    //     },
+    //     TokenizerState.ProcessChar => {
+    //         try writer.print("{c}", .{directives[fmt_idx]});
+    //         fmt_idx += 1;
+    //         if (fmt_idx >= directives.len) continue :tokenize .Finalize;
+    //         continue :tokenize .ExpectChar;
+    //     },
+    //     TokenizerState.ProcessDirective => {
+    //         try printIntoWriter(dt, directives[fmt_idx], mod, writer);
+    //         mod = 0;
+    //         fmt_idx += 1;
+    //         if (fmt_idx >= directives.len) continue :tokenize .Finalize;
+    //         continue :tokenize .ExpectChar;
+    //     },
+    //     TokenizerState.Finalize => {
+    //         if (fmt_idx != directives.len) return error.InvalidDirective;
+    //         break :tokenize;
+    //     },
+    // }
 }
 
 /// The function that actually fills datetime fields with data.
