@@ -65,6 +65,7 @@ test "format naive datetimes with format string api" {
         try testing.expectEqualStrings(case.string, buf.items);
     }
 }
+
 test "format with precision" {
     const cases = [_]TestCase{
         .{
@@ -92,11 +93,42 @@ test "format with precision" {
     }
 }
 
+test "format with %f" {
+    const cases = [_]TestCase{
+        .{
+            .dt = try Datetime.fromFields(.{ .nanosecond = 123456789 }),
+            .string = ".123456789",
+            .directive = ".%f",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .nanosecond = 123456789 }),
+            .string = ".123",
+            .directive = ".%:f",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .nanosecond = 123456789 }),
+            .string = ".123456",
+            .directive = ".%::f",
+        },
+    };
+
+    inline for (cases) |case| {
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        defer buf.deinit();
+        try Datetime.toString(case.dt, case.directive, buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+    }
+}
+
 test "format datetime with literal characters in format string" {
     const cases = [_]TestCase{ .{
         .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17 }),
         .string = "2021-02-18T17:00:00",
         .directive = "%Y-%m-%dT%H:%M:%S",
+    }, .{
+        .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 8, .hour = 7 }),
+        .string = "2021-02- 8T 7:00:00",
+        .directive = "%Y-%m-%eT%k:%M:%S",
     }, .{
         .dt = try Datetime.fromFields(.{ .year = 1970 }),
         .string = "Unix epoch 1970-01-01 00:00:00 001",

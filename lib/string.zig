@@ -273,7 +273,7 @@ fn printIntoWriter(
 ) !void {
     switch (directive) {
         'd' => try writer.print("{d:0>2}", .{dt.day}),
-        // 'e' - space-padded 'd'
+        'e' => try writer.print("{d: >2}", .{dt.day}),
         'a' => try writer.print("{s}", .{std.mem.sliceTo(getDayNameAbbr(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name short
         'A' => try writer.print("{s}", .{std.mem.sliceTo(getDayName(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name
         'm' => try writer.print("{d:0>2}", .{dt.month}),
@@ -284,13 +284,20 @@ fn printIntoWriter(
         'C' => try writer.print("{d:0>2}", .{dt.year / 100}),
         'G' => try writer.print("{d:0>4}", .{dt.year}),
         'H' => try writer.print("{d:0>2}", .{dt.hour}),
-        // 'k' - space-padded 'H'
+        'k' => try writer.print("{d: >2}", .{dt.hour}),
         'I' => try writer.print("{d:0>2}", .{twelve_hour_format(dt.hour)}),
         'P' => try writer.print("{s}", .{if (dt.hour < 12) "AM" else "PM"}),
         'p' => try writer.print("{s}", .{if (dt.hour < 12) "am" else "pm"}),
         'M' => try writer.print("{d:0>2}", .{dt.minute}),
         'S' => try writer.print("{d:0>2}", .{dt.second}),
-        'f' => try writer.print("{d:0>9}", .{dt.nanosecond}),
+        'f' => {
+            switch (mod) {
+                0 => try writer.print("{d:0>9}", .{dt.nanosecond}),
+                1 => try writer.print("{d:0>3}", .{dt.nanosecond / 1000000}),
+                2 => try writer.print("{d:0>6}", .{dt.nanosecond / 1000}),
+                else => return error.InvalidFormat,
+            }
+        },
         'z' => blk: {
             if (dt.isNaive()) break :blk;
             switch (mod) {
