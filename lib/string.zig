@@ -16,7 +16,7 @@ const TokenizerState = enum(u8) {
     ExpectDirectiveOrModifier,
     ProcessChar,
     ProcessDirective,
-    Finalize,
+    // Finalize, // Zig 0.14 version
 };
 
 const token_start: u8 = '%';
@@ -31,12 +31,11 @@ pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
 
     // Zig 0.13 :
     var state = TokenizerState.ExpectChar;
-    while (true) {
+    while (fmt_idx < directives.len) {
         switch (state) {
             .ExpectChar => {
                 if (directives[fmt_idx] == token_start) {
                     fmt_idx += 1;
-                    if (fmt_idx >= directives.len) return error.InvalidFormat;
                     state = .ExpectDirectiveOrModifier;
                     continue;
                 }
@@ -55,35 +54,24 @@ pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
                 if (data[data_idx] != directives[fmt_idx]) return error.InvalidFormat;
                 data_idx += 1;
                 fmt_idx += 1;
-                if ((data_idx >= data.len) or (fmt_idx >= directives.len)) {
-                    state = .Finalize;
-                    continue;
-                }
+                if (data_idx >= data.len) break;
                 state = .ExpectChar;
                 continue;
             },
             .ProcessDirective => {
                 try parseIntoFields(&fields, data, directives[fmt_idx], &data_idx, &am_pm_flags);
                 fmt_idx += 1;
-                if (fmt_idx >= directives.len) {
-                    state = .Finalize;
-                    continue;
-                }
                 state = .ExpectChar;
                 continue;
             },
-            .Finalize => {
-                if (fmt_idx != directives.len) return error.InvalidDirective;
-                if (data_idx != data.len) return error.InvalidFormat;
-                switch (am_pm_flags) {
-                    0b000 => {}, // neither %I nor am/pm in input string
-                    0b101 => fields.hour = fields.hour % 12, //  %I and 'am'
-                    0b110 => fields.hour = fields.hour % 12 + 12, //  %I and 'pm'
-                    else => return error.InvalidFormat, // might be %I but no %p or vice versa
-                }
-                break;
-            },
         }
+    }
+    if (data_idx != data.len) return error.InvalidFormat;
+    switch (am_pm_flags) {
+        0b000 => {}, // neither %I nor am/pm in input string
+        0b101 => fields.hour = fields.hour % 12, //  %I and 'am'
+        0b110 => fields.hour = fields.hour % 12 + 12, //  %I and 'pm'
+        else => return error.InvalidFormat, // might be %I but no %p or vice versa
     }
 
     // // Zig 0.14+ :
@@ -138,12 +126,11 @@ pub fn tokenizeAndPrint(dt: *const Datetime, directives: []const u8, writer: any
 
     // Zig 0.13 :
     var state = TokenizerState.ExpectChar;
-    while (true) {
+    while (fmt_idx < directives.len) {
         switch (state) {
             .ExpectChar => {
                 if (directives[fmt_idx] == token_start) {
                     fmt_idx += 1;
-                    if (fmt_idx >= directives.len) return error.InvalidFormat;
                     state = .ExpectDirectiveOrModifier;
                     continue;
                 }
@@ -154,10 +141,6 @@ pub fn tokenizeAndPrint(dt: *const Datetime, directives: []const u8, writer: any
                 if (directives[fmt_idx] == modifier) {
                     mod += 1;
                     fmt_idx += 1;
-                    if (fmt_idx >= directives.len) {
-                        state = .Finalize;
-                        continue;
-                    }
                     state = .ExpectDirectiveOrModifier;
                     continue;
                 }
@@ -167,10 +150,6 @@ pub fn tokenizeAndPrint(dt: *const Datetime, directives: []const u8, writer: any
             .ProcessChar => {
                 try writer.print("{c}", .{directives[fmt_idx]});
                 fmt_idx += 1;
-                if (fmt_idx >= directives.len) {
-                    state = .Finalize;
-                    continue;
-                }
                 state = .ExpectChar;
                 continue;
             },
@@ -178,16 +157,8 @@ pub fn tokenizeAndPrint(dt: *const Datetime, directives: []const u8, writer: any
                 try printIntoWriter(dt, directives[fmt_idx], mod, writer);
                 mod = 0;
                 fmt_idx += 1;
-                if (fmt_idx >= directives.len) {
-                    state = .Finalize;
-                    continue;
-                }
                 state = .ExpectChar;
                 continue;
-            },
-            .Finalize => {
-                if (fmt_idx != directives.len) return error.InvalidDirective;
-                break;
             },
         }
     }
@@ -248,6 +219,7 @@ fn parseIntoFields(
         // 'B', // locale-specific, month name
         'Y' => fields.year = try parseDigits(u16, string, idx, 4),
         'y' => fields.year = try parseDigits(u16, string, idx, 2) + Datetime.century,
+        // 'C', - formatting-only
         // 'G',
         'H' => fields.hour = try parseDigits(u8, string, idx, 2),
         'I' => fields.hour = blk: { // must be in [1..12]
@@ -255,6 +227,7 @@ fn parseIntoFields(
             am_pm_flags.* |= 4;
             if (h >= 1 and h <= 12) break :blk h else return error.InvalidFormat;
         },
+        'P' => am_pm_flags.* |= try parseAmPm(string, idx),
         'p' => am_pm_flags.* |= try parseAmPm(string, idx),
         'M' => fields.minute = try parseDigits(u8, string, idx, 2),
         'S' => fields.second = try parseDigits(u8, string, idx, 2),
@@ -275,7 +248,7 @@ fn parseIntoFields(
             else
                 fields.tzinfo = try Tz.fromOffset(utcoffset, "");
         },
-        // 'Z',
+        // 'Z', - ambiguous!
         // 'i', - IANA identifer; would require allocator
         // 'j',
         // 'w',
@@ -300,6 +273,7 @@ fn printIntoWriter(
 ) !void {
     switch (directive) {
         'd' => try writer.print("{d:0>2}", .{dt.day}),
+        // 'e' - space-padded 'd'
         'a' => try writer.print("{s}", .{std.mem.sliceTo(getDayNameAbbr(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name short
         'A' => try writer.print("{s}", .{std.mem.sliceTo(getDayName(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name
         'm' => try writer.print("{d:0>2}", .{dt.month}),
@@ -310,7 +284,9 @@ fn printIntoWriter(
         'C' => try writer.print("{d:0>2}", .{dt.year / 100}),
         'G' => try writer.print("{d:0>4}", .{dt.year}),
         'H' => try writer.print("{d:0>2}", .{dt.hour}),
+        // 'k' - space-padded 'H'
         'I' => try writer.print("{d:0>2}", .{twelve_hour_format(dt.hour)}),
+        'P' => try writer.print("{s}", .{if (dt.hour < 12) "AM" else "PM"}),
         'p' => try writer.print("{s}", .{if (dt.hour < 12) "am" else "pm"}),
         'M' => try writer.print("{d:0>2}", .{dt.minute}),
         'S' => try writer.print("{d:0>2}", .{dt.second}),
@@ -343,6 +319,7 @@ fn printIntoWriter(
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
         // 'c', // locale-specific, datetime
+        // 's' - Unix seconds
         '%' => try writer.print("%", .{}),
         else => return error.InvalidDirective,
     }
