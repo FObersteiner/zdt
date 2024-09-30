@@ -256,7 +256,7 @@ fn parseIntoFields(
         // 'U',
         // 'W',
         // 'V',
-        '+' => fields.* = try parseISO8601(string, idx),
+        'T' => fields.* = try parseISO8601(string, idx),
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
         // 'c', // locale-specific, datetime
@@ -322,7 +322,7 @@ fn printIntoWriter(
         'U' => try writer.print("{d:0>2}", .{dt.weekOfYearSun()}),
         'W' => try writer.print("{d:0>2}", .{dt.weekOfYearMon()}),
         'V' => try writer.print("{d:0>2}", .{dt.toISOCalendar().isoweek}),
-        '+' => try dt.format("", .{}, writer),
+        'T' => try dt.format("", .{}, writer),
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
         // 'c', // locale-specific, datetime

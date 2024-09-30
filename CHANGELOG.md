@@ -22,7 +22,6 @@ Types of changes
 ### Changed
 
 - internal: re-write datetime string parser / formatter
-- datetime string parsing/formatting: directive '%+' now parses/formats to ISO8601 (was: '%T')
 - parsing/formatting directives:
   - formatting, 'z' gives offset without colon between hour and minute, ':z' gives the usual "+00:00"
   - formatting, 'p' gives "am" or "pm", 'P' gives "AM" or "PM". Parser ignores case

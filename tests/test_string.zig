@@ -140,7 +140,7 @@ test "format datetime with literal characters in format string" {
     }, .{
         .dt = try Datetime.fromFields(.{ .year = 2024, .month = 12, .day = 31 }),
         .string = "2024-12-31T00:00:00",
-        .directive = "%+",
+        .directive = "%T",
     }, .{
         .dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3 }),
         .string = "% 2023-12-09 % 01:02:03 %",
@@ -545,7 +545,7 @@ test "comptime parse ISO " {
     };
 
     inline for (cases) |case| {
-        const dt = try Datetime.fromString(case.string, "%+");
+        const dt = try Datetime.fromString(case.string, "%T");
         try testing.expectEqual(case.dt, dt);
     }
 }
