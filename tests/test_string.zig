@@ -55,7 +55,7 @@ test "format naive datetimes with format string api" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         var buf = std.ArrayList(u8).init(testing.allocator);
         defer buf.deinit();
         try Datetime.toString(case.dt, "%Y-%m-%d %H:%M:%S", buf.writer());
@@ -65,6 +65,7 @@ test "format naive datetimes with format string api" {
         try testing.expectEqualStrings(case.string, buf.items);
     }
 }
+
 test "format with precision" {
     const cases = [_]TestCase{
         .{
@@ -84,10 +85,37 @@ test "format with precision" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         var buf = std.ArrayList(u8).init(testing.allocator);
         defer buf.deinit();
         try case.dt.format("s", .{ .precision = case.prc }, buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+    }
+}
+
+test "format with %f" {
+    const cases = [_]TestCase{
+        .{
+            .dt = try Datetime.fromFields(.{ .nanosecond = 123456789 }),
+            .string = ".123456789",
+            .directive = ".%f",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .nanosecond = 123456789 }),
+            .string = ".123",
+            .directive = ".%:f",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .nanosecond = 123456789 }),
+            .string = ".123456",
+            .directive = ".%::f",
+        },
+    };
+
+    inline for (cases) |case| {
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        defer buf.deinit();
+        try Datetime.toString(case.dt, case.directive, buf.writer());
         try testing.expectEqualStrings(case.string, buf.items);
     }
 }
@@ -97,6 +125,10 @@ test "format datetime with literal characters in format string" {
         .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17 }),
         .string = "2021-02-18T17:00:00",
         .directive = "%Y-%m-%dT%H:%M:%S",
+    }, .{
+        .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 8, .hour = 7 }),
+        .string = "2021-02- 8T 7:00:00",
+        .directive = "%Y-%m-%eT%k:%M:%S",
     }, .{
         .dt = try Datetime.fromFields(.{ .year = 1970 }),
         .string = "Unix epoch 1970-01-01 00:00:00 001",
@@ -119,7 +151,7 @@ test "format datetime with literal characters in format string" {
         .directive = "%Y-%m-%d %H:%M:%S.%f",
     } };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         var buf = std.ArrayList(u8).init(testing.allocator);
         defer buf.deinit();
         try Datetime.toString(case.dt, case.directive, buf.writer());
@@ -136,10 +168,19 @@ test "format with z" {
     const tzinfo = try Tz.fromOffset(3600, "");
     const dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tzinfo = tzinfo });
     try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z", buf.writer());
-    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", buf.items);
+    try testing.expectEqualStrings("2021-02-18T17:00:00+0100", buf.items);
     buf.clearAndFree();
     try dt.toString("%Y-%m-%dT%H:%M:%S%z", buf.writer());
+    try testing.expectEqualStrings("2021-02-18T17:00:00+0100", buf.items);
+    buf.clearAndFree();
+    try dt.toString("%Y-%m-%dT%H:%M:%S%:z", buf.writer());
     try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", buf.items);
+    buf.clearAndFree();
+    try dt.toString("%Y-%m-%dT%H:%M:%S%::z", buf.writer());
+    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00:00", buf.items);
+    buf.clearAndFree();
+    try dt.toString("%Y-%m-%dT%H:%M:%S%:::z", buf.writer());
+    try testing.expectEqualStrings("2021-02-18T17:00:00+01", buf.items);
 
     // 'z' has no effect on naive datetime:
     const dt_naive = try dt.tzLocalize(null);
@@ -158,7 +199,7 @@ test "format with z, full day off" {
     defer buf.deinit();
     const tzinfo = try Tz.fromOffset(-86400, "");
     const dt = try Datetime.fromFields(.{ .year = 1970, .month = 2, .day = 13, .hour = 12, .tzinfo = tzinfo });
-    const string = "1970-02-13T12:00:00-24:00";
+    const string = "1970-02-13T12:00:00-2400";
     const directive = "%Y-%m-%dT%H:%M:%S%z";
 
     try Datetime.toString(dt, directive, buf.writer());
@@ -173,7 +214,7 @@ test "format with z, strange directive" {
     defer buf.deinit();
     const tzinfo = try Tz.fromOffset(900, "");
     const dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3, .tzinfo = tzinfo });
-    const string = "% 2023-12-09 % 01:02:03 % +00:15";
+    const string = "% 2023-12-09 % 01:02:03 % +0015";
     const directive = "%% %Y-%m-%d %% %H:%M:%S %% %z";
     try Datetime.toString(dt, directive, buf.writer());
     try testing.expectEqualStrings(string, buf.items);
@@ -193,7 +234,7 @@ test "format with Z" {
 
     const tz_utc = Tz.UTC;
     dt = try dt.tzLocalize(tz_utc);
-    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z%Z", buf.writer());
+    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%:z%Z", buf.writer());
     try testing.expectEqualStrings("2023-12-09T01:02:03+00:00Z", buf.items);
 
     var tz_pacific = try Tz.fromTzfile("America/Los_Angeles", testing.allocator);
@@ -201,7 +242,7 @@ test "format with Z" {
     const dt_std = try dt.tzConvert(tz_pacific);
     var s_std = std.ArrayList(u8).init(testing.allocator);
     defer s_std.deinit();
-    const directive_us = "%Y-%m-%dT%H:%M:%S%z %Z (%i)";
+    const directive_us = "%Y-%m-%dT%H:%M:%S%:z %Z (%i)";
     const string_std = "2023-12-08T17:02:03-08:00 PST (America/Los_Angeles)";
     try Datetime.toString(dt_std, directive_us, s_std.writer());
     try testing.expectEqualStrings(string_std, s_std.items);
@@ -289,7 +330,7 @@ test "format with 12 hour clock" {
         .{ .hour = 23, .expected = "11:00:00" },
     };
 
-    for (test_cases) |case| {
+    inline for (test_cases) |case| {
         const dt = try Datetime.fromFields(.{
             .year = 2024,
             .hour = case.hour,
@@ -318,7 +359,7 @@ test "format hour to am/pm" {
         .{ .hour = 23, .expected = "11 pm" },
     };
 
-    for (test_cases) |case| {
+    inline for (test_cases) |case| {
         const dt = try Datetime.fromFields(.{
             .year = 2024,
             .hour = case.hour,
@@ -360,9 +401,45 @@ test "format with 2-digit year plus different weeknum and weekday variants" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         var buf = std.ArrayList(u8).init(testing.allocator);
         try case.dt.toString("%y/%m %U %W %V %w %u %j", buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.deinit();
+    }
+}
+
+test "format with 2-digit century" {
+    const cases = [_]TestCase{
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 1 }),
+            .string = "19",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1691, .month = 9, .day = 15 }),
+            .string = "16",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1624, .month = 9, .day = 19 }),
+            .string = "16",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 9, .day = 21 }),
+            .string = "20",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1101, .month = 9, .day = 22 }),
+            .string = "11",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 47, .month = 12, .day = 31 }),
+            .string = "00",
+        },
+    };
+
+    inline for (cases) |case| {
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        try case.dt.toString("%C", buf.writer());
         try testing.expectEqualStrings(case.string, buf.items);
         buf.deinit();
     }
@@ -382,7 +459,7 @@ test "comptime parse with comptime format string #1" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
     }
@@ -400,7 +477,7 @@ test "comptime parse with comptime format string #2" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
     }
@@ -426,7 +503,7 @@ test "comptime parse with comptime format string, am/pm and 12-hour input" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%d/%m/%Y, %I %p");
         try testing.expectEqual(case.dt, dt);
     }
@@ -467,7 +544,7 @@ test "comptime parse ISO " {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%T");
         try testing.expectEqual(case.dt, dt);
     }
@@ -513,7 +590,7 @@ test "comptime parse with fractional part" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%dT%H:%M:%S.%f");
         try testing.expectEqual(case.dt, dt);
     }
@@ -531,7 +608,7 @@ test "parse single digits" {
         },
     };
 
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
     }
@@ -562,7 +639,7 @@ test "parse with literal characters" {
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
         },
     };
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "datetime %Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
@@ -578,7 +655,7 @@ test "parse with literal characters" {
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
         },
     };
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H:%M:%S datetime");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
@@ -593,7 +670,7 @@ test "parse with literal characters" {
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
         },
     };
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %%%% %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
@@ -608,7 +685,7 @@ test "parse with literal characters" {
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
         },
     };
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%%%Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
@@ -623,7 +700,7 @@ test "parse with literal characters" {
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
         },
     };
-    for (cases) |case| {
+    inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H%%%M%%%S");
         try testing.expectEqual(case.dt, dt);
         try testing.expect(dt.tzinfo == null);
@@ -673,9 +750,8 @@ test "string -> datetime -> string roundtrip with offset TZ" {
     var buf = std.ArrayList(u8).init(testing.allocator);
     defer buf.deinit();
     const string_in = "2023-12-09T01:02:03+09:15";
-    const directive = "%Y-%m-%dT%H:%M:%S%z";
-    const dt = try Datetime.fromString(string_in, directive);
-    try Datetime.toString(dt, directive, buf.writer());
+    const dt = try Datetime.fromString(string_in, "%Y-%m-%dT%H:%M:%S%z");
+    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%:z", buf.writer());
     try testing.expectEqualStrings(string_in, buf.items);
     // no name or abbreviation if it's only a UTC offset
     try testing.expectEqual(@as(usize, 0), dt.tzinfo.?.__name_data_len);
@@ -789,5 +865,5 @@ test "not ISO8601" {
     try testing.expectError(error.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-02-03T23:00:00..314"); // invlid fractional secs separator
-    try testing.expectError(error.ParseIntError, err);
+    try testing.expectError(error.InvalidFormat, err);
 }

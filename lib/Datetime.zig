@@ -575,19 +575,20 @@ pub fn toISOCalendar(dt: Datetime) ISOCalendar {
     return isocal;
 }
 
-/// Parse a string to a datetime, given a comptime-known format
-pub fn fromString(dt_string: []const u8, comptime fmt: []const u8) !Datetime {
-    return str.parseToDatetime(dt_string, fmt);
+/// Parse a string to a datetime.
+pub fn fromString(string: []const u8, directives: []const u8) !Datetime {
+    return try str.tokenizeAndParse(string, directives);
 }
 
-/// Make a datetime from a string with an ISO8601-compatibel format
-pub fn fromISO8601(dt_string: []const u8) !Datetime {
-    return str.parseISO8601(dt_string);
+/// Make a datetime from a string with an ISO8601-compatibel format.
+pub fn fromISO8601(string: []const u8) !Datetime {
+    var idx: usize = 0; // assume datetime starts at beginning of string
+    return try Datetime.fromFields(try str.parseISO8601(string, &idx));
 }
 
 /// Format a datetime into a string
-pub fn toString(dt: Datetime, fmt: []const u8, writer: anytype) !void {
-    return str.formatToString(dt, fmt, writer);
+pub fn toString(dt: Datetime, directives: []const u8, writer: anytype) !void {
+    return try str.tokenizeAndPrint(&dt, directives, writer);
 }
 
 pub fn tzName(dt: *Datetime) []const u8 {
@@ -598,7 +599,11 @@ pub fn tzAbbreviation(dt: *Datetime) []const u8 {
 }
 
 /// Formatted printing for UTC offset
-pub fn formatOffset(dt: Datetime, writer: anytype) !void {
+pub fn formatOffset(
+    dt: Datetime,
+    options: std.fmt.FormatOptions,
+    writer: anytype,
+) !void {
     // if the tzinfo or tzOffset is null, we cannot do anything:
     if (dt.isNaive()) return;
     if (dt.tzinfo.?.tzOffset == null) return;
@@ -613,9 +618,17 @@ pub fn formatOffset(dt: Datetime, writer: anytype) !void {
     const minutes = (absoff % 3600) / 60;
     const seconds = (absoff % 3600) % 60;
 
-    try writer.print("{s}{d:0>2}:{d:0>2}", .{ sign, hours, minutes });
-    if (seconds > 0) {
-        try writer.print(":{d:0>2}", .{seconds});
+    // precision: 0 - hours, 1 - hours:minutes, 2 - hours:minutes:seconds
+    const precision = if (options.precision) |p| p else 1;
+
+    if (options.fill != 0) {
+        try writer.print("{s}{d:0>2}", .{ sign, hours });
+        if (precision > 0)
+            try writer.print("{u}{d:0>2}", .{ options.fill, minutes });
+        if (precision > 1)
+            try writer.print("{u}{d:0>2}", .{ options.fill, seconds });
+    } else {
+        try writer.print("{s}{d:0>2}{d:0>2}", .{ sign, hours, minutes });
     }
 }
 
@@ -641,7 +654,7 @@ pub fn format(
         else => if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond}),
     } else if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond});
 
-    if (dt.tzinfo != null) try dt.formatOffset(writer);
+    if (dt.tzinfo != null) try dt.formatOffset(.{ .fill = ':', .precision = 1 }, writer);
 }
 
 /// Surrounding timetypes at a given transition index. This index might be

@@ -13,9 +13,19 @@ Types of changes
 
 ## Unreleased
 
+### Added
+
+- datetime to string
+  - formatting directive modifier ':', like Rust's chrono strftime has for '%z'
+  - '%C' formatting directive to get 2-digit century
+
 ### Changed
 
-- internal: string methods error handling
+- internal: re-write datetime string parser / formatter
+- parsing/formatting directives:
+  - formatting, 'z' gives offset without colon between hour and minute, ':z' gives the usual "+00:00"
+  - formatting, 'p' gives "am" or "pm", 'P' gives "AM" or "PM". Parser ignores case
+  - formatting, 'e' and 'k': space-padded day and hour
 
 ## 2024-09-20, v0.3.0
 

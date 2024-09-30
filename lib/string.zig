@@ -11,191 +11,402 @@ const FormatError = @import("./errors.zig").FormatError;
 const unix_specific = @import("./unix/unix_mdnames.zig");
 const windows_specific = @import("./windows/windows_mdnames.zig");
 
-/// directives to create string representation of a datetime
-const FormatCode = enum(u8) {
-    day = 'd',
-    day_name_abbr = 'a', // locale-specific
-    day_name = 'A', // locale-specific
-    month = 'm',
-    month_name_abbr = 'b', // locale-specific
-    month_name = 'B', // locale-specific
-    year = 'Y',
-    year_2digit = 'y',
-    year_iso = 'G',
-    hour = 'H',
-    hour12 = 'I', // 12-hour clock, requires %p as well
-    am_pm = 'p',
-    min = 'M',
-    sec = 'S',
-    nanos = 'f',
-    offset = 'z',
-    tz_abbrev = 'Z',
-    iana_tz_name = 'i',
-    doy = 'j',
-    weekday = 'w',
-    weekday_iso = 'u',
-    week_of_year = 'U',
-    week_of_year_mon = 'W',
-    week_of_year_iso = 'V',
-    iso8601 = 'T',
-    // loc_date = 'x', // locale-specific
-    // loc_time = 'X', // locale-specific
-    // loc_datetime = 'c', // locale-specific
-    percent_lit = '%',
-
-    /// create string representation of datetime fields and properties
-    pub fn stringify(
-        fc: FormatCode,
-        writer: anytype,
-        dt: Datetime,
-    ) !void {
-        switch (fc) {
-            .day => try writer.print("{d:0>2}", .{dt.day}),
-            .day_name_abbr => try writer.print("{s}", .{std.mem.sliceTo(getDayNameAbbr(dt.weekdayNumber())[0..], 0)}),
-            .day_name => try writer.print("{s}", .{std.mem.sliceTo(getDayName(dt.weekdayNumber())[0..], 0)}),
-            .month => try writer.print("{d:0>2}", .{dt.month}),
-            .month_name_abbr => try writer.print("{s}", .{std.mem.sliceTo(getMonthNameAbbr(dt.month - 1)[0..], 0)}),
-            .month_name => try writer.print("{s}", .{std.mem.sliceTo(getMonthName(dt.month - 1)[0..], 0)}),
-            .year => try writer.print("{d:0>4}", .{dt.year}),
-            .year_2digit => try writer.print("{d:0>2}", .{dt.year % 100}),
-            .year_iso => try writer.print("{d:0>4}", .{dt.year}),
-            .hour => try writer.print("{d:0>2}", .{dt.hour}),
-            .hour12 => try writer.print("{d:0>2}", .{twelve_hour_format(dt.hour)}),
-            .am_pm => try writer.print("{s}", .{if (dt.hour < 12) "am" else "pm"}),
-            .min => try writer.print("{d:0>2}", .{dt.minute}),
-            .sec => try writer.print("{d:0>2}", .{dt.second}),
-            .nanos => try writer.print("{d:0>9}", .{dt.nanosecond}),
-            .offset => try dt.formatOffset(writer),
-            .tz_abbrev => blk: {
-                if (dt.isNaive()) break :blk;
-                try writer.print("{s}", .{@constCast(&dt.tzinfo.?).abbreviation()});
-            },
-            .iana_tz_name => blk: {
-                if (dt.isNaive()) break :blk;
-                try writer.print("{s}", .{@constCast(&dt.tzinfo.?).name()});
-            },
-            .doy => try writer.print("{d:0>3}", .{dt.dayOfYear()}),
-            .weekday => try writer.print("{d}", .{Datetime.weekdayNumber(dt)}),
-            .weekday_iso => try writer.print("{d}", .{Datetime.weekdayIsoNumber(dt)}),
-            .week_of_year => try writer.print("{d:0>2}", .{Datetime.weekOfYearSun(dt)}),
-            .week_of_year_mon => try writer.print("{d:0>2}", .{Datetime.weekOfYearMon(dt)}),
-            .week_of_year_iso => try writer.print("{d:0>2}", .{Datetime.toISOCalendar(dt).isoweek}),
-            .iso8601 => try dt.format("", .{}, writer),
-            // .loc_date => @compileError("not implemented"),
-            // .loc_time => @compileError("not implemented"),
-            // .loc_datetime => @compileError("not implemented"),
-            .percent_lit => try writer.print("%", .{}),
-        }
-    }
+const TokenizerState = enum(u8) {
+    ExpectChar,
+    ExpectDirectiveOrModifier,
+    ProcessChar,
+    ProcessDirective,
+    // Finalize, // Zig 0.14 version
 };
 
-/// Create a string representation of a Datetime
-pub fn formatToString(dt: Datetime, format: []const u8, writer: anytype) FormatError!void {
-    var next_char_is_specifier = false;
-    for (format) |fc| {
-        if (next_char_is_specifier) {
-            const specifier = std.meta.intToEnum(FormatCode, fc) catch return FormatError.InvalidDirective;
-            try specifier.stringify(writer, dt);
-            next_char_is_specifier = false;
-        } else {
-            if (fc == '%') {
-                next_char_is_specifier = true;
-            } else {
-                try writer.writeByte(fc);
-            }
+const token_start: u8 = '%';
+const modifier: u8 = ':';
+
+/// Tokenize the parsing directives and parse the datetime string accordingly.
+pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
+    var fmt_idx: usize = 0;
+    var data_idx: usize = 0;
+    var am_pm_flags: u8 = 0; // bits; 0 - am, 1 - pm, 2 - found %I
+    var fields = Datetime.Fields{};
+
+    // Zig 0.13 :
+    var state = TokenizerState.ExpectChar;
+    while (fmt_idx < directives.len) {
+        switch (state) {
+            .ExpectChar => {
+                if (directives[fmt_idx] == token_start) {
+                    fmt_idx += 1;
+                    state = .ExpectDirectiveOrModifier;
+                    continue;
+                }
+                state = .ProcessChar;
+                continue;
+            },
+            .ExpectDirectiveOrModifier => {
+                if (directives[fmt_idx] == token_start) { // special case: literal 'token_start'
+                    state = .ProcessChar;
+                    continue;
+                }
+                state = .ProcessDirective;
+                continue;
+            },
+            .ProcessChar => {
+                if (data[data_idx] != directives[fmt_idx]) return error.InvalidFormat;
+                data_idx += 1;
+                fmt_idx += 1;
+                if (data_idx >= data.len) break;
+                state = .ExpectChar;
+                continue;
+            },
+            .ProcessDirective => {
+                try parseIntoFields(&fields, data, directives[fmt_idx], &data_idx, &am_pm_flags);
+                fmt_idx += 1;
+                state = .ExpectChar;
+                continue;
+            },
         }
+    }
+    if (data_idx != data.len) return error.InvalidFormat;
+    switch (am_pm_flags) {
+        0b000 => {}, // neither %I nor am/pm in input string
+        0b101 => fields.hour = fields.hour % 12, //  %I and 'am'
+        0b110 => fields.hour = fields.hour % 12 + 12, //  %I and 'pm'
+        else => return error.InvalidFormat, // might be %I but no %p or vice versa
+    }
+
+    // // Zig 0.14+ :
+    // tokenize: switch (TokenizerState.ExpectChar) {
+    //     TokenizerState.ExpectChar => {
+    //         if (directives[fmt_idx] == token_start) {
+    //             fmt_idx += 1;
+    //             if (fmt_idx >= directives.len) return error.InvalidFormat;
+    //             continue :tokenize .ExpectDirectiveOrModifier;
+    //         }
+    //         continue :tokenize .ProcessChar;
+    //     },
+    //     TokenizerState.ExpectDirectiveOrModifier => {
+    //         if (directives[fmt_idx] == token_start) { // special case: literal 'token_start'
+    //             continue :tokenize .ProcessChar;
+    //         }
+    //         continue :tokenize .ProcessDirective;
+    //     },
+    //     TokenizerState.ProcessChar => {
+    //         if (data[data_idx] != directives[fmt_idx]) return error.InvalidFormat;
+    //         data_idx += 1;
+    //         fmt_idx += 1;
+    //         if ((data_idx >= data.len) or (fmt_idx >= directives.len)) continue :tokenize .Finalize;
+    //         continue :tokenize .ExpectChar;
+    //     },
+    //     TokenizerState.ProcessDirective => {
+    //         try parseIntoFields(&fields, data, directives[fmt_idx], &data_idx, &am_pm_flags);
+    //         fmt_idx += 1;
+    //         if (fmt_idx >= directives.len) continue :tokenize .Finalize;
+    //         continue :tokenize .ExpectChar;
+    //     },
+    //     TokenizerState.Finalize => {
+    //         if (fmt_idx != directives.len) return error.InvalidDirective;
+    //         if (data_idx != data.len) return error.InvalidFormat;
+    //         switch (am_pm_flags) {
+    //             0b000 => {}, // neither %I nor am/pm in input string
+    //             0b101 => fields.hour = fields.hour % 12, //  %I and 'am'
+    //             0b110 => fields.hour = fields.hour % 12 + 12, //  %I and 'pm'
+    //             else => return error.InvalidFormat, // might be %I but no %p or vice versa
+    //         }
+    //         break :tokenize;
+    //     },
+    // }
+
+    return try Datetime.fromFields(fields);
+}
+
+/// Tokenize the formatting directives and print to the writer interface.
+pub fn tokenizeAndPrint(dt: *const Datetime, directives: []const u8, writer: anytype) !void {
+    var fmt_idx: usize = 0;
+    var mod: usize = 0;
+
+    // Zig 0.13 :
+    var state = TokenizerState.ExpectChar;
+    while (fmt_idx < directives.len) {
+        switch (state) {
+            .ExpectChar => {
+                if (directives[fmt_idx] == token_start) {
+                    fmt_idx += 1;
+                    state = .ExpectDirectiveOrModifier;
+                    continue;
+                }
+                state = .ProcessChar;
+                continue;
+            },
+            .ExpectDirectiveOrModifier => {
+                if (directives[fmt_idx] == modifier) {
+                    mod += 1;
+                    fmt_idx += 1;
+                    state = .ExpectDirectiveOrModifier;
+                    continue;
+                }
+                state = .ProcessDirective;
+                continue;
+            },
+            .ProcessChar => {
+                try writer.print("{c}", .{directives[fmt_idx]});
+                fmt_idx += 1;
+                state = .ExpectChar;
+                continue;
+            },
+            .ProcessDirective => {
+                try printIntoWriter(dt, directives[fmt_idx], mod, writer);
+                mod = 0;
+                fmt_idx += 1;
+                state = .ExpectChar;
+                continue;
+            },
+        }
+    }
+
+    // // zig 0.14+ :
+    // tokenize: switch (TokenizerState.ExpectChar) {
+    //     TokenizerState.ExpectChar => {
+    //         if (directives[fmt_idx] == token_start) {
+    //             fmt_idx += 1;
+    //             if (fmt_idx >= directives.len) return error.InvalidFormat;
+    //             continue :tokenize .ExpectDirectiveOrModifier;
+    //         }
+    //         continue :tokenize .ProcessChar;
+    //     },
+    //     TokenizerState.ExpectDirectiveOrModifier => {
+    //         if (directives[fmt_idx] == modifier) {
+    //             mod += 1;
+    //             fmt_idx += 1;
+    //             if (fmt_idx >= directives.len) continue :tokenize .Finalize;
+    //             continue :tokenize .ExpectDirectiveOrModifier;
+    //         }
+    //         continue :tokenize .ProcessDirective;
+    //     },
+    //     TokenizerState.ProcessChar => {
+    //         try writer.print("{c}", .{directives[fmt_idx]});
+    //         fmt_idx += 1;
+    //         if (fmt_idx >= directives.len) continue :tokenize .Finalize;
+    //         continue :tokenize .ExpectChar;
+    //     },
+    //     TokenizerState.ProcessDirective => {
+    //         try printIntoWriter(dt, directives[fmt_idx], mod, writer);
+    //         mod = 0;
+    //         fmt_idx += 1;
+    //         if (fmt_idx >= directives.len) continue :tokenize .Finalize;
+    //         continue :tokenize .ExpectChar;
+    //     },
+    //     TokenizerState.Finalize => {
+    //         if (fmt_idx != directives.len) return error.InvalidDirective;
+    //         break :tokenize;
+    //     },
+    // }
+}
+
+/// The function that actually fills datetime fields with data.
+fn parseIntoFields(
+    fields: *Datetime.Fields,
+    string: []const u8,
+    directive: u8,
+    idx: *usize,
+    am_pm_flags: *u8,
+) !void {
+    switch (directive) {
+        'd' => fields.day = try parseDigits(u8, string, idx, 2),
+        // 'a', // locale-specific, day name short
+        // 'A', // locale-specific, day name
+        'm' => fields.month = try parseDigits(u8, string, idx, 2),
+        // 'b', // locale-specific, month name short
+        // 'B', // locale-specific, month name
+        'Y' => fields.year = try parseDigits(u16, string, idx, 4),
+        'y' => fields.year = try parseDigits(u16, string, idx, 2) + Datetime.century,
+        // 'C', - formatting-only
+        // 'G',
+        'H' => fields.hour = try parseDigits(u8, string, idx, 2),
+        'I' => fields.hour = blk: { // must be in [1..12]
+            const h = try parseDigits(u8, string, idx, 2);
+            am_pm_flags.* |= 4;
+            if (h >= 1 and h <= 12) break :blk h else return error.InvalidFormat;
+        },
+        'P' => am_pm_flags.* |= try parseAmPm(string, idx),
+        'p' => am_pm_flags.* |= try parseAmPm(string, idx),
+        'M' => fields.minute = try parseDigits(u8, string, idx, 2),
+        'S' => fields.second = try parseDigits(u8, string, idx, 2),
+        'f' => {
+            // if we only parse n digits out of 9, we have to multiply the result by
+            // 10^n to get nanoseconds
+            const tmp_idx = idx.*;
+            fields.nanosecond = try parseDigits(u32, string, idx, 9);
+            const missing = 9 - (idx.* - tmp_idx);
+            const f: u32 = std.math.powi(u32, 10, @as(u32, @intCast(missing))) catch
+                return error.InvalidFraction;
+            fields.nanosecond *= f;
+        },
+        'z' => { // UTC offset (+|-)hh[:mm[:ss]] or Z
+            const utcoffset = try parseOffset(i32, string, idx, 9);
+            if (string[idx.* - 1] == 'Z')
+                fields.tzinfo = Tz.UTC
+            else
+                fields.tzinfo = try Tz.fromOffset(utcoffset, "");
+        },
+        // 'Z', - ambiguous!
+        // 'i', - IANA identifer; would require allocator
+        // 'j',
+        // 'w',
+        // 'u',
+        // 'U',
+        // 'W',
+        // 'V',
+        'T' => fields.* = try parseISO8601(string, idx),
+        // 'x', // locale-specific, date
+        // 'X', // locale-specific, time
+        // 'c', // locale-specific, datetime
+        else => return error.InvalidDirective,
     }
 }
 
-/// Create a Datetime from a string, with a compile-time-known format
-pub fn parseToDatetime(dt_string: []const u8, comptime format: []const u8) ZdtError!Datetime {
-    var fields = Datetime.Fields{};
-
-    comptime var next_char_is_specifier = false;
-    var dt_string_idx: usize = 0;
-    var am_pm_flags: u8 = 0; // bits; 0 - am, 1 - pm, 2 - found %I
-
-    inline for (format) |fc| {
-        if (next_char_is_specifier) {
-            switch (fc) {
-                'd' => fields.day = try parseDigits(u8, dt_string, &dt_string_idx, 2),
-                // 'a'
-                // 'A'
-                'm' => fields.month = try parseDigits(u8, dt_string, &dt_string_idx, 2),
-                // 'b'
-                // 'B'
-                'Y' => fields.year = try parseDigits(u16, dt_string, &dt_string_idx, 4),
-                'y' => fields.year = try parseDigits(u16, dt_string, &dt_string_idx, 2) + Datetime.century,
-                // 'G'
-                'H' => fields.hour = try parseDigits(u8, dt_string, &dt_string_idx, 2),
-                'I' => fields.hour = blk: { // must be in [1..12]
-                    const h = try parseDigits(u8, dt_string, &dt_string_idx, 2);
-                    am_pm_flags |= 4;
-                    if (h >= 1 and h <= 12) break :blk h else return FormatError.InvalidFormat;
-                },
-                'M' => fields.minute = try parseDigits(u8, dt_string, &dt_string_idx, 2),
-                'S' => fields.second = try parseDigits(u8, dt_string, &dt_string_idx, 2),
-                'p' => am_pm_flags |= try parseAmPm(dt_string, &dt_string_idx),
-                'f' => {
-                    // if we only parse n digits out of 9, we have to multiply the result by
-                    // 10^n to get nanoseconds
-                    const tmp_idx = dt_string_idx;
-                    fields.nanosecond = try parseDigits(u32, dt_string, &dt_string_idx, 9);
-                    const missing = 9 - (dt_string_idx - tmp_idx);
-                    const f: u32 = std.math.powi(u32, 10, @as(u32, @intCast(missing))) catch
-                        return FormatError.InvalidFraction;
-                    fields.nanosecond *= f;
-                },
-                'z' => { // UTC offset (+|-)hh[:mm[:ss]] or Z
-                    const utcoffset = try parseOffset(i32, dt_string, &dt_string_idx, 9);
-                    if (dt_string[dt_string_idx - 1] == 'Z') {
-                        fields.tzinfo = Tz.UTC;
-                    } else {
-                        fields.tzinfo = try Tz.fromOffset(utcoffset, "");
-                    }
-                },
-                // 'j'
-                // 'w'
-                // 'u'
-                // 'W'
-                // 'U'
-                // 'V'
-                // 'x' // locale-specific
-                // 'X' // locale-specific
-                // 'c' // locale-specific
-                'T' => return parseISO8601(dt_string),
-                '%' => { // literal characters
-                    if (dt_string[dt_string_idx] != fc) return FormatError.InvalidFormat;
-                    dt_string_idx += 1;
-                },
-                else => @compileError("Invalid format specifier '" ++ [_]u8{fc} ++ "'"),
+/// The function that actually prints to the writer interface.
+fn printIntoWriter(
+    dt: *const Datetime,
+    directive: u8,
+    mod: usize,
+    writer: anytype,
+) !void {
+    switch (directive) {
+        'd' => try writer.print("{d:0>2}", .{dt.day}),
+        'e' => try writer.print("{d: >2}", .{dt.day}),
+        'a' => try writer.print("{s}", .{std.mem.sliceTo(getDayNameAbbr(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name short
+        'A' => try writer.print("{s}", .{std.mem.sliceTo(getDayName(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name
+        'm' => try writer.print("{d:0>2}", .{dt.month}),
+        'b' => try writer.print("{s}", .{std.mem.sliceTo(getMonthNameAbbr(dt.month - 1)[0..], 0)}), // locale-specific, month name short
+        'B' => try writer.print("{s}", .{std.mem.sliceTo(getMonthName(dt.month - 1)[0..], 0)}), // locale-specific, month name
+        'Y' => try writer.print("{d:0>4}", .{dt.year}),
+        'y' => try writer.print("{d:0>2}", .{dt.year % 100}),
+        'C' => try writer.print("{d:0>2}", .{dt.year / 100}),
+        'G' => try writer.print("{d:0>4}", .{dt.year}),
+        'H' => try writer.print("{d:0>2}", .{dt.hour}),
+        'k' => try writer.print("{d: >2}", .{dt.hour}),
+        'I' => try writer.print("{d:0>2}", .{twelve_hour_format(dt.hour)}),
+        'P' => try writer.print("{s}", .{if (dt.hour < 12) "AM" else "PM"}),
+        'p' => try writer.print("{s}", .{if (dt.hour < 12) "am" else "pm"}),
+        'M' => try writer.print("{d:0>2}", .{dt.minute}),
+        'S' => try writer.print("{d:0>2}", .{dt.second}),
+        'f' => {
+            switch (mod) {
+                0 => try writer.print("{d:0>9}", .{dt.nanosecond}),
+                1 => try writer.print("{d:0>3}", .{dt.nanosecond / 1000000}),
+                2 => try writer.print("{d:0>6}", .{dt.nanosecond / 1000}),
+                else => return error.InvalidFormat,
             }
-            next_char_is_specifier = false;
-        } else {
-            if (fc == '%') {
-                next_char_is_specifier = true;
-            } else {
-                if (dt_string[dt_string_idx] != fc) {
-                    return FormatError.InvalidFormat;
-                }
-                dt_string_idx += 1;
+        },
+        'z' => blk: {
+            if (dt.isNaive()) break :blk;
+            switch (mod) {
+                0 => try dt.formatOffset(.{ .fill = 0, .precision = 1 }, writer), // 'z' +0100
+                1 => try dt.formatOffset(.{ .fill = ':', .precision = 1 }, writer), // 'z:' +01:00
+                2 => try dt.formatOffset(.{ .fill = ':', .precision = 2 }, writer), // 'z::' +01:00:00
+                3 => try dt.formatOffset(.{ .fill = ':', .precision = 0 }, writer), // 'z:::' +01
+                else => return error.InvalidFormat,
             }
+        },
+        'Z' => blk: {
+            if (dt.isNaive()) break :blk;
+            try writer.print("{s}", .{@constCast(&dt.tzinfo.?).abbreviation()});
+        },
+        'i' => blk: {
+            if (dt.isNaive()) break :blk;
+            try writer.print("{s}", .{@constCast(&dt.tzinfo.?).name()});
+        },
+        'j' => try writer.print("{d:0>3}", .{dt.dayOfYear()}),
+        'w' => try writer.print("{d}", .{dt.weekdayNumber()}),
+        'u' => try writer.print("{d}", .{dt.weekdayIsoNumber()}),
+        'U' => try writer.print("{d:0>2}", .{dt.weekOfYearSun()}),
+        'W' => try writer.print("{d:0>2}", .{dt.weekOfYearMon()}),
+        'V' => try writer.print("{d:0>2}", .{dt.toISOCalendar().isoweek}),
+        'T' => try dt.format("", .{}, writer),
+        // 'x', // locale-specific, date
+        // 'X', // locale-specific, time
+        // 'c', // locale-specific, datetime
+        // 's' - Unix seconds
+        '%' => try writer.print("%", .{}),
+        else => return error.InvalidDirective,
+    }
+}
+
+fn parseDigits(comptime T: type, string: []const u8, idx: *usize, maxDigits: usize) !T {
+    const start_idx = idx.*;
+    if (!std.ascii.isDigit(string[start_idx])) return error.InvalidFormat;
+
+    idx.* += 1;
+    while (idx.* < string.len and // check first if string depleted
+        idx.* < start_idx + maxDigits and
+        std.ascii.isDigit(string[idx.*])) : (idx.* += 1)
+    {}
+
+    return try std.fmt.parseInt(T, string[start_idx..idx.*], 10);
+}
+
+// AM or PM string, no matter if upper or lower case.
+fn parseAmPm(string: []const u8, idx: *usize) !u8 {
+    if (idx.* + 2 > string.len) return error.InvalidFormat;
+
+    var flag: u8 = 0;
+    flag = switch (std.ascii.toLower(string[idx.*])) {
+        'a' => 1,
+        'p' => 2,
+        else => return error.InvalidFormat,
+    };
+
+    idx.* += 1;
+    if (std.ascii.toLower(string[idx.*]) != 'm') return error.InvalidFormat;
+
+    idx.* += 1;
+    return flag;
+}
+
+// Turn 24 hour clock into 12 hour clock.
+fn twelve_hour_format(hour: u8) u8 {
+    return if (hour == 0 or hour == 12) 12 else hour % 12;
+}
+
+// Offset UTC in the from of (+|-)hh[:mm[:ss]] or Z.
+fn parseOffset(comptime T: type, string: []const u8, idx: *usize, maxDigits: usize) !T {
+    const start_idx = idx.*;
+
+    var sign: i2 = 1;
+    switch (string[start_idx]) {
+        '+' => sign = 1,
+        '-' => sign = -1,
+        'Z' => {
+            idx.* += 1;
+            return 0;
+        },
+        else => return error.InvalidFormat, // must start with sign
+    }
+
+    idx.* += 1;
+    while (idx.* < string.len and // check first if string depleted
+        idx.* < start_idx + maxDigits and
+        (std.ascii.isDigit(string[idx.*]) or string[idx.*] == ':')) : (idx.* += 1)
+    {}
+
+    // clean offset string:
+    var index: usize = 0;
+    var offset_chars = [6]u8{ 48, 48, 48, 48, 48, 48 }; // start with 000000;
+    for (string[start_idx + 1 .. idx.*]) |c| { //                  hhmmss
+        if (c != ':') {
+            offset_chars[index] = c;
+            index += 1;
         }
+        if (index == 6) break;
     }
+    if (index < 2) return error.InvalidFormat; // offset must be at least 2 chars
 
-    switch (am_pm_flags) {
-        0 => {}, // neither %I nor am/pm in input string
-        5 => fields.hour = fields.hour % 12, // 0101, %I and 'am'
-        6 => fields.hour = fields.hour % 12 + 12, // 0110, %I and 'pm'
-        else => return FormatError.InvalidFormat, // might be %I but no %p or vice versa
-    }
-
-    // if we come here, the string must be completely consumed
-    if (dt_string_idx != dt_string.len) {
-        return FormatError.InvalidFormat;
-    }
-
-    return Datetime.fromFields(fields);
+    const i = try std.fmt.parseInt(T, &offset_chars, 10);
+    const hours = @divFloor(i, 10000);
+    const remainder = @mod(i, 10000);
+    const minutes = @divFloor(remainder, 100);
+    const seconds = @mod(remainder, 100);
+    return sign * (hours * 3600 + minutes * 60 + seconds);
 }
 
 /// Parse ISO8601 formats. Format is infered at runtime.
@@ -214,178 +425,93 @@ pub fn parseToDatetime(dt_string: []const u8, comptime format: []const u8) ZdtEr
 /// 2014-08-23 12:15:56+01         22   2014-08-23T12:15:56+01:00
 /// 2014-08-23T12:15:56-0530       24   2014-08-23T12:15:56-05:30
 /// 2014-08-23T12:15:56+02:15:30   28   2014-08-23T12:15:56+02:15:30
-pub fn parseISO8601(dt_string: []const u8) ZdtError!Datetime {
-    if (dt_string.len > 38) // 9 digits of fractional seconds and hh:mm:ss UTC offset
-        return FormatError.InvalidFormat;
-    if (dt_string[dt_string.len - 1] != 'Z' and !std.ascii.isDigit(dt_string[dt_string.len - 1])) {
-        return FormatError.InvalidFormat;
+pub fn parseISO8601(string: []const u8, idx: *usize) !Datetime.Fields {
+    if (string.len > 38) // 9 digits of fractional seconds and hh:mm:ss UTC offset
+        return error.InvalidFormat;
+    if (string[string.len - 1] != 'Z' and !std.ascii.isDigit(string[string.len - 1])) {
+        return error.InvalidFormat;
     }
-    if (dt_string.len < 20) {
-        switch (dt_string.len) {
+    if (string.len < 20) {
+        switch (string.len) {
             7, 10, 16, 19 => {},
-            else => return FormatError.InvalidFormat,
+            else => return error.InvalidFormat,
         }
     }
 
     var fields = Datetime.Fields{};
     var utcoffset: ?i32 = null;
-    var dt_string_idx: usize = 0;
 
     // since this is a runtime-parser, we need to step through the input
     // and stop doing so once we reach the end (break the 'parseblock')
     parseblock: {
         // yyyy-mm
-        fields.year = parseDigits(u16, dt_string, &dt_string_idx, 4) catch return FormatError.ParseIntError;
-        if (dt_string_idx != 4) return FormatError.InvalidFormat; // 2-digit year not allowed
-        if (dt_string[dt_string_idx] != '-') return FormatError.InvalidFormat;
-        dt_string_idx += 1;
-        fields.month = parseDigits(u8, dt_string, &dt_string_idx, 2) catch return FormatError.ParseIntError;
-        if (dt_string_idx != 7) return FormatError.InvalidFormat; // 1-digit month not allowed
-        if (dt_string_idx == dt_string.len) break :parseblock;
+        fields.year = try parseDigits(u16, string, idx, 4);
+        if (idx.* != 4) return error.InvalidFormat; // 2-digit year not allowed
+        if (string[idx.*] != '-') return error.InvalidFormat;
+        idx.* += 1;
+        fields.month = try parseDigits(u8, string, idx, 2);
+        if (idx.* != 7) return error.InvalidFormat; // 1-digit month not allowed
+        if (idx.* == string.len) break :parseblock;
 
         // yyyy-mm-dd
-        if (dt_string[dt_string_idx] != '-') return FormatError.InvalidFormat;
-        dt_string_idx += 1;
-        fields.day = parseDigits(u8, dt_string, &dt_string_idx, 2) catch return FormatError.ParseIntError;
-        if (dt_string_idx != 10) return FormatError.InvalidFormat; // 1-digit day not allowed
-        if (dt_string_idx == dt_string.len) break :parseblock;
+        if (string[idx.*] != '-') return error.InvalidFormat;
+        idx.* += 1;
+        fields.day = try parseDigits(u8, string, idx, 2);
+        if (idx.* != 10) return error.InvalidFormat; // 1-digit day not allowed
+        if (idx.* == string.len) break :parseblock;
 
         // yyyy-mm-ddTHH:MM
-        if (!(dt_string[dt_string_idx] == 'T' or dt_string[dt_string_idx] == ' ')) return FormatError.InvalidFormat;
-        dt_string_idx += 1;
-        fields.hour = parseDigits(u8, dt_string, &dt_string_idx, 2) catch return FormatError.ParseIntError;
-        if (dt_string_idx != 13) return FormatError.InvalidFormat; // 1-digit hour not allowed
-        if (dt_string[dt_string_idx] != ':') return FormatError.InvalidFormat;
-        dt_string_idx += 1;
-        fields.minute = parseDigits(u8, dt_string, &dt_string_idx, 2) catch return FormatError.ParseIntError;
-        if (dt_string_idx != 16) return FormatError.InvalidFormat; // 1-digit minute not allowed
-        if (dt_string_idx == dt_string.len) break :parseblock;
+        if (!(string[idx.*] == 'T' or string[idx.*] == ' ')) return error.InvalidFormat;
+        idx.* += 1;
+        fields.hour = try parseDigits(u8, string, idx, 2);
+        if (idx.* != 13) return error.InvalidFormat; // 1-digit hour not allowed
+        if (string[idx.*] != ':') return error.InvalidFormat;
+        idx.* += 1;
+        fields.minute = try parseDigits(u8, string, idx, 2);
+        if (idx.* != 16) return error.InvalidFormat; // 1-digit minute not allowed
+        if (idx.* == string.len) break :parseblock;
 
-        // yyyy-mm-ddTHH:MM:SS
-        if (dt_string[dt_string_idx] != ':') return FormatError.InvalidFormat;
-        dt_string_idx += 1;
-        fields.second = parseDigits(u8, dt_string, &dt_string_idx, 2) catch return FormatError.ParseIntError;
-        if (dt_string_idx != 19) return FormatError.InvalidFormat; // 1-digit minute not allowed
-        if (dt_string_idx == dt_string.len) break :parseblock;
+        // yyyy-mm-ddTHH:MM:SS - seconds are optional
+        if (string[idx.*] == ':') {
+            idx.* += 1;
+            fields.second = try parseDigits(u8, string, idx, 2);
+            if (idx.* != 19) return error.InvalidFormat; // 1-digit second not allowed
+            if (idx.* == string.len) break :parseblock;
+        }
 
         // yyyy-mm-ddTHH:MM:SS[+-](offset or Z)
-        if (dt_string[dt_string_idx] == '+' or
-            dt_string[dt_string_idx] == '-' or
-            dt_string[dt_string_idx] == 'Z')
+        if (string[idx.*] == '+' or
+            string[idx.*] == '-' or
+            string[idx.*] == 'Z')
         {
-            utcoffset = try parseOffset(i32, dt_string, &dt_string_idx, 9);
-            if (dt_string_idx == dt_string.len) break :parseblock;
-            return FormatError.InvalidFormat; // offset must not befollowed by other fields
+            utcoffset = try parseOffset(i32, string, idx, 9);
+            if (idx.* == string.len) break :parseblock;
+            return error.InvalidFormat; // offset must not be followed by other fields
         }
 
         // yyyy-mm-ddTHH:MM:SS.fff (fractional seconds separator can either be '.' or ',')
-        if (!(dt_string[dt_string_idx] == '.' or dt_string[dt_string_idx] == ',')) return FormatError.InvalidFormat;
-        dt_string_idx += 1;
+        if (!(string[idx.*] == '.' or string[idx.*] == ',')) return error.InvalidFormat;
+        idx.* += 1;
         // parse any number of fractional seconds up to 9
-        const tmp_idx = dt_string_idx;
-        fields.nanosecond = parseDigits(u32, dt_string, &dt_string_idx, 9) catch return FormatError.ParseIntError;
-        const missing = 9 - (dt_string_idx - tmp_idx);
-        const f: u32 = std.math.powi(u32, 10, @as(u32, @intCast(missing))) catch return FormatError.InvalidFraction;
+        const tmp_idx = idx.*;
+        fields.nanosecond = try parseDigits(u32, string, idx, 9);
+        const missing = 9 - (idx.* - tmp_idx);
+        const f: u32 = std.math.powi(u32, 10, @as(u32, @intCast(missing))) catch return error.InvalidFraction;
         fields.nanosecond *= f;
-        if (dt_string_idx == dt_string.len) break :parseblock;
+        if (idx.* == string.len) break :parseblock;
 
         // trailing UTC offset
-        utcoffset = try parseOffset(i32, dt_string, &dt_string_idx, 9);
-    }
-
-    // if we come here, the string must be completely consumed
-    if (dt_string_idx != dt_string.len) {
-        return FormatError.InvalidFormat;
+        utcoffset = try parseOffset(i32, string, idx, 9);
     }
 
     if (utcoffset != null) {
-        if (dt_string[dt_string_idx - 1] == 'Z') {
-            fields.tzinfo = Tz.UTC;
-        } else {
+        if (string[idx.* - 1] == 'Z')
+            fields.tzinfo = Tz.UTC
+        else
             fields.tzinfo = try Tz.fromOffset(utcoffset.?, "");
-        }
     }
 
-    return Datetime.fromFields(fields);
-}
-
-// ----- String to Datetime Helpers -----------------
-
-fn parseAmPm(dt_string: []const u8, idx: *usize) FormatError!u8 {
-    if (idx.* + 2 > dt_string.len) return FormatError.InvalidFormat;
-
-    var flag: u8 = 0;
-    flag = switch (std.ascii.toLower(dt_string[idx.*])) {
-        'a' => 1,
-        'p' => 2,
-        else => return FormatError.InvalidFormat,
-    };
-
-    idx.* += 1;
-    if (std.ascii.toLower(dt_string[idx.*]) != 'm') return FormatError.InvalidFormat;
-
-    idx.* += 1;
-    return flag;
-}
-
-// for any numeric quantity
-fn parseDigits(comptime T: type, dt_string: []const u8, idx: *usize, maxDigits: usize) FormatError!T {
-    const start_idx = idx.*;
-    if (!std.ascii.isDigit(dt_string[start_idx])) return FormatError.InvalidFormat;
-
-    idx.* += 1;
-    while (idx.* < dt_string.len and // check first if dt_string depleted
-        idx.* < start_idx + maxDigits and
-        std.ascii.isDigit(dt_string[idx.*])) : (idx.* += 1)
-    {}
-
-    return std.fmt.parseInt(T, dt_string[start_idx..idx.*], 10) catch FormatError.ParseIntError;
-}
-
-// offset UTC in the from of (+|-)hh[:mm[:ss]] or Z
-fn parseOffset(comptime T: type, dt_string: []const u8, idx: *usize, maxDigits: usize) FormatError!T {
-    const start_idx = idx.*;
-
-    var sign: i2 = 1;
-    switch (dt_string[start_idx]) {
-        '+' => sign = 1,
-        '-' => sign = -1,
-        'Z' => {
-            idx.* += 1;
-            return 0;
-        },
-        else => return FormatError.InvalidFormat, // must start with sign
-    }
-
-    idx.* += 1;
-    while (idx.* < dt_string.len and // check first if dt_string depleted
-        idx.* < start_idx + maxDigits and
-        (std.ascii.isDigit(dt_string[idx.*]) or dt_string[idx.*] == ':')) : (idx.* += 1)
-    {}
-
-    // clean offset string:
-    var index: usize = 0;
-    var offset_chars = [6]u8{ 48, 48, 48, 48, 48, 48 }; // start with 000000;
-    for (dt_string[start_idx + 1 .. idx.*]) |c| { //                  hhmmss
-        if (c != ':') {
-            offset_chars[index] = c;
-            index += 1;
-        }
-        if (index == 6) break;
-    }
-    if (index < 2) return FormatError.InvalidFormat; // offset must be at least 2 chars
-
-    const i = std.fmt.parseInt(T, &offset_chars, 10) catch return FormatError.ParseIntError;
-    const hours = @divFloor(i, 10000);
-    const remainder = @mod(i, 10000);
-    const minutes = @divFloor(remainder, 100);
-    const seconds = @mod(remainder, 100);
-    return sign * (hours * 3600 + minutes * 60 + seconds);
-}
-
-// Turn 24 hour clock into 12 hour clock
-fn twelve_hour_format(hour: u8) u8 {
-    return if (hour == 0 or hour == 12) 12 else hour % 12;
+    return fields;
 }
 
 // -----
