@@ -13,6 +13,7 @@ const time_mask = switch (builtin.os.tag) {
 
 const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
+const Formats = zdt.Formats;
 const td = zdt.Duration;
 const Tz = zdt.Timezone;
 
@@ -62,6 +63,12 @@ test "format naive datetimes with format string api" {
         try testing.expectEqualStrings(case.string, buf.items);
         buf.clearAndFree();
         try case.dt.toString("%Y-%m-%d %H:%M:%S", buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.clearAndFree();
+        try case.dt.toString(Formats.DateOnly ++ " " ++ Formats.TimeOnly, buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.clearAndFree();
+        try case.dt.toString(Formats.DateTime, buf.writer());
         try testing.expectEqualStrings(case.string, buf.items);
     }
 }

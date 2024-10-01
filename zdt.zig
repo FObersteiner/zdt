@@ -5,6 +5,7 @@ const std = @import("std");
 const log = std.log.scoped(.zdt__root);
 
 pub const Datetime = @import("./lib/Datetime.zig");
+pub const Formats = @import("./lib/Formats.zig");
 pub const Timezone = @import("./lib/Timezone.zig");
 pub const Duration = @import("./lib/Duration.zig");
 
@@ -14,8 +15,10 @@ pub const ZdtError = @import("./lib/errors.zig").ZdtError;
 const calendar = @import("./lib/calendar.zig");
 const string = @import("./lib/string.zig");
 const tzif = @import("./lib/tzif.zig");
+
 test {
     _ = Datetime;
+    _ = Formats;
     _ = Timezone;
     _ = Duration;
     _ = calendar;
