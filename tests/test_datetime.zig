@@ -485,6 +485,15 @@ test "isocalendar to datetime and vice versa" {
     try testing.expectEqual(ical, dt_ical);
 }
 
+test "isocal from string" {
+    const ical = Datetime.ISOCalendar{ .year = 2024, .isoweek = 40, .isoweekday = 4 };
+    const fromstr = try Datetime.ISOCalendar.fromString("2024-W40-4");
+    try testing.expectEqual(ical, fromstr);
+
+    const err = Datetime.ISOCalendar.fromString("2024-40-4");
+    try testing.expectError(error.InvalidFormat, err);
+}
+
 // ---vv--- test generated with Python script ---vv---
 
 test "unix nanoseconds, fields" {

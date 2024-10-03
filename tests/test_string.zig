@@ -516,6 +516,28 @@ test "format with %s to get Unix time in seconds" {
     }
 }
 
+test "format isocalendar, %t" {
+    const cases = [_]TestCase{
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 1 }),
+            .string = "1970-W01-4",
+            .directive = "%t",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 9, .day = 21 }),
+            .string = "2024-W38-6",
+            .directive = "%t",
+        },
+    };
+
+    inline for (cases) |case| {
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        try case.dt.toString(case.directive, buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.deinit();
+    }
+}
+
 // ---- String to Datetime ----
 
 test "comptime parse with comptime format string #1" {
@@ -836,6 +858,26 @@ test "string -> datetime -> string roundtrip with offset TZ" {
     try testing.expectEqualStrings("", std.mem.sliceTo(dt.tzinfo.?.tzOffset.?.__abbrev_data[0..], 0));
 }
 
+test "parse isocalendar, %t" {
+    const cases = [_]TestCase{
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 1 }),
+            .string = "- 1970-W01-4 -",
+            .directive = "- %t -",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 9, .day = 21 }),
+            .string = "% 2024-W38-6 %",
+            .directive = "%% %t %%",
+        },
+    };
+
+    inline for (cases) |case| {
+        const dt = try Datetime.fromString(case.string, case.directive);
+        try testing.expectEqual(case.dt, dt);
+    }
+}
+
 test "parse ISO" {
     const tzutc = Tz.UTC;
     var dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8 });
@@ -919,7 +961,7 @@ test "parse ISO" {
     try testing.expect(std.meta.eql(dt_ref, dt));
 }
 
-test "comptime parse ISO with %T" {
+test "parse ISO with %T" {
     const cases = [_]TestCase{
         .{
             .string = "2021-02-18T17:00:00.1",

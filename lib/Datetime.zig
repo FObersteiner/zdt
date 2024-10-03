@@ -107,6 +107,16 @@ pub const ISOCalendar = struct {
         );
     }
 
+    pub fn fromString(string: []const u8) !ISOCalendar {
+        if (string.len < 10) return error.InvalidFormat;
+        if (string[4] != '-' or std.ascii.toLower(string[5]) != 'w' or string[8] != '-') return error.InvalidFormat;
+        return .{
+            .year = try std.fmt.parseInt(u16, string[0..4], 10),
+            .isoweek = try std.fmt.parseInt(u8, string[6..8], 10),
+            .isoweekday = try std.fmt.parseInt(u8, string[9..10], 10),
+        };
+    }
+
     pub fn format(
         calendar: ISOCalendar,
         comptime fmt: []const u8,

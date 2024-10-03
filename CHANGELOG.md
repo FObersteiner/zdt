@@ -15,11 +15,17 @@ Types of changes
 
 ### Added
 
-- ISO Calendar: 'toDatetime' method
+- ISO-calendar: 'toDatetime' method
+- Datetime to string / Formatter:
+  - 't' directive to get ISO-calendar ("yyyy-Www-d")
+- Datetime from string / Parser:
+  - 't' directive to get datetime from ISO-calendar
 
 ### Fixed
 
 - ISO Calendar: adjust year from Gregorian to ISO if necessary
+- Datetime to string / Formatter:
+  - 'G' directive / ISO-year
 
 ## 2024-10-03, v0.3.2
 
