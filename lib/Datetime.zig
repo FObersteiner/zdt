@@ -485,6 +485,10 @@ pub fn weekday(dt: Datetime) Weekday {
     return std.meta.intToEnum(Weekday, dt.weekdayNumber()) catch unreachable;
 }
 
+pub fn monthEnum(dt: Datetime) Month {
+    return std.meta.intToEnum(Month, dt.month) catch unreachable;
+}
+
 /// Number of the weekday starting at 0 == Sunday (strftime/strptime: %w).
 pub fn weekdayNumber(dt: Datetime) u8 {
     const days = cal.dateToRD([3]u16{ dt.year, dt.month, dt.day });
@@ -495,10 +499,6 @@ pub fn weekdayNumber(dt: Datetime) u8 {
 pub fn weekdayIsoNumber(dt: Datetime) u8 {
     const days = cal.dateToRD([3]u16{ dt.year, dt.month, dt.day });
     return cal.ISOweekdayFromUnixdays(days);
-}
-
-pub fn monthEnum(dt: Datetime) Month {
-    return std.meta.intToEnum(Month, dt.month) catch unreachable;
 }
 
 /// Roll datetime forward to the specified next weekday. Makes a new datetime.
@@ -582,6 +582,13 @@ pub fn fromString(string: []const u8, directives: []const u8) !Datetime {
 
 /// Make a datetime from a string with an ISO8601-compatibel format.
 pub fn fromISO8601(string: []const u8) !Datetime {
+    // 9 digits of fractional seconds and hh:mm:ss UTC offset: 38 characters
+    if (string.len > 38)
+        return error.InvalidFormat;
+    // last character must be Z (UTC) or a digit
+    if (string[string.len - 1] != 'Z' and !std.ascii.isDigit(string[string.len - 1])) {
+        return error.InvalidFormat;
+    }
     var idx: usize = 0; // assume datetime starts at beginning of string
     return try Datetime.fromFields(try str.parseISO8601(string, &idx));
 }

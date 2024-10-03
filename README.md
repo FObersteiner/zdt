@@ -7,7 +7,10 @@
 **Datetime with Timezones in Zig.** Opinionated, and mostly for learning purposes.
 
 - [API overview](https://github.com/FObersteiner/zdt/wiki/API-overview)
-- [Demo](https://github.com/FObersteiner/zdt/blob/master/examples/ex_demo.zig):
+- [Roadmap](https://github.com/FObersteiner/zdt/wiki/Roadmap)
+- Contributions: Welcome!
+
+### [Demo](https://github.com/FObersteiner/zdt/blob/master/examples/ex_demo.zig)
 
 ```zig
   // need an allocator for the time zones since the size of the rule-files varies
@@ -69,7 +72,7 @@ See [changelog](https://github.com/FObersteiner/zdt/blob/master/change.log)
 
 ## Zig version
 
-This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2024-09-20, Zig-0.13 stable or higher should work.
+This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2024-10-01, Zig-0.13 stable or higher should work.
 
 ## IANA timezone database version
 

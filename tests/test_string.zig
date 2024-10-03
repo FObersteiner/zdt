@@ -13,6 +13,7 @@ const time_mask = switch (builtin.os.tag) {
 
 const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
+const Formats = zdt.Formats;
 const td = zdt.Duration;
 const Tz = zdt.Timezone;
 
@@ -62,6 +63,12 @@ test "format naive datetimes with format string api" {
         try testing.expectEqualStrings(case.string, buf.items);
         buf.clearAndFree();
         try case.dt.toString("%Y-%m-%d %H:%M:%S", buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.clearAndFree();
+        try case.dt.toString(Formats.DateOnly ++ " " ++ Formats.TimeOnly, buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.clearAndFree();
+        try case.dt.toString(Formats.DateTime, buf.writer());
         try testing.expectEqualStrings(case.string, buf.items);
     }
 }
@@ -255,7 +262,7 @@ test "format with Z" {
     try testing.expectEqualStrings(string_dst, s_dst.items);
 }
 
-test "format with abbreviated day name" {
+test "format with abbreviated day name, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
     var buf = std.ArrayList(u8).init(testing.allocator);
@@ -270,7 +277,17 @@ test "format with abbreviated day name" {
     try testing.expectEqualStrings(string, buf.items);
 }
 
-test "format with day name" {
+test "format with abbreviated day name, enforce English" {
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
+    const dt = Datetime.epoch;
+    const string = "Thu";
+    const directive = "%:a";
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+}
+
+test "format with day name, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
     var buf = std.ArrayList(u8).init(testing.allocator);
@@ -285,7 +302,17 @@ test "format with day name" {
     try testing.expectEqualStrings(string, buf.items);
 }
 
-test "format with abbreviated month name" {
+test "format with day name, enforce English" {
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
+    const dt = Datetime.epoch;
+    const string = "Thursday";
+    const directive = "%:A";
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+}
+
+test "format with abbreviated month name, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
     var buf = std.ArrayList(u8).init(testing.allocator);
@@ -300,7 +327,17 @@ test "format with abbreviated month name" {
     try testing.expectEqualStrings(string, buf.items);
 }
 
-test "format with month name" {
+test "format with abbreviated month name, enforce English" {
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
+    const dt = Datetime.epoch;
+    const string = "Jan";
+    const directive = "%:b";
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+}
+
+test "format with month name, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
     var buf = std.ArrayList(u8).init(testing.allocator);
@@ -311,6 +348,16 @@ test "format with month name" {
     try Datetime.toString(dt, directive, buf.writer());
     try testing.expectEqualStrings(string, buf.items);
     buf.clearAndFree();
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+}
+
+test "format with month name, enforce English" {
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
+    const dt = Datetime.epoch;
+    const string = "January";
+    const directive = "%:B";
     try dt.toString(directive, buf.writer());
     try testing.expectEqualStrings(string, buf.items);
 }
@@ -445,6 +492,30 @@ test "format with 2-digit century" {
     }
 }
 
+test "format with %s to get Unix time in seconds" {
+    const cases = [_]TestCase{
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 1 }),
+            .string = "0",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1691, .month = 9, .day = 15 }),
+            .string = "-8782128000",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 9, .day = 21 }),
+            .string = "1726876800",
+        },
+    };
+
+    inline for (cases) |case| {
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        try case.dt.toString("%s", buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.deinit();
+    }
+}
+
 // ---- String to Datetime ----
 
 test "comptime parse with comptime format string #1" {
@@ -532,24 +603,6 @@ test "parse %I and am/pm errors" {
     try testing.expectError(error.InvalidFormat, err);
 }
 
-test "comptime parse ISO " {
-    const cases = [_]TestCase{
-        .{
-            .string = "2021-02-18T17:00:00.1",
-            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 100_000_000 }),
-        },
-        .{
-            .string = "2021-02-18T17:00:00.123456",
-            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 123_456_000 }),
-        },
-    };
-
-    inline for (cases) |case| {
-        const dt = try Datetime.fromString(case.string, "%T");
-        try testing.expectEqual(case.dt, dt);
-    }
-}
-
 test "comptime parse with fractional part" {
     const cases = [_]TestCase{
         .{
@@ -610,6 +663,31 @@ test "parse single digits" {
 
     inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H:%M:%S");
+        try testing.expectEqual(case.dt, dt);
+    }
+}
+
+test "parse day of year with %j" {
+    const cases = [_]TestCase{
+        .{
+            .string = "2014-082",
+            .directive = "%Y-%j",
+            .dt = try Datetime.fromFields(.{ .year = 2014, .month = 3, .day = 23 }),
+        },
+        .{
+            .string = "2014082",
+            .directive = "%Y%j",
+            .dt = try Datetime.fromFields(.{ .year = 2014, .month = 3, .day = 23 }),
+        },
+        .{
+            .string = "2024366",
+            .directive = "%Y%j",
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 12, .day = 31 }),
+        },
+    };
+
+    inline for (cases) |case| {
+        const dt = try Datetime.fromString(case.string, case.directive);
         try testing.expectEqual(case.dt, dt);
     }
 }
@@ -763,19 +841,27 @@ test "parse ISO" {
     var dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8 });
     var dt = try Datetime.fromISO8601("2014-08");
     try testing.expect(std.meta.eql(dt_ref, dt));
-    // TODO :
-    // dt = try Datetime.fromISO8601("201408");
-    // try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt = try Datetime.fromISO8601("201408");
+    try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23 });
     dt = try Datetime.fromISO8601("2014-08-23");
     try testing.expect(std.meta.eql(dt_ref, dt));
-    // TODO :
-    // dt = try Datetime.fromISO8601("20140823");
-    // try testing.expect(std.meta.eql(dt_ref, dt));
 
-    // TODO :
-    // year-doy
+    dt = try Datetime.fromISO8601("20140823");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 3, .day = 23 });
+    dt = try Datetime.fromISO8601("2014-082");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt = try Datetime.fromISO8601("2014082");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2024, .month = 12, .day = 31 });
+    dt = try Datetime.fromISO8601("2024-366");
+    try testing.expect(std.meta.eql(dt_ref, dt));
 
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15 });
     dt = try Datetime.fromISO8601("2014-08-23 12:15");
@@ -833,8 +919,44 @@ test "parse ISO" {
     try testing.expect(std.meta.eql(dt_ref, dt));
 }
 
+test "comptime parse ISO with %T" {
+    const cases = [_]TestCase{
+        .{
+            .string = "2021-02-18T17:00:00.1",
+            .directive = "%T",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 100_000_000 }),
+        },
+        .{
+            .string = "2021-02-18T17:00:00.123456",
+            .directive = "%T",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 123_456_000 }),
+        },
+        .{
+            .string = "text 2021-02-18T17:00:00.123456",
+            .directive = "text %T",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 123_456_000 }),
+        },
+        .{
+            .string = "text 2021-02-18T17:00:00.123456 more text",
+            .directive = "text %T more text",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 123_456_000 }),
+        },
+    };
+
+    inline for (cases) |case| {
+        const dt = try Datetime.fromString(case.string, case.directive);
+        try testing.expectEqual(case.dt, dt);
+    }
+}
+
 test "not ISO8601" {
-    var err = Datetime.fromISO8601("2014-08-23T12:15:56+-0200"); // invalid offset
+    var err = Datetime.fromISO8601("2014000");
+    try testing.expectError(error.InvalidFormat, err);
+
+    err = Datetime.fromISO8601("2014366"); // ordinal invald: 2014 is not a leap year
+    try testing.expectError(error.InvalidFormat, err);
+
+    err = Datetime.fromISO8601("2024367"); // ordinal invald: 2024 is a leap year but this has 366 days
     try testing.expectError(error.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014"); // year-only not allowed
@@ -865,5 +987,8 @@ test "not ISO8601" {
     try testing.expectError(error.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-02-03T23:00:00..314"); // invlid fractional secs separator
+    try testing.expectError(error.InvalidFormat, err);
+
+    err = Datetime.fromISO8601("2014-08-23T12:15:56+-0200"); // invalid offset
     try testing.expectError(error.InvalidFormat, err);
 }

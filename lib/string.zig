@@ -2,9 +2,12 @@
 
 const builtin = @import("builtin");
 const std = @import("std");
+const testing = std.testing;
+const assert = std.debug.assert;
 const log = std.log.scoped(.zdt__stringIO);
 
 const Datetime = @import("./Datetime.zig");
+const cal = @import("./calendar.zig");
 const Tz = @import("./Timezone.zig");
 const ZdtError = @import("./errors.zig").ZdtError;
 const FormatError = @import("./errors.zig").FormatError;
@@ -207,56 +210,67 @@ fn parseIntoFields(
     fields: *Datetime.Fields,
     string: []const u8,
     directive: u8,
-    idx: *usize,
+    idx_ptr: *usize,
     am_pm_flags: *u8,
 ) !void {
     switch (directive) {
-        'd' => fields.day = try parseDigits(u8, string, idx, 2),
+        'd' => fields.day = try parseDigits(u8, string, idx_ptr, 2),
+        // 'e' - use 'd'
         // 'a', // locale-specific, day name short
         // 'A', // locale-specific, day name
-        'm' => fields.month = try parseDigits(u8, string, idx, 2),
+        'm' => fields.month = try parseDigits(u8, string, idx_ptr, 2),
         // 'b', // locale-specific, month name short
         // 'B', // locale-specific, month name
-        'Y' => fields.year = try parseDigits(u16, string, idx, 4),
-        'y' => fields.year = try parseDigits(u16, string, idx, 2) + Datetime.century,
+        'Y' => fields.year = try parseDigits(u16, string, idx_ptr, 4),
+        'y' => fields.year = try parseDigits(u16, string, idx_ptr, 2) + Datetime.century,
         // 'C', - formatting-only
         // 'G',
-        'H' => fields.hour = try parseDigits(u8, string, idx, 2),
+        'H' => fields.hour = try parseDigits(u8, string, idx_ptr, 2),
+        // 'k' - use 'H'
         'I' => fields.hour = blk: { // must be in [1..12]
-            const h = try parseDigits(u8, string, idx, 2);
+            const h = try parseDigits(u8, string, idx_ptr, 2);
             am_pm_flags.* |= 4;
             if (h >= 1 and h <= 12) break :blk h else return error.InvalidFormat;
         },
-        'P' => am_pm_flags.* |= try parseAmPm(string, idx),
-        'p' => am_pm_flags.* |= try parseAmPm(string, idx),
-        'M' => fields.minute = try parseDigits(u8, string, idx, 2),
-        'S' => fields.second = try parseDigits(u8, string, idx, 2),
+        'P' => am_pm_flags.* |= try parseAmPm(string, idx_ptr),
+        'p' => am_pm_flags.* |= try parseAmPm(string, idx_ptr),
+        'M' => fields.minute = try parseDigits(u8, string, idx_ptr, 2),
+        'S' => fields.second = try parseDigits(u8, string, idx_ptr, 2),
         'f' => {
             // if we only parse n digits out of 9, we have to multiply the result by
             // 10^n to get nanoseconds
-            const tmp_idx = idx.*;
-            fields.nanosecond = try parseDigits(u32, string, idx, 9);
-            const missing = 9 - (idx.* - tmp_idx);
+            const tmp_idx = idx_ptr.*;
+            fields.nanosecond = try parseDigits(u32, string, idx_ptr, 9);
+            const missing = 9 - (idx_ptr.* - tmp_idx);
             const f: u32 = std.math.powi(u32, 10, @as(u32, @intCast(missing))) catch
                 return error.InvalidFraction;
             fields.nanosecond *= f;
         },
         'z' => { // UTC offset (+|-)hh[:mm[:ss]] or Z
-            const utcoffset = try parseOffset(i32, string, idx, 9);
-            if (string[idx.* - 1] == 'Z')
+            const utcoffset = try parseOffset(i32, string, idx_ptr, 9);
+            if (string[idx_ptr.* - 1] == 'Z')
                 fields.tzinfo = Tz.UTC
             else
                 fields.tzinfo = try Tz.fromOffset(utcoffset, "");
         },
         // 'Z', - ambiguous!
         // 'i', - IANA identifer; would require allocator
-        // 'j',
+        'j' => {
+            const doy = try parseDigits(u16, string, idx_ptr, 3);
+            if (doy == 0) return error.InvalidFormat;
+            if (doy > 365 + @as(u16, @intFromBool(cal.isLeapYear(fields.year)))) return error.InvalidFormat;
+            const date = cal.rdToDate(cal.dateToRD([3]u16{ fields.year, 1, 1 }) + doy - 1);
+            fields.month = @truncate(date[1]);
+            fields.day = @truncate(date[2]);
+        },
         // 'w',
         // 'u',
-        // 'U',
         // 'W',
+        // 'U',
         // 'V',
-        'T' => fields.* = try parseISO8601(string, idx),
+        'T' => {
+            fields.* = try parseISO8601(string, idx_ptr);
+        },
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
         // 'c', // locale-specific, datetime
@@ -274,11 +288,35 @@ fn printIntoWriter(
     switch (directive) {
         'd' => try writer.print("{d:0>2}", .{dt.day}),
         'e' => try writer.print("{d: >2}", .{dt.day}),
-        'a' => try writer.print("{s}", .{std.mem.sliceTo(getDayNameAbbr(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name short
-        'A' => try writer.print("{s}", .{std.mem.sliceTo(getDayName(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name
+        'a' => {
+            switch (mod) {
+                0 => try writer.print("{s}", .{std.mem.sliceTo(getDayNameAbbr(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name short
+                1 => try writer.print("{s}", .{dt.weekday().shortName()}),
+                else => return error.InvalidFormat,
+            }
+        },
+        'A' => {
+            switch (mod) {
+                0 => try writer.print("{s}", .{std.mem.sliceTo(getDayName(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name
+                1 => try writer.print("{s}", .{dt.weekday().longName()}),
+                else => return error.InvalidFormat,
+            }
+        },
         'm' => try writer.print("{d:0>2}", .{dt.month}),
-        'b' => try writer.print("{s}", .{std.mem.sliceTo(getMonthNameAbbr(dt.month - 1)[0..], 0)}), // locale-specific, month name short
-        'B' => try writer.print("{s}", .{std.mem.sliceTo(getMonthName(dt.month - 1)[0..], 0)}), // locale-specific, month name
+        'b' => {
+            switch (mod) {
+                0 => try writer.print("{s}", .{std.mem.sliceTo(getMonthNameAbbr(dt.month - 1)[0..], 0)}), // locale-specific, month name short
+                1 => try writer.print("{s}", .{dt.monthEnum().shortName()}),
+                else => return error.InvalidFormat,
+            }
+        },
+        'B' => {
+            switch (mod) {
+                0 => try writer.print("{s}", .{std.mem.sliceTo(getMonthName(dt.month - 1)[0..], 0)}), // locale-specific, month name
+                1 => try writer.print("{s}", .{dt.monthEnum().longName()}),
+                else => return error.InvalidFormat,
+            }
+        },
         'Y' => try writer.print("{d:0>4}", .{dt.year}),
         'y' => try writer.print("{d:0>2}", .{dt.year % 100}),
         'C' => try writer.print("{d:0>2}", .{dt.year / 100}),
@@ -319,47 +357,47 @@ fn printIntoWriter(
         'j' => try writer.print("{d:0>3}", .{dt.dayOfYear()}),
         'w' => try writer.print("{d}", .{dt.weekdayNumber()}),
         'u' => try writer.print("{d}", .{dt.weekdayIsoNumber()}),
-        'U' => try writer.print("{d:0>2}", .{dt.weekOfYearSun()}),
         'W' => try writer.print("{d:0>2}", .{dt.weekOfYearMon()}),
+        'U' => try writer.print("{d:0>2}", .{dt.weekOfYearSun()}),
         'V' => try writer.print("{d:0>2}", .{dt.toISOCalendar().isoweek}),
         'T' => try dt.format("", .{}, writer),
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
         // 'c', // locale-specific, datetime
-        // 's' - Unix seconds
+        's' => try writer.print("{d}", .{dt.__unix}),
         '%' => try writer.print("%", .{}),
         else => return error.InvalidDirective,
     }
 }
 
-fn parseDigits(comptime T: type, string: []const u8, idx: *usize, maxDigits: usize) !T {
-    const start_idx = idx.*;
+fn parseDigits(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits: usize) !T {
+    const start_idx = idx_ptr.*;
     if (!std.ascii.isDigit(string[start_idx])) return error.InvalidFormat;
 
-    idx.* += 1;
-    while (idx.* < string.len and // check first if string depleted
-        idx.* < start_idx + maxDigits and
-        std.ascii.isDigit(string[idx.*])) : (idx.* += 1)
+    idx_ptr.* += 1;
+    while (idx_ptr.* < string.len and // check first if string depleted
+        idx_ptr.* < start_idx + maxDigits and
+        std.ascii.isDigit(string[idx_ptr.*])) : (idx_ptr.* += 1)
     {}
 
-    return try std.fmt.parseInt(T, string[start_idx..idx.*], 10);
+    return try std.fmt.parseInt(T, string[start_idx..idx_ptr.*], 10);
 }
 
 // AM or PM string, no matter if upper or lower case.
-fn parseAmPm(string: []const u8, idx: *usize) !u8 {
-    if (idx.* + 2 > string.len) return error.InvalidFormat;
+fn parseAmPm(string: []const u8, idx_ptr: *usize) !u8 {
+    if (idx_ptr.* + 2 > string.len) return error.InvalidFormat;
 
     var flag: u8 = 0;
-    flag = switch (std.ascii.toLower(string[idx.*])) {
+    flag = switch (std.ascii.toLower(string[idx_ptr.*])) {
         'a' => 1,
         'p' => 2,
         else => return error.InvalidFormat,
     };
 
-    idx.* += 1;
-    if (std.ascii.toLower(string[idx.*]) != 'm') return error.InvalidFormat;
+    idx_ptr.* += 1;
+    if (std.ascii.toLower(string[idx_ptr.*]) != 'm') return error.InvalidFormat;
 
-    idx.* += 1;
+    idx_ptr.* += 1;
     return flag;
 }
 
@@ -369,30 +407,30 @@ fn twelve_hour_format(hour: u8) u8 {
 }
 
 // Offset UTC in the from of (+|-)hh[:mm[:ss]] or Z.
-fn parseOffset(comptime T: type, string: []const u8, idx: *usize, maxDigits: usize) !T {
-    const start_idx = idx.*;
+fn parseOffset(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits: usize) !T {
+    const start_idx = idx_ptr.*;
 
     var sign: i2 = 1;
     switch (string[start_idx]) {
         '+' => sign = 1,
         '-' => sign = -1,
         'Z' => {
-            idx.* += 1;
+            idx_ptr.* += 1;
             return 0;
         },
         else => return error.InvalidFormat, // must start with sign
     }
 
-    idx.* += 1;
-    while (idx.* < string.len and // check first if string depleted
-        idx.* < start_idx + maxDigits and
-        (std.ascii.isDigit(string[idx.*]) or string[idx.*] == ':')) : (idx.* += 1)
+    idx_ptr.* += 1;
+    while (idx_ptr.* < string.len and // check first if string depleted
+        idx_ptr.* < start_idx + maxDigits and
+        (std.ascii.isDigit(string[idx_ptr.*]) or string[idx_ptr.*] == ':')) : (idx_ptr.* += 1)
     {}
 
     // clean offset string:
     var index: usize = 0;
     var offset_chars = [6]u8{ 48, 48, 48, 48, 48, 48 }; // start with 000000;
-    for (string[start_idx + 1 .. idx.*]) |c| { //                  hhmmss
+    for (string[start_idx + 1 .. idx_ptr.*]) |c| { //                  hhmmss
         if (c != ':') {
             offset_chars[index] = c;
             index += 1;
@@ -409,7 +447,20 @@ fn parseOffset(comptime T: type, string: []const u8, idx: *usize, maxDigits: usi
     return sign * (hours * 3600 + minutes * 60 + seconds);
 }
 
-/// Parse ISO8601 formats. Format is infered at runtime.
+const ISOParserState = enum(u8) {
+    Year,
+    Ordinal,
+    Month,
+    Day,
+    DateTimeSep,
+    Hour,
+    Minute,
+    Second,
+    Fraction,
+    Offset,
+};
+
+/// Parse ISO8601 formats. The format is infered at runtime.
 /// Requires at least a year and a month, separated by ASCII minus.
 /// Date and time separator is either 'T' or ASCII space.
 ///
@@ -425,93 +476,141 @@ fn parseOffset(comptime T: type, string: []const u8, idx: *usize, maxDigits: usi
 /// 2014-08-23 12:15:56+01         22   2014-08-23T12:15:56+01:00
 /// 2014-08-23T12:15:56-0530       24   2014-08-23T12:15:56-05:30
 /// 2014-08-23T12:15:56+02:15:30   28   2014-08-23T12:15:56+02:15:30
-pub fn parseISO8601(string: []const u8, idx: *usize) !Datetime.Fields {
-    if (string.len > 38) // 9 digits of fractional seconds and hh:mm:ss UTC offset
-        return error.InvalidFormat;
-    if (string[string.len - 1] != 'Z' and !std.ascii.isDigit(string[string.len - 1])) {
-        return error.InvalidFormat;
-    }
-    if (string.len < 20) {
-        switch (string.len) {
-            7, 10, 16, 19 => {},
-            else => return error.InvalidFormat,
-        }
-    }
-
+pub fn parseISO8601(string: []const u8, idx_ptr: *usize) !Datetime.Fields {
     var fields = Datetime.Fields{};
     var utcoffset: ?i32 = null;
+    var state: ISOParserState = .Year;
+    var check_idx: usize = idx_ptr.*;
 
-    // since this is a runtime-parser, we need to step through the input
-    // and stop doing so once we reach the end (break the 'parseblock')
-    parseblock: {
-        // yyyy-mm
-        fields.year = try parseDigits(u16, string, idx, 4);
-        if (idx.* != 4) return error.InvalidFormat; // 2-digit year not allowed
-        if (string[idx.*] != '-') return error.InvalidFormat;
-        idx.* += 1;
-        fields.month = try parseDigits(u8, string, idx, 2);
-        if (idx.* != 7) return error.InvalidFormat; // 1-digit month not allowed
-        if (idx.* == string.len) break :parseblock;
-
-        // yyyy-mm-dd
-        if (string[idx.*] != '-') return error.InvalidFormat;
-        idx.* += 1;
-        fields.day = try parseDigits(u8, string, idx, 2);
-        if (idx.* != 10) return error.InvalidFormat; // 1-digit day not allowed
-        if (idx.* == string.len) break :parseblock;
-
-        // yyyy-mm-ddTHH:MM
-        if (!(string[idx.*] == 'T' or string[idx.*] == ' ')) return error.InvalidFormat;
-        idx.* += 1;
-        fields.hour = try parseDigits(u8, string, idx, 2);
-        if (idx.* != 13) return error.InvalidFormat; // 1-digit hour not allowed
-        if (string[idx.*] != ':') return error.InvalidFormat;
-        idx.* += 1;
-        fields.minute = try parseDigits(u8, string, idx, 2);
-        if (idx.* != 16) return error.InvalidFormat; // 1-digit minute not allowed
-        if (idx.* == string.len) break :parseblock;
-
-        // yyyy-mm-ddTHH:MM:SS - seconds are optional
-        if (string[idx.*] == ':') {
-            idx.* += 1;
-            fields.second = try parseDigits(u8, string, idx, 2);
-            if (idx.* != 19) return error.InvalidFormat; // 1-digit second not allowed
-            if (idx.* == string.len) break :parseblock;
+    parsing: while (idx_ptr.* < string.len) {
+        switch (state) {
+            .Year => {
+                fields.year = try parseDigits(u16, string, idx_ptr, 4);
+                if (idx_ptr.* - check_idx != 4) return error.InvalidFormat; // assert 4 digit year
+                if (idx_ptr.* == string.len) return error.InvalidFormat; // year-only not allowed
+                if (string[idx_ptr.*] == '-') idx_ptr.* += 1; // opt. y-m separator
+                state = if (string[idx_ptr.*..].len == 3) .Ordinal else .Month;
+                continue :parsing;
+            },
+            .Ordinal => {
+                check_idx = idx_ptr.*;
+                const doy = try parseDigits(u16, string, idx_ptr, 3);
+                if (idx_ptr.* - check_idx != 3) return error.InvalidFormat; // assert 3 digit ordinal
+                if (doy == 0) return error.InvalidFormat;
+                if (doy > 365 + @as(u16, @intFromBool(cal.isLeapYear(fields.year)))) return error.InvalidFormat;
+                const date = cal.rdToDate(cal.dateToRD([3]u16{ fields.year, 1, 1 }) + doy - 1);
+                fields.month = @truncate(date[1]);
+                fields.day = @truncate(date[2]);
+                break :parsing;
+            },
+            .Month => {
+                check_idx = idx_ptr.*;
+                fields.month = try parseDigits(u8, string, idx_ptr, 2);
+                if (idx_ptr.* - check_idx != 2) return error.InvalidFormat; // assert 2 digit month
+                state = .Day;
+                continue :parsing;
+            },
+            .Day => {
+                if (string[idx_ptr.*] == '-') idx_ptr.* += 1; // opt. m-d separator
+                check_idx = idx_ptr.*;
+                fields.day = try parseDigits(u8, string, idx_ptr, 2);
+                if (idx_ptr.* - check_idx != 2) return error.InvalidFormat; // assert 2 digit day
+                state = .DateTimeSep;
+                continue :parsing;
+            },
+            .DateTimeSep => {
+                if (!(string[idx_ptr.*] == 'T' or string[idx_ptr.*] == ' ')) {
+                    return error.InvalidFormat;
+                }
+                idx_ptr.* += 1;
+                state = .Hour;
+                continue :parsing;
+            },
+            .Hour => {
+                check_idx = idx_ptr.*;
+                fields.hour = try parseDigits(u8, string, idx_ptr, 2);
+                if (idx_ptr.* - check_idx != 2) return error.InvalidFormat; // assert 2 digit hour
+                state = .Minute;
+                continue :parsing;
+            },
+            .Minute => {
+                if (string[idx_ptr.*] == ':') idx_ptr.* += 1; // opt. h:m separator
+                check_idx = idx_ptr.*;
+                fields.minute = try parseDigits(u8, string, idx_ptr, 2);
+                if (idx_ptr.* - check_idx != 2) return error.InvalidFormat; // assert 2 digit minute
+                // next might be offset, but not fraction
+                if (peekChar(string, idx_ptr)) |c| {
+                    if (c == '+' or c == '-' or c == 'Z') {
+                        state = .Offset;
+                        continue :parsing;
+                    }
+                }
+                state = .Second;
+                continue :parsing;
+            },
+            .Second => {
+                if (string[idx_ptr.*] == ':') idx_ptr.* += 1; // opt. m:s separator
+                check_idx = idx_ptr.*;
+                fields.second = try parseDigits(u8, string, idx_ptr, 2);
+                if (idx_ptr.* - check_idx != 2) return error.InvalidFormat; // assert 2 digit second
+                // next might be offset or fraction
+                if (peekChar(string, idx_ptr)) |c| {
+                    if (c == '+' or c == '-' or c == 'Z') {
+                        state = .Offset;
+                        continue :parsing;
+                    }
+                    if (c == '.' or c == ',') {
+                        idx_ptr.* += 1;
+                        state = .Fraction;
+                        continue :parsing;
+                    }
+                }
+                break :parsing;
+            },
+            .Fraction => {
+                const tmp_idx = idx_ptr.*;
+                fields.nanosecond = try parseDigits(u32, string, idx_ptr, 9);
+                const missing = 9 - (idx_ptr.* - tmp_idx);
+                const f: u32 = std.math.powi(u32, 10, @as(u32, @intCast(missing))) catch return error.InvalidFraction;
+                fields.nanosecond *= f;
+                if (peekChar(string, idx_ptr)) |c| {
+                    if (c == '+' or c == '-' or c == 'Z') {
+                        state = .Offset;
+                        continue :parsing;
+                    }
+                }
+                break :parsing;
+            },
+            .Offset => {
+                utcoffset = try parseOffset(i32, string, idx_ptr, 9);
+                break :parsing;
+            },
         }
-
-        // yyyy-mm-ddTHH:MM:SS[+-](offset or Z)
-        if (string[idx.*] == '+' or
-            string[idx.*] == '-' or
-            string[idx.*] == 'Z')
-        {
-            utcoffset = try parseOffset(i32, string, idx, 9);
-            if (idx.* == string.len) break :parseblock;
-            return error.InvalidFormat; // offset must not be followed by other fields
-        }
-
-        // yyyy-mm-ddTHH:MM:SS.fff (fractional seconds separator can either be '.' or ',')
-        if (!(string[idx.*] == '.' or string[idx.*] == ',')) return error.InvalidFormat;
-        idx.* += 1;
-        // parse any number of fractional seconds up to 9
-        const tmp_idx = idx.*;
-        fields.nanosecond = try parseDigits(u32, string, idx, 9);
-        const missing = 9 - (idx.* - tmp_idx);
-        const f: u32 = std.math.powi(u32, 10, @as(u32, @intCast(missing))) catch return error.InvalidFraction;
-        fields.nanosecond *= f;
-        if (idx.* == string.len) break :parseblock;
-
-        // trailing UTC offset
-        utcoffset = try parseOffset(i32, string, idx, 9);
     }
 
     if (utcoffset != null) {
-        if (string[idx.* - 1] == 'Z')
+        if (string[idx_ptr.* - 1] == 'Z')
             fields.tzinfo = Tz.UTC
         else
             fields.tzinfo = try Tz.fromOffset(utcoffset.?, "");
     }
 
     return fields;
+}
+
+fn peekChar(string: []const u8, idx_ptr: *usize) ?u8 {
+    if (idx_ptr.* >= string.len) return null;
+    return string[idx_ptr.*];
+}
+
+test "peek" {
+    const string: []const u8 = "text";
+    var idx: usize = 3;
+    var peek = peekChar(string, &idx);
+    try testing.expectEqual(peek.?, 't');
+    idx = 4;
+    peek = peekChar(string, &idx);
+    try testing.expectEqual(peek, null);
 }
 
 // -----
