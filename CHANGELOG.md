@@ -13,6 +13,14 @@ Types of changes
 
 ## Unreleased
 
+### Added
+
+- ISO Calendar: 'toDatetime' method
+
+### Fixed
+
+- ISO Calendar: adjust year from Gregorian to ISO if necessary
+
 ## 2024-10-03, v0.3.2
 
 ### Added
