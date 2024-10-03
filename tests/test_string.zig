@@ -262,7 +262,7 @@ test "format with Z" {
     try testing.expectEqualStrings(string_dst, s_dst.items);
 }
 
-test "format with abbreviated day name" {
+test "format with abbreviated day name, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
     var buf = std.ArrayList(u8).init(testing.allocator);
@@ -277,7 +277,17 @@ test "format with abbreviated day name" {
     try testing.expectEqualStrings(string, buf.items);
 }
 
-test "format with day name" {
+test "format with abbreviated day name, enforce English" {
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
+    const dt = Datetime.epoch;
+    const string = "Thu";
+    const directive = "%:a";
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+}
+
+test "format with day name, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
     var buf = std.ArrayList(u8).init(testing.allocator);
@@ -292,7 +302,17 @@ test "format with day name" {
     try testing.expectEqualStrings(string, buf.items);
 }
 
-test "format with abbreviated month name" {
+test "format with day name, enforce English" {
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
+    const dt = Datetime.epoch;
+    const string = "Thursday";
+    const directive = "%:A";
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+}
+
+test "format with abbreviated month name, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
     var buf = std.ArrayList(u8).init(testing.allocator);
@@ -307,7 +327,17 @@ test "format with abbreviated month name" {
     try testing.expectEqualStrings(string, buf.items);
 }
 
-test "format with month name" {
+test "format with abbreviated month name, enforce English" {
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
+    const dt = Datetime.epoch;
+    const string = "Jan";
+    const directive = "%:b";
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+}
+
+test "format with month name, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
     var buf = std.ArrayList(u8).init(testing.allocator);
@@ -318,6 +348,16 @@ test "format with month name" {
     try Datetime.toString(dt, directive, buf.writer());
     try testing.expectEqualStrings(string, buf.items);
     buf.clearAndFree();
+    try dt.toString(directive, buf.writer());
+    try testing.expectEqualStrings(string, buf.items);
+}
+
+test "format with month name, enforce English" {
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
+    const dt = Datetime.epoch;
+    const string = "January";
+    const directive = "%:B";
     try dt.toString(directive, buf.writer());
     try testing.expectEqualStrings(string, buf.items);
 }
@@ -447,6 +487,30 @@ test "format with 2-digit century" {
     inline for (cases) |case| {
         var buf = std.ArrayList(u8).init(testing.allocator);
         try case.dt.toString("%C", buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.deinit();
+    }
+}
+
+test "format with %s to get Unix time in seconds" {
+    const cases = [_]TestCase{
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 1 }),
+            .string = "0",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1691, .month = 9, .day = 15 }),
+            .string = "-8782128000",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 9, .day = 21 }),
+            .string = "1726876800",
+        },
+    };
+
+    inline for (cases) |case| {
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        try case.dt.toString("%s", buf.writer());
         try testing.expectEqualStrings(case.string, buf.items);
         buf.deinit();
     }
@@ -599,6 +663,31 @@ test "parse single digits" {
 
     inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H:%M:%S");
+        try testing.expectEqual(case.dt, dt);
+    }
+}
+
+test "parse day of year with %j" {
+    const cases = [_]TestCase{
+        .{
+            .string = "2014-082",
+            .directive = "%Y-%j",
+            .dt = try Datetime.fromFields(.{ .year = 2014, .month = 3, .day = 23 }),
+        },
+        .{
+            .string = "2014082",
+            .directive = "%Y%j",
+            .dt = try Datetime.fromFields(.{ .year = 2014, .month = 3, .day = 23 }),
+        },
+        .{
+            .string = "2024366",
+            .directive = "%Y%j",
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 12, .day = 31 }),
+        },
+    };
+
+    inline for (cases) |case| {
+        const dt = try Datetime.fromString(case.string, case.directive);
         try testing.expectEqual(case.dt, dt);
     }
 }
@@ -801,61 +890,73 @@ test "parse ISO" {
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .tzinfo = tzutc });
     dt = try Datetime.fromISO8601("2014-08-23 12:15:56Z");
     try testing.expect(std.meta.eql(dt_ref, dt));
-    //
-    //     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123400000, .tzinfo = tzutc });
-    //     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.1234Z");
-    //     try testing.expect(std.meta.eql(dt_ref, dt));
-    //
-    //     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 99, .tzinfo = tzutc });
-    //     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099Z");
-    //     try testing.expect(std.meta.eql(dt_ref, dt));
-    //
-    //     var tzinfo = try Tz.fromOffset(0, "");
-    //     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 99, .tzinfo = tzinfo });
-    //     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00");
-    //     try testing.expect(std.meta.eql(dt_ref, dt));
-    //     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00:00");
-    //     try testing.expect(std.meta.eql(dt_ref, dt));
-    //     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00:00:00");
-    //     try testing.expect(std.meta.eql(dt_ref, dt));
-    //
-    //     tzinfo = try Tz.fromOffset(2 * 3600 + 15 * 60 + 30, "");
-    //     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .tzinfo = tzinfo });
-    //     dt = try Datetime.fromISO8601("2014-08-23T12:15:56+02:15:30");
-    //     try testing.expect(std.meta.eql(dt_ref, dt));
-    //
-    //     tzinfo = try Tz.fromOffset(-2 * 3600, "");
-    //     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .tzinfo = tzinfo });
-    //     dt = try Datetime.fromISO8601("2014-08-23T12:15:56-0200");
-    //     try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123400000, .tzinfo = tzutc });
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.1234Z");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 99, .tzinfo = tzutc });
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099Z");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    var tzinfo = try Tz.fromOffset(0, "");
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 99, .tzinfo = tzinfo });
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00:00");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00:00:00");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    tzinfo = try Tz.fromOffset(2 * 3600 + 15 * 60 + 30, "");
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .tzinfo = tzinfo });
+    dt = try Datetime.fromISO8601("2014-08-23T12:15:56+02:15:30");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    tzinfo = try Tz.fromOffset(-2 * 3600, "");
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .tzinfo = tzinfo });
+    dt = try Datetime.fromISO8601("2014-08-23T12:15:56-0200");
+    try testing.expect(std.meta.eql(dt_ref, dt));
 }
-//
-// test "comptime parse ISO " {
-//     const cases = [_]TestCase{
-//         .{
-//             .string = "2021-02-18T17:00:00.1",
-//             .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 100_000_000 }),
-//         },
-//         .{
-//             .string = "2021-02-18T17:00:00.123456",
-//             .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 123_456_000 }),
-//         },
-//     };
-//
-//     inline for (cases) |case| {
-//         const dt = try Datetime.fromString(case.string, "%T");
-//         try testing.expectEqual(case.dt, dt);
-//     }
-// }
-//
+
+test "comptime parse ISO with %T" {
+    const cases = [_]TestCase{
+        .{
+            .string = "2021-02-18T17:00:00.1",
+            .directive = "%T",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 100_000_000 }),
+        },
+        .{
+            .string = "2021-02-18T17:00:00.123456",
+            .directive = "%T",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 123_456_000 }),
+        },
+        .{
+            .string = "text 2021-02-18T17:00:00.123456",
+            .directive = "text %T",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 123_456_000 }),
+        },
+        .{
+            .string = "text 2021-02-18T17:00:00.123456 more text",
+            .directive = "text %T more text",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .nanosecond = 123_456_000 }),
+        },
+    };
+
+    inline for (cases) |case| {
+        const dt = try Datetime.fromString(case.string, case.directive);
+        try testing.expectEqual(case.dt, dt);
+    }
+}
+
 test "not ISO8601" {
     var err = Datetime.fromISO8601("2014000");
     try testing.expectError(error.InvalidFormat, err);
 
-    err = Datetime.fromISO8601("2014366");
+    err = Datetime.fromISO8601("2014366"); // ordinal invald: 2014 is not a leap year
     try testing.expectError(error.InvalidFormat, err);
 
-    err = Datetime.fromISO8601("2024367");
+    err = Datetime.fromISO8601("2024367"); // ordinal invald: 2024 is a leap year but this has 366 days
     try testing.expectError(error.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014"); // year-only not allowed
@@ -870,24 +971,24 @@ test "not ISO8601" {
     err = Datetime.fromISO8601("2014-12-31-12:15"); // - is not a date/time separator
     try testing.expectError(error.InvalidFormat, err);
 
-    //     err = Datetime.fromISO8601("2014-2-03"); // 1-digit fields not allowed
-    //     try testing.expectError(error.InvalidFormat, err);
-    //
-    //     err = Datetime.fromISO8601("14-02-03"); // 2-digit year not allowed
-    //     try testing.expectError(error.InvalidFormat, err);
-    //
-    //     err = Datetime.fromISO8601("2014-02-03T13:60"); // invlid minute
-    //     try testing.expectError(error.MinuteOutOfRange, err);
-    //
-    //     err = Datetime.fromISO8601("2014-02-03T24:00"); // invlid hour
-    //     try testing.expectError(error.HourOutOfRange, err);
-    //
-    //     err = Datetime.fromISO8601("2014-02-03T23:00:00."); // ends with non-numeric
-    //     try testing.expectError(error.InvalidFormat, err);
-    //
-    //     err = Datetime.fromISO8601("2014-02-03T23:00:00..314"); // invlid fractional secs separator
-    //     try testing.expectError(error.InvalidFormat, err);
-    //
-    // err = Datetime.fromISO8601("2014-08-23T12:15:56+-0200"); // invalid offset
-    // try testing.expectError(error.InvalidFormat, err);
+    err = Datetime.fromISO8601("2014-2-03"); // 1-digit fields not allowed
+    try testing.expectError(error.InvalidFormat, err);
+
+    err = Datetime.fromISO8601("14-02-03"); // 2-digit year not allowed
+    try testing.expectError(error.InvalidFormat, err);
+
+    err = Datetime.fromISO8601("2014-02-03T13:60"); // invlid minute
+    try testing.expectError(error.MinuteOutOfRange, err);
+
+    err = Datetime.fromISO8601("2014-02-03T24:00"); // invlid hour
+    try testing.expectError(error.HourOutOfRange, err);
+
+    err = Datetime.fromISO8601("2014-02-03T23:00:00."); // ends with non-numeric
+    try testing.expectError(error.InvalidFormat, err);
+
+    err = Datetime.fromISO8601("2014-02-03T23:00:00..314"); // invlid fractional secs separator
+    try testing.expectError(error.InvalidFormat, err);
+
+    err = Datetime.fromISO8601("2014-08-23T12:15:56+-0200"); // invalid offset
+    try testing.expectError(error.InvalidFormat, err);
 }

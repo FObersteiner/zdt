@@ -485,6 +485,10 @@ pub fn weekday(dt: Datetime) Weekday {
     return std.meta.intToEnum(Weekday, dt.weekdayNumber()) catch unreachable;
 }
 
+pub fn monthEnum(dt: Datetime) Month {
+    return std.meta.intToEnum(Month, dt.month) catch unreachable;
+}
+
 /// Number of the weekday starting at 0 == Sunday (strftime/strptime: %w).
 pub fn weekdayNumber(dt: Datetime) u8 {
     const days = cal.dateToRD([3]u16{ dt.year, dt.month, dt.day });
@@ -495,10 +499,6 @@ pub fn weekdayNumber(dt: Datetime) u8 {
 pub fn weekdayIsoNumber(dt: Datetime) u8 {
     const days = cal.dateToRD([3]u16{ dt.year, dt.month, dt.day });
     return cal.ISOweekdayFromUnixdays(days);
-}
-
-pub fn monthEnum(dt: Datetime) Month {
-    return std.meta.intToEnum(Month, dt.month) catch unreachable;
 }
 
 /// Roll datetime forward to the specified next weekday. Makes a new datetime.
