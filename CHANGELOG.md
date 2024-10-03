@@ -13,12 +13,19 @@ Types of changes
 
 ## Unreleased
 
+## 2024-10-03, v0.3.2
+
 ### Added
 
 - ISO8601 parser:
   - '-' as a year-month or month-day separator now optional
   - ':' as a hour-minute or minute-second separator now optional
   - capability to parse day-of-year (ordinal; 'yyyy-ooo' format)
+- Datetime from string / Parser:
+  - 'j' directive to parse day-of-year
+- Datetime to string / Formatter:
+  - 's' directive to get Unix time in seconds
+  - ':a', ':A', ':b', ':B' (modifier option) to get English day / month names, independent of locale
 
 ### Changed
 
