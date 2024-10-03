@@ -455,6 +455,36 @@ test "iso calendar" {
     try testing.expectEqual(@as(u8, 53), isocal.isoweek);
 }
 
+test "isocalendar to datetime and vice versa" {
+    var ical = Datetime.ISOCalendar{ .year = 2004, .isoweek = 53, .isoweekday = 6 };
+    var ref_dt = try Datetime.fromFields(.{ .year = 2005, .month = 1, .day = 1 });
+    var ical_dt = try ical.toDatetime();
+    var dt_ical = ical_dt.toISOCalendar();
+    try testing.expectEqual(ref_dt, ical_dt);
+    try testing.expectEqual(ical, dt_ical);
+
+    ical = Datetime.ISOCalendar{ .year = 2010, .isoweek = 1, .isoweekday = 1 };
+    ref_dt = try Datetime.fromFields(.{ .year = 2010, .month = 1, .day = 4 });
+    ical_dt = try ical.toDatetime();
+    dt_ical = ical_dt.toISOCalendar();
+    try testing.expectEqual(ref_dt, ical_dt);
+    try testing.expectEqual(ical, dt_ical);
+
+    ical = Datetime.ISOCalendar{ .year = 2009, .isoweek = 53, .isoweekday = 7 };
+    ref_dt = try Datetime.fromFields(.{ .year = 2010, .month = 1, .day = 3 });
+    ical_dt = try ical.toDatetime();
+    dt_ical = ical_dt.toISOCalendar();
+    try testing.expectEqual(ref_dt, ical_dt);
+    try testing.expectEqual(ical, dt_ical);
+
+    ical = Datetime.ISOCalendar{ .year = 2024, .isoweek = 40, .isoweekday = 4 };
+    ref_dt = try Datetime.fromFields(.{ .year = 2024, .month = 10, .day = 3 });
+    ical_dt = try ical.toDatetime();
+    dt_ical = ical_dt.toISOCalendar();
+    try testing.expectEqual(ref_dt, ical_dt);
+    try testing.expectEqual(ical, dt_ical);
+}
+
 // ---vv--- test generated with Python script ---vv---
 
 test "unix nanoseconds, fields" {
