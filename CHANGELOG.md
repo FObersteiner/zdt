@@ -13,6 +13,17 @@ Types of changes
 
 ## Unreleased
 
+### Added
+
+- ISO8601 parser:
+  - '-' as a year-month or month-day separator now optional
+  - ':' as a hour-minute or minute-second separator now optional
+  - capability to parse day-of-year (ordinal; 'yyyy-ooo' format)
+
+### Changed
+
+- internal: ISO8601 parser revised
+
 ## 2024-09-30, v0.3.1
 
 ### Added

@@ -582,6 +582,13 @@ pub fn fromString(string: []const u8, directives: []const u8) !Datetime {
 
 /// Make a datetime from a string with an ISO8601-compatibel format.
 pub fn fromISO8601(string: []const u8) !Datetime {
+    // 9 digits of fractional seconds and hh:mm:ss UTC offset: 38 characters
+    if (string.len > 38)
+        return error.InvalidFormat;
+    // last character must be Z (UTC) or a digit
+    if (string[string.len - 1] != 'Z' and !std.ascii.isDigit(string[string.len - 1])) {
+        return error.InvalidFormat;
+    }
     var idx: usize = 0; // assume datetime starts at beginning of string
     return try Datetime.fromFields(try str.parseISO8601(string, &idx));
 }

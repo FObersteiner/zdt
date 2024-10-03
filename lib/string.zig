@@ -2,9 +2,11 @@
 
 const builtin = @import("builtin");
 const std = @import("std");
+const testing = std.testing;
 const log = std.log.scoped(.zdt__stringIO);
 
 const Datetime = @import("./Datetime.zig");
+const cal = @import("./calendar.zig");
 const Tz = @import("./Timezone.zig");
 const ZdtError = @import("./errors.zig").ZdtError;
 const FormatError = @import("./errors.zig").FormatError;
@@ -409,7 +411,20 @@ fn parseOffset(comptime T: type, string: []const u8, idx: *usize, maxDigits: usi
     return sign * (hours * 3600 + minutes * 60 + seconds);
 }
 
-/// Parse ISO8601 formats. Format is infered at runtime.
+const ISOParserState = enum(u8) {
+    Year,
+    Ordinal,
+    Month,
+    Day,
+    DateTimeSep,
+    Hour,
+    Minute,
+    Second,
+    Fraction,
+    Offset,
+};
+
+/// Parse ISO8601 formats. The format is infered at runtime.
 /// Requires at least a year and a month, separated by ASCII minus.
 /// Date and time separator is either 'T' or ASCII space.
 ///
@@ -425,87 +440,167 @@ fn parseOffset(comptime T: type, string: []const u8, idx: *usize, maxDigits: usi
 /// 2014-08-23 12:15:56+01         22   2014-08-23T12:15:56+01:00
 /// 2014-08-23T12:15:56-0530       24   2014-08-23T12:15:56-05:30
 /// 2014-08-23T12:15:56+02:15:30   28   2014-08-23T12:15:56+02:15:30
-pub fn parseISO8601(string: []const u8, idx: *usize) !Datetime.Fields {
-    if (string.len > 38) // 9 digits of fractional seconds and hh:mm:ss UTC offset
-        return error.InvalidFormat;
-    if (string[string.len - 1] != 'Z' and !std.ascii.isDigit(string[string.len - 1])) {
-        return error.InvalidFormat;
-    }
-    if (string.len < 20) {
-        switch (string.len) {
-            7, 10, 16, 19 => {},
-            else => return error.InvalidFormat,
-        }
-    }
-
+pub fn parseISO8601(string: []const u8, idx_ptr: *usize) !Datetime.Fields {
     var fields = Datetime.Fields{};
     var utcoffset: ?i32 = null;
+    var state: ISOParserState = .Year;
 
-    // since this is a runtime-parser, we need to step through the input
-    // and stop doing so once we reach the end (break the 'parseblock')
-    parseblock: {
-        // yyyy-mm
-        fields.year = try parseDigits(u16, string, idx, 4);
-        if (idx.* != 4) return error.InvalidFormat; // 2-digit year not allowed
-        if (string[idx.*] != '-') return error.InvalidFormat;
-        idx.* += 1;
-        fields.month = try parseDigits(u8, string, idx, 2);
-        if (idx.* != 7) return error.InvalidFormat; // 1-digit month not allowed
-        if (idx.* == string.len) break :parseblock;
-
-        // yyyy-mm-dd
-        if (string[idx.*] != '-') return error.InvalidFormat;
-        idx.* += 1;
-        fields.day = try parseDigits(u8, string, idx, 2);
-        if (idx.* != 10) return error.InvalidFormat; // 1-digit day not allowed
-        if (idx.* == string.len) break :parseblock;
-
-        // yyyy-mm-ddTHH:MM
-        if (!(string[idx.*] == 'T' or string[idx.*] == ' ')) return error.InvalidFormat;
-        idx.* += 1;
-        fields.hour = try parseDigits(u8, string, idx, 2);
-        if (idx.* != 13) return error.InvalidFormat; // 1-digit hour not allowed
-        if (string[idx.*] != ':') return error.InvalidFormat;
-        idx.* += 1;
-        fields.minute = try parseDigits(u8, string, idx, 2);
-        if (idx.* != 16) return error.InvalidFormat; // 1-digit minute not allowed
-        if (idx.* == string.len) break :parseblock;
-
-        // yyyy-mm-ddTHH:MM:SS - seconds are optional
-        if (string[idx.*] == ':') {
-            idx.* += 1;
-            fields.second = try parseDigits(u8, string, idx, 2);
-            if (idx.* != 19) return error.InvalidFormat; // 1-digit second not allowed
-            if (idx.* == string.len) break :parseblock;
+    while (idx_ptr.* < string.len) {
+        switch (state) {
+            .Year => {
+                fields.year = try parseDigits(u16, string, idx_ptr, 4);
+                if (idx_ptr.* == string.len) return error.InvalidFormat; // year-only not allowed
+                if (string[idx_ptr.*] == '-') idx_ptr.* = 5; // opt. y-m separator
+                state = if (string[idx_ptr.*..].len == 3) .Ordinal else .Month;
+                continue;
+            },
+            .Ordinal => {
+                const doy = try parseDigits(u16, string, idx_ptr, 3);
+                if (doy == 0) return error.InvalidFormat;
+                if (doy > 365 + @as(u16, @intFromBool(cal.isLeapYear(fields.year)))) return error.InvalidFormat;
+                const date = cal.rdToDate(cal.dateToRD([3]u16{ fields.year, 1, 1 }) + doy - 1);
+                fields.month = @truncate(date[1]);
+                fields.day = @truncate(date[2]);
+                break;
+            },
+            .Month => {
+                fields.month = try parseDigits(u8, string, idx_ptr, 2);
+                state = .Day;
+                continue;
+            },
+            .Day => {
+                if (string[idx_ptr.*] == '-') idx_ptr.* += 1; // opt. m-d separator
+                fields.day = try parseDigits(u8, string, idx_ptr, 2);
+                state = .DateTimeSep;
+                continue;
+            },
+            .DateTimeSep => {
+                if (!(string[idx_ptr.*] == 'T' or string[idx_ptr.*] == ' ')) return error.InvalidFormat;
+                idx_ptr.* += 1;
+                state = .Hour;
+                continue;
+            },
+            .Hour => {
+                fields.hour = try parseDigits(u8, string, idx_ptr, 2);
+                state = .Minute;
+                continue;
+            },
+            .Minute => {
+                if (string[idx_ptr.*] == ':') idx_ptr.* += 1; // opt. h:m separator
+                fields.minute = try parseDigits(u8, string, idx_ptr, 2);
+                // next might be offset, but not fraction
+                if (peekChar(string, idx_ptr)) |c| {
+                    if (c == '+' or c == '-' or c == 'Z') {
+                        state = .Offset;
+                        continue;
+                    }
+                }
+                state = .Second;
+                continue;
+            },
+            .Second => {
+                if (string[idx_ptr.*] == ':') idx_ptr.* += 1; // opt. m:s separator
+                fields.second = try parseDigits(u8, string, idx_ptr, 2);
+                // next might be offset or fraction
+                if (peekChar(string, idx_ptr)) |c| {
+                    if (c == '+' or c == '-' or c == 'Z') {
+                        state = .Offset;
+                        continue;
+                    }
+                    if (c == '.' or c == ',') {
+                        idx_ptr.* += 1;
+                        state = .Fraction;
+                        continue;
+                    }
+                }
+                break;
+            },
+            .Fraction => {
+                const tmp_idx = idx_ptr.*;
+                fields.nanosecond = try parseDigits(u32, string, idx_ptr, 9);
+                const missing = 9 - (idx_ptr.* - tmp_idx);
+                const f: u32 = std.math.powi(u32, 10, @as(u32, @intCast(missing))) catch return error.InvalidFraction;
+                fields.nanosecond *= f;
+                if (peekChar(string, idx_ptr)) |c| {
+                    if (c == '+' or c == '-' or c == 'Z') {
+                        state = .Offset;
+                        continue;
+                    }
+                }
+                break;
+            },
+            .Offset => {
+                utcoffset = try parseOffset(i32, string, idx_ptr, 9);
+                break;
+            },
         }
-
-        // yyyy-mm-ddTHH:MM:SS[+-](offset or Z)
-        if (string[idx.*] == '+' or
-            string[idx.*] == '-' or
-            string[idx.*] == 'Z')
-        {
-            utcoffset = try parseOffset(i32, string, idx, 9);
-            if (idx.* == string.len) break :parseblock;
-            return error.InvalidFormat; // offset must not be followed by other fields
-        }
-
-        // yyyy-mm-ddTHH:MM:SS.fff (fractional seconds separator can either be '.' or ',')
-        if (!(string[idx.*] == '.' or string[idx.*] == ',')) return error.InvalidFormat;
-        idx.* += 1;
-        // parse any number of fractional seconds up to 9
-        const tmp_idx = idx.*;
-        fields.nanosecond = try parseDigits(u32, string, idx, 9);
-        const missing = 9 - (idx.* - tmp_idx);
-        const f: u32 = std.math.powi(u32, 10, @as(u32, @intCast(missing))) catch return error.InvalidFraction;
-        fields.nanosecond *= f;
-        if (idx.* == string.len) break :parseblock;
-
-        // trailing UTC offset
-        utcoffset = try parseOffset(i32, string, idx, 9);
     }
 
+    // // since this is a runtime-parser, we need to step through the input
+    // // and stop doing so once we reach the end (break the 'parseblock')
+    // parseblock: {
+    //     // yyyy-mm
+    //     fields.year = try parseDigits(u16, string, idx, 4);
+    //     if (idx.* != 4) return error.InvalidFormat; // 2-digit year not allowed
+    //     if (string[idx.*] != '-') return error.InvalidFormat;
+    //     idx.* += 1;
+    //     fields.month = try parseDigits(u8, string, idx, 2);
+    //     if (idx.* != 7) return error.InvalidFormat; // 1-digit month not allowed
+    //     if (idx.* == string.len) break :parseblock;
+    //
+    //     // yyyy-mm-dd
+    //     if (string[idx.*] != '-') return error.InvalidFormat;
+    //     idx.* += 1;
+    //     fields.day = try parseDigits(u8, string, idx, 2);
+    //     if (idx.* != 10) return error.InvalidFormat; // 1-digit day not allowed
+    //     if (idx.* == string.len) break :parseblock;
+    //
+    //     // yyyy-mm-ddTHH:MM
+    //     if (!(string[idx.*] == 'T' or string[idx.*] == ' ')) return error.InvalidFormat;
+    //     idx.* += 1;
+    //     fields.hour = try parseDigits(u8, string, idx, 2);
+    //     if (idx.* != 13) return error.InvalidFormat; // 1-digit hour not allowed
+    //     if (string[idx.*] != ':') return error.InvalidFormat;
+    //     idx.* += 1;
+    //     fields.minute = try parseDigits(u8, string, idx, 2);
+    //     if (idx.* != 16) return error.InvalidFormat; // 1-digit minute not allowed
+    //     if (idx.* == string.len) break :parseblock;
+    //
+    //     // yyyy-mm-ddTHH:MM:SS - seconds are optional
+    //     if (string[idx.*] == ':') {
+    //         idx.* += 1;
+    //         fields.second = try parseDigits(u8, string, idx, 2);
+    //         if (idx.* != 19) return error.InvalidFormat; // 1-digit second not allowed
+    //         if (idx.* == string.len) break :parseblock;
+    //     }
+    //
+    //     // yyyy-mm-ddTHH:MM:SS[+-](offset or Z)
+    //     if (string[idx.*] == '+' or
+    //         string[idx.*] == '-' or
+    //         string[idx.*] == 'Z')
+    //     {
+    //         utcoffset = try parseOffset(i32, string, idx, 9);
+    //         if (idx.* == string.len) break :parseblock;
+    //         return error.InvalidFormat; // offset must not be followed by other fields
+    //     }
+    //
+    //     // yyyy-mm-ddTHH:MM:SS.fff (fractional seconds separator can either be '.' or ',')
+    //     if (!(string[idx.*] == '.' or string[idx.*] == ',')) return error.InvalidFormat;
+    //     idx.* += 1;
+    //     // parse any number of fractional seconds up to 9
+    //     const tmp_idx = idx.*;
+    //     fields.nanosecond = try parseDigits(u32, string, idx, 9);
+    //     const missing = 9 - (idx.* - tmp_idx);
+    //     const f: u32 = std.math.powi(u32, 10, @as(u32, @intCast(missing))) catch return error.InvalidFraction;
+    //     fields.nanosecond *= f;
+    //     if (idx.* == string.len) break :parseblock;
+    //
+    //     // trailing UTC offset
+    //     utcoffset = try parseOffset(i32, string, idx, 9);
+    // }
+
     if (utcoffset != null) {
-        if (string[idx.* - 1] == 'Z')
+        if (string[idx_ptr.* - 1] == 'Z')
             fields.tzinfo = Tz.UTC
         else
             fields.tzinfo = try Tz.fromOffset(utcoffset.?, "");
@@ -514,6 +609,20 @@ pub fn parseISO8601(string: []const u8, idx: *usize) !Datetime.Fields {
     return fields;
 }
 
+fn peekChar(string: []const u8, idx_ptr: *usize) ?u8 {
+    if (idx_ptr.* >= string.len) return null;
+    return string[idx_ptr.*];
+}
+
+test "peek" {
+    const string: []const u8 = "text";
+    var idx: usize = 3;
+    var peek = peekChar(string, &idx);
+    try testing.expectEqual(peek.?, 't');
+    idx = 4;
+    peek = peekChar(string, &idx);
+    try testing.expectEqual(peek, null);
+}
 // -----
 // helpers for %a %A %b %B
 // ----->
