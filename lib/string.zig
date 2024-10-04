@@ -271,6 +271,14 @@ fn parseIntoFields(
         'T' => {
             fields.* = try parseISO8601(string, idx_ptr);
         },
+        't' => {
+            const ical = try Datetime.ISOCalendar.fromString(string[idx_ptr.*..]);
+            const tmp_dt = try ical.toDatetime();
+            idx_ptr.* += 10;
+            fields.*.year = tmp_dt.year;
+            fields.*.month = tmp_dt.month;
+            fields.*.day = tmp_dt.day;
+        },
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
         // 'c', // locale-specific, datetime
@@ -320,7 +328,7 @@ fn printIntoWriter(
         'Y' => try writer.print("{d:0>4}", .{dt.year}),
         'y' => try writer.print("{d:0>2}", .{dt.year % 100}),
         'C' => try writer.print("{d:0>2}", .{dt.year / 100}),
-        'G' => try writer.print("{d:0>4}", .{dt.year}),
+        'G' => try writer.print("{d:0>4}", .{dt.toISOCalendar().year}),
         'H' => try writer.print("{d:0>2}", .{dt.hour}),
         'k' => try writer.print("{d: >2}", .{dt.hour}),
         'I' => try writer.print("{d:0>2}", .{twelve_hour_format(dt.hour)}),
@@ -348,7 +356,16 @@ fn printIntoWriter(
         },
         'Z' => blk: {
             if (dt.isNaive()) break :blk;
-            try writer.print("{s}", .{@constCast(&dt.tzinfo.?).abbreviation()});
+            switch (mod) {
+                0 => try writer.print("{s}", .{@constCast(&dt.tzinfo.?).abbreviation()}),
+                1 => {
+                    if (std.meta.eql(dt.tzinfo.?, Tz.UTC))
+                        try writer.print("{s}", .{@constCast(&dt.tzinfo.?).name()})
+                    else
+                        try writer.print("{s}", .{@constCast(&dt.tzinfo.?).abbreviation()});
+                },
+                else => return error.InvalidFormat,
+            }
         },
         'i' => blk: {
             if (dt.isNaive()) break :blk;
@@ -361,6 +378,7 @@ fn printIntoWriter(
         'U' => try writer.print("{d:0>2}", .{dt.weekOfYearSun()}),
         'V' => try writer.print("{d:0>2}", .{dt.toISOCalendar().isoweek}),
         'T' => try dt.format("", .{}, writer),
+        't' => try writer.print("{s}", .{dt.toISOCalendar()}),
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
         // 'c', // locale-specific, datetime

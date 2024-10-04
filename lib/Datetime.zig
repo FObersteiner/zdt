@@ -91,6 +91,32 @@ pub const ISOCalendar = struct {
     isoweek: u8, // [1, 53]
     isoweekday: u8, // [1, 7]
 
+    // Date of the first day of given ISO year
+    fn yearStart(iso_year: u16) !Datetime {
+        const fourth_jan = try Datetime.fromFields(.{ .year = iso_year, .month = 1, .day = 4 });
+        return fourth_jan.sub(
+            Duration.fromTimespanMultiple(@as(u16, fourth_jan.weekdayIsoNumber() - 1), Duration.Timespan.day),
+        );
+    }
+
+    /// Gregorian calendar date for given ISOCalendar
+    pub fn toDatetime(isocal: ISOCalendar) !Datetime {
+        const year_start = try yearStart(isocal.year);
+        return year_start.add(
+            Duration.fromTimespanMultiple(@as(u16, isocal.isoweekday - 1) + @as(u16, isocal.isoweek - 1) * 7, Duration.Timespan.day),
+        );
+    }
+
+    pub fn fromString(string: []const u8) !ISOCalendar {
+        if (string.len < 10) return error.InvalidFormat;
+        if (string[4] != '-' or std.ascii.toLower(string[5]) != 'w' or string[8] != '-') return error.InvalidFormat;
+        return .{
+            .year = try std.fmt.parseInt(u16, string[0..4], 10),
+            .isoweek = try std.fmt.parseInt(u8, string[6..8], 10),
+            .isoweekday = try std.fmt.parseInt(u8, string[9..10], 10),
+        };
+    }
+
     pub fn format(
         calendar: ISOCalendar,
         comptime fmt: []const u8,
@@ -100,7 +126,7 @@ pub const ISOCalendar = struct {
         _ = fmt;
         _ = options;
         try writer.print(
-            "{d:0>4}-W{d:0>2}-{d}T{d:0>2}:{d:0>2}:{d:0>2}",
+            "{d:0>4}-W{d:0>2}-{d}",
             .{ calendar.year, calendar.isoweek, calendar.isoweekday },
         );
     }
@@ -569,6 +595,7 @@ pub fn toISOCalendar(dt: Datetime) ISOCalendar {
     }
     if (w < 1) {
         isocal.isoweek = cal.weeksPerYear(dt.year - 1);
+        isocal.year = dt.year - 1;
         return isocal;
     }
     isocal.isoweek = @truncate(w);

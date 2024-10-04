@@ -11,7 +11,24 @@ Types of changes
 - 'Fixed' for any bug fixes.
 - 'Security' in case of vulnerabilities.
 
-## Unreleased
+## 2024-10-04, v0.3.3
+
+### Added
+
+- ISO-calendar: 'toDatetime' method
+- Datetime to string / Formatter:
+  - 't' directive to get ISO-calendar ("yyyy-Www-d")
+  - 'Z' directive now has a modifier, which causes UTC to be displayed as 'UTC', not 'Z'
+- Datetime from string / Parser:
+  - 't' directive to get datetime from ISO-calendar
+- Formats:
+  - common formats, see <https://pkg.go.dev/time#pkg-constants>
+
+### Fixed
+
+- ISO Calendar: adjust year from Gregorian to ISO if necessary
+- Datetime to string / Formatter:
+  - 'G' directive / ISO-year
 
 ## 2024-10-03, v0.3.2
 
