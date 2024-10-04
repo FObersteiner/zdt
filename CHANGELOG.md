@@ -11,6 +11,12 @@ Types of changes
 - 'Fixed' for any bug fixes.
 - 'Security' in case of vulnerabilities.
 
+## Unreleased
+
+### Added
+
+- some doc comments regarding 'privacy' of Datetime attributes
+
 ## 2024-10-04, v0.3.3
 
 ### Added
