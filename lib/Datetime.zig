@@ -16,26 +16,45 @@ const ZdtError = @import("./errors.zig").ZdtError;
 
 const Datetime = @This();
 
+/// Year. Do not modify directly.
 year: u16 = 1, // [1, 9999]
-month: u8 = 1, // [1, 12]
-day: u8 = 1, // [1, 32]
-hour: u8 = 0, // [0, 23]
-minute: u8 = 0, // [0, 59]
-second: u8 = 0, // [0, 60]
-nanosecond: u32 = 0, // [0, 999999999]
-tzinfo: ?Timezone = null,
-dst_fold: ?u1 = null, // DST fold position; 0 = early side, 1 = late side
 
-// Internal field.
-// Seconds since the Unix epoch as incremental time ("serial" time).
-// This must always refer to 1970-01-01T00:00:00Z, not counting leap seconds
-__unix: i64 = unix_s_min, // [unix_s_min, unix_s_max]
+/// Month. Do not modify directly.
+month: u8 = 1, // [1, 12]
+
+/// Day. Do not modify directly.
+day: u8 = 1, // [1, 32]
+
+/// Hour. Do not modify directly.
+hour: u8 = 0, // [0, 23]
+
+/// Minute. Do not modify directly.
+minute: u8 = 0, // [0, 59]
+
+/// Seconds. Do not modify directly.
+second: u8 = 0, // [0, 60]
+
+/// Nanoseconds. Do not modify directly.
+nanosecond: u32 = 0, // [0, 999999999]
+
+/// Corresponding seconds since the Unix epoch as incremental time ("serial" time).
+/// Always refers to 1970-01-01T00:00:00Z, not counting leap seconds.
+/// Do not modify directly.
+unix_sec: i64 = unix_s_min, // [unix_s_min, unix_s_max]
+//
+/// Optional time zone of a datetime.
+/// Do not modify directly.
+tzinfo: ?Timezone = null,
+
+/// DST fold position; 0 = early side, 1 = late side
+/// Do not modify directly.
+dst_fold: ?u1 = null,
 
 pub const min_year: u16 = 1; // r.d.; 0001-01-01
 pub const max_year: u16 = 9999;
 pub const unix_s_min: i64 = -62135596800;
 pub const unix_s_max: i64 = 253402300799;
-pub const epoch = Datetime{ .year = 1970, .__unix = 0, .tzinfo = Timezone.UTC };
+pub const epoch = Datetime{ .year = 1970, .unix_sec = 0, .tzinfo = Timezone.UTC };
 pub const century: u16 = 2000;
 
 const s_per_minute: u8 = 60;
@@ -182,7 +201,7 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         .nanosecond = fields.nanosecond,
         .tzinfo = fields.tzinfo,
         .dst_fold = fields.dst_fold,
-        .__unix = ( //
+        .unix_sec = ( //
             @as(i40, d) * s_per_day +
             @as(u17, fields.hour) * s_per_hour +
             @as(u12, fields.minute) * s_per_minute + s //
@@ -196,15 +215,15 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
 
     // Shortcut #2: if we have a fixed offset tz, we can calculate Unix time easily
     if (fields.tzinfo.?.tzOffset != null and fields.tzinfo.?.tzFile == null) {
-        dt.__unix -= fields.tzinfo.?.tzOffset.?.seconds_east;
+        dt.unix_sec -= fields.tzinfo.?.tzOffset.?.seconds_east;
         return dt;
     }
 
     // A "real" time zone is more complicated. We have already calculated a
-    // 'localized' Unix time, as dt.__unix.
+    // 'localized' Unix time, as dt.unix_sec.
     // For that, We can obtain a UTC offset, subtract it and see if we get the same datetime.
-    const local_tz = try fields.tzinfo.?.atUnixtime(dt.__unix);
-    const unix_guess_1 = dt.__unix - local_tz.seconds_east;
+    const local_tz = try fields.tzinfo.?.atUnixtime(dt.unix_sec);
+    const unix_guess_1 = dt.unix_sec - local_tz.seconds_east;
     var dt_guess_1 = try Datetime.fromUnix(unix_guess_1, Duration.Resolution.second, fields.tzinfo);
     dt_guess_1.nanosecond = fields.nanosecond;
 
@@ -226,7 +245,7 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
     // Note : this is a bit optimistic since it assumes both "bracketing" timetypes
     //        share the same UTC offset.
     const tt_guess = if (sts[0] != null) sts[0] else sts[2];
-    const unix_guess_2 = dt.__unix - @as(i64, @intCast(tt_guess.?.offset));
+    const unix_guess_2 = dt.unix_sec - @as(i64, @intCast(tt_guess.?.offset));
     var dt_guess_2 = try Datetime.fromUnix(unix_guess_2, Duration.Resolution.second, fields.tzinfo);
     dt_guess_2.nanosecond = fields.nanosecond;
 
@@ -287,18 +306,18 @@ pub fn fromUnix(quantity: i128, resolution: Duration.Resolution, tzinfo: ?Timezo
     var _dt = Datetime{ .tzinfo = tzinfo };
     switch (resolution) {
         .second => {
-            _dt.__unix = @intCast(quantity);
+            _dt.unix_sec = @intCast(quantity);
         },
         .millisecond => {
-            _dt.__unix = @intCast(@divFloor(quantity, @as(i128, ms_per_s)));
+            _dt.unix_sec = @intCast(@divFloor(quantity, @as(i128, ms_per_s)));
             _dt.nanosecond = @intCast(@mod(quantity, @as(i128, ms_per_s)) * us_per_s);
         },
         .microsecond => {
-            _dt.__unix = @intCast(@divFloor(quantity, @as(i128, us_per_s)));
+            _dt.unix_sec = @intCast(@divFloor(quantity, @as(i128, us_per_s)));
             _dt.nanosecond = @intCast(@mod(quantity, @as(i128, us_per_s)) * ms_per_s);
         },
         .nanosecond => {
-            _dt.__unix = @intCast(@divFloor(quantity, @as(i128, ns_per_s)));
+            _dt.unix_sec = @intCast(@divFloor(quantity, @as(i128, ns_per_s)));
             _dt.nanosecond = @intCast(@mod(quantity, @as(i128, ns_per_s)));
         },
     }
@@ -307,13 +326,13 @@ pub fn fromUnix(quantity: i128, resolution: Duration.Resolution, tzinfo: ?Timezo
     return _dt;
 }
 
-/// A helper to update datetime fields so that they agree with the __unix internal
+/// A helper to update datetime fields so that they agree with the unix_sec internal
 /// representation. Expects a "local" unix time, to be corrected by the
 /// UTC offset of the time zone (if such is supplied).
 fn __normalize(dt: *Datetime) TzError!void {
-    var fake_unix = dt.__unix; // "local" Unix time to get the fields right
+    var fake_unix = dt.unix_sec; // "local" Unix time to get the fields right
     if (dt.isAware()) {
-        dt.tzinfo.?.tzOffset = try dt.tzinfo.?.atUnixtime(dt.__unix);
+        dt.tzinfo.?.tzOffset = try dt.tzinfo.?.atUnixtime(dt.unix_sec);
         fake_unix += dt.tzinfo.?.tzOffset.?.seconds_east;
     }
     const s_after_midnight: i32 = @intCast(@mod(fake_unix, s_per_day));
@@ -330,10 +349,10 @@ fn __normalize(dt: *Datetime) TzError!void {
 /// Return Unix time for given datetime struct
 pub fn toUnix(dt: Datetime, resolution: Duration.Resolution) i128 {
     switch (resolution) {
-        .second => return @as(i128, dt.__unix),
-        .millisecond => return @as(i128, dt.__unix) * ms_per_s + @divFloor(dt.nanosecond, us_per_s),
-        .microsecond => return @as(i128, dt.__unix) * us_per_s + @divFloor(dt.nanosecond, ms_per_s),
-        .nanosecond => return @as(i128, dt.__unix) * ns_per_s + dt.nanosecond,
+        .second => return @as(i128, dt.unix_sec),
+        .millisecond => return @as(i128, dt.unix_sec) * ms_per_s + @divFloor(dt.nanosecond, us_per_s),
+        .microsecond => return @as(i128, dt.unix_sec) * us_per_s + @divFloor(dt.nanosecond, ms_per_s),
+        .nanosecond => return @as(i128, dt.unix_sec) * ns_per_s + dt.nanosecond,
     }
 }
 
@@ -373,7 +392,7 @@ pub fn tzLocalize(dt: Datetime, tzinfo: ?Timezone) ZdtError!Datetime {
 pub fn tzConvert(dt: Datetime, new_tz: Timezone) ZdtError!Datetime {
     if (dt.isNaive()) return ZdtError.TzUndefined;
     return Datetime.fromUnix(
-        @as(i128, dt.__unix) * ns_per_s + dt.nanosecond,
+        @as(i128, dt.unix_sec) * ns_per_s + dt.nanosecond,
         Duration.Resolution.nanosecond,
         new_tz,
     );
@@ -441,8 +460,8 @@ pub fn compareUT(this: Datetime, other: Datetime) ZdtError!std.math.Order {
     if ((this.isAware() and other.isNaive()) or
         (this.isNaive() and other.isAware())) return ZdtError.CompareNaiveAware;
     return std.math.order(
-        @as(i128, this.__unix) * ns_per_s + this.nanosecond,
-        @as(i128, other.__unix) * ns_per_s + other.nanosecond,
+        @as(i128, this.unix_sec) * ns_per_s + this.nanosecond,
+        @as(i128, other.unix_sec) * ns_per_s + other.nanosecond,
     );
 }
 
@@ -456,7 +475,7 @@ pub fn compareWall(this: Datetime, other: Datetime) !std.math.Order {
 /// Add a duration to a datetime. Makes a new datetime.
 pub fn add(dt: Datetime, td: Duration) ZdtError!Datetime {
     const ns: i128 = ( //
-        @as(i128, dt.__unix) * ns_per_s + //
+        @as(i128, dt.unix_sec) * ns_per_s + //
         @as(i128, dt.nanosecond) + //
         td.__sec * ns_per_s + //
         td.__nsec //
@@ -471,7 +490,7 @@ pub fn sub(dt: Datetime, td: Duration) ZdtError!Datetime {
 
 /// Calculate the duration between two datetimes, independent of the time zone.
 pub fn diff(this: Datetime, other: Datetime) Duration {
-    var s: i64 = this.__unix - other.__unix;
+    var s: i64 = this.unix_sec - other.unix_sec;
     var ns: i32 = @as(i32, @intCast(this.nanosecond)) - @as(i32, @intCast(other.nanosecond));
     if (ns < 0) {
         s -= 1;
@@ -485,7 +504,7 @@ pub fn diffWall(this: Datetime, other: Datetime) !Duration {
     if (this.isNaive() or other.isNaive()) return error.TzUndefined;
     if (this.tzinfo.?.tzOffset == null or other.tzinfo.?.tzOffset == null) return error.TzUndefined;
 
-    var s: i64 = ((this.__unix - other.__unix) +
+    var s: i64 = ((this.unix_sec - other.unix_sec) +
         (this.tzinfo.?.tzOffset.?.seconds_east - other.tzinfo.?.tzOffset.?.seconds_east));
 
     var ns: i32 = @as(i32, @intCast(this.nanosecond)) - @as(i32, @intCast(other.nanosecond));

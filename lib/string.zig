@@ -382,7 +382,7 @@ fn printIntoWriter(
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
         // 'c', // locale-specific, datetime
-        's' => try writer.print("{d}", .{dt.__unix}),
+        's' => try writer.print("{d}", .{dt.unix_sec}),
         '%' => try writer.print("%", .{}),
         else => return error.InvalidDirective,
     }

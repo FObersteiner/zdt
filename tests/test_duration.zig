@@ -88,13 +88,13 @@ test "sub durations" {
 test "add duration to datetime" {
     var dt = try Datetime.fromFields(.{ .year = 1970, .second = 42 });
     dt = try dt.add(Duration{ .__sec = 1, .__nsec = 0 });
-    try testing.expectEqual(@as(i64, 43), dt.__unix);
+    try testing.expectEqual(@as(i64, 43), dt.unix_sec);
 
     dt = try dt.add(Duration{ .__sec = -1, .__nsec = 0 });
-    try testing.expectEqual(@as(i64, 42), dt.__unix);
+    try testing.expectEqual(@as(i64, 42), dt.unix_sec);
 
     dt = try dt.add(Duration{ .__sec = -1, .__nsec = 1E9 });
-    try testing.expectEqual(@as(i64, 42), dt.__unix);
+    try testing.expectEqual(@as(i64, 42), dt.unix_sec);
     try testing.expectEqual(@as(u32, 0), dt.nanosecond);
 
     dt = try dt.add(Duration.fromTimespanMultiple(1, Duration.Timespan.week));
@@ -104,13 +104,13 @@ test "add duration to datetime" {
 test "subtract duration from datetime" {
     var dt = try Datetime.fromFields(.{ .year = 1970, .second = 42 });
     dt = try dt.sub(Duration{ .__sec = -1, .__nsec = 0 });
-    try testing.expectEqual(@as(i64, 43), dt.__unix);
+    try testing.expectEqual(@as(i64, 43), dt.unix_sec);
 
     dt = try dt.sub(Duration{ .__sec = 1, .__nsec = 0 });
-    try testing.expectEqual(@as(i64, 42), dt.__unix);
+    try testing.expectEqual(@as(i64, 42), dt.unix_sec);
 
     dt = try dt.sub(Duration{ .__sec = 1, .__nsec = 1E9 });
-    try testing.expectEqual(@as(i64, 42), dt.__unix);
+    try testing.expectEqual(@as(i64, 42), dt.unix_sec);
     try testing.expectEqual(@as(u32, 0), dt.nanosecond);
 }
 
