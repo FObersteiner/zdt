@@ -11,12 +11,6 @@ Types of changes
 - 'Fixed' for any bug fixes.
 - 'Security' in case of vulnerabilities.
 
-## Unreleased
-
-### Added
-
-- some doc comments regarding 'privacy' of Datetime attributes
-
 ## 2024-10-04, v0.3.3
 
 ### Added
@@ -29,6 +23,7 @@ Types of changes
   - 't' directive to get datetime from ISO-calendar
 - Formats:
   - common formats, see <https://pkg.go.dev/time#pkg-constants>
+- some doc comments regarding 'privacy' of Datetime attributes
 
 ### Fixed
 
