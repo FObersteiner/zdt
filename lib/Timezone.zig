@@ -53,10 +53,10 @@ pub const UTCoffset = struct {
 pub const UTC = Timezone{
     .tzOffset = UTCoffset{
         .seconds_east = 0,
-        .__abbrev_data = [6:0]u8{ 90, 0, 0, 0, 0, 0 },
+        .__abbrev_data = [6:0]u8{ 'Z', 0, 0, 0, 0, 0 },
     },
     .__name_data_len = 3,
-    .__name_data = [3]u8{ 85, 84, 67 } ++ std.mem.zeroes([cap_name_data - 3]u8),
+    .__name_data = [3]u8{ 'U', 'T', 'C' } ++ std.mem.zeroes([cap_name_data - 3]u8),
 };
 
 /// A time zone's name (identifier).

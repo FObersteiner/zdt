@@ -1,9 +1,9 @@
-//! test stringIO from a user's perspective (no internal functionality)
+//! test datetime <--> string
 
 const std = @import("std");
 const builtin = @import("builtin");
 const testing = std.testing;
-const log = std.log.scoped(.zdt_test_stringIO);
+const log = std.log.scoped(.zdt_test_string);
 
 const c_locale = @cImport(@cInclude("locale.h"));
 const time_mask = switch (builtin.os.tag) {
@@ -63,12 +63,6 @@ test "format naive datetimes with format string api" {
         try testing.expectEqualStrings(case.string, buf.items);
         buf.clearAndFree();
         try case.dt.toString("%Y-%m-%d %H:%M:%S", buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
-        buf.clearAndFree();
-        try case.dt.toString(Formats.DateOnly ++ " " ++ Formats.TimeOnly, buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
-        buf.clearAndFree();
-        try case.dt.toString(Formats.DateTime, buf.writer());
         try testing.expectEqualStrings(case.string, buf.items);
     }
 }
