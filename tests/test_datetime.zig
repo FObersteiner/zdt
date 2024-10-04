@@ -131,13 +131,13 @@ test "Datetime Min Max from fields" {
     var fields = Datetime.Fields{ .year = Datetime.min_year, .month = 1, .day = 1 };
     var dt = try Datetime.fromFields(fields);
     try testing.expect(dt.year == Datetime.min_year);
-    try testing.expect(dt.__unix == Datetime.unix_s_min);
+    try testing.expect(dt.unix_sec == Datetime.unix_s_min);
 
     fields = Datetime.Fields{ .year = Datetime.max_year, .month = 12, .day = 31, .hour = 23, .minute = 59, .second = 59, .nanosecond = 999999999 };
     dt = try Datetime.fromFields(fields);
     try testing.expect(dt.year == Datetime.max_year);
     try testing.expect(dt.hour == 23);
-    try testing.expectEqual(Datetime.unix_s_max, dt.__unix);
+    try testing.expectEqual(Datetime.unix_s_max, dt.unix_sec);
 }
 
 test "Datetime Min Max fields vs seconds roundtrip" {
@@ -164,7 +164,7 @@ test "Epoch" {
     try testing.expectEqual(epoch.year, 1970);
     try testing.expectEqual(epoch.month, 1);
     try testing.expectEqual(epoch.day, 1);
-    try testing.expectEqual(epoch.__unix, 0);
+    try testing.expectEqual(epoch.unix_sec, 0);
     try testing.expectEqual(true, epoch.isAware());
     try testing.expectEqual(true, epoch.isZoned());
     try testing.expectEqual(false, epoch.isNaive());
@@ -296,7 +296,7 @@ test "floor naive datetime to the date" {
     try testing.expectEqual(@as(u8, 0), dt_floored.minute);
     try testing.expectEqual(@as(u8, 0), dt_floored.second);
     try testing.expectEqual(@as(u32, 0), dt_floored.nanosecond);
-    try testing.expectEqual(@as(i64, 1613606400), dt_floored.__unix);
+    try testing.expectEqual(@as(i64, 1613606400), dt_floored.unix_sec);
 }
 
 test "day of year" {

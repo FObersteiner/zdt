@@ -43,11 +43,11 @@ test "offset manifests in Unix time" {
     const tzinfo = try Tz.fromOffset(3600, "UTC+1");
     // all fields zero, so Unix time has to be adjusted:
     const dt = try Datetime.fromFields(.{ .year = 1970, .tzinfo = tzinfo });
-    try testing.expect(dt.__unix == -3600);
+    try testing.expect(dt.unix_sec == -3600);
     try testing.expect(dt.hour == 0);
     // Unix time zero, so fields have to be adjusted
     const dt_unix = try Datetime.fromUnix(0, Duration.Resolution.second, tzinfo);
-    try testing.expect(dt_unix.__unix == 0);
+    try testing.expect(dt_unix.unix_sec == 0);
     try testing.expect(dt_unix.hour == 1);
 
     var buf = std.ArrayList(u8).init(testing.allocator);
@@ -70,7 +70,7 @@ test "tzfile tz manifests in Unix time" {
     defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 1970, .nanosecond = 1, .tzinfo = tzinfo });
-    try testing.expect(dt.__unix == -3600);
+    try testing.expect(dt.unix_sec == -3600);
     try testing.expect(dt.hour == 0);
     try testing.expect(dt.nanosecond == 1);
     try testing.expect(dt.tzinfo != null);
@@ -87,7 +87,7 @@ test "local tz db, from specified or default prefix" {
     defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 1970, .nanosecond = 1, .tzinfo = tzinfo });
-    try testing.expect(dt.__unix == -3600);
+    try testing.expect(dt.unix_sec == -3600);
     try testing.expect(dt.hour == 0);
     try testing.expect(dt.nanosecond == 1);
     try testing.expect(dt.tzinfo != null);
@@ -100,7 +100,7 @@ test "embedded tzdata" {
     defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 1970, .nanosecond = 1, .tzinfo = tzinfo });
-    try testing.expect(dt.__unix == -3600);
+    try testing.expect(dt.unix_sec == -3600);
     try testing.expect(dt.hour == 0);
     try testing.expect(dt.nanosecond == 1);
     try testing.expect(dt.tzinfo != null);
@@ -362,8 +362,8 @@ test "make datetime aware" {
 
     var dt_aware = try dt_naive.tzLocalize(tzinfo);
     try testing.expect(dt_aware.tzinfo != null);
-    try testing.expect(dt_aware.__unix != dt_naive.__unix);
-    try testing.expect(dt_aware.__unix == -3600);
+    try testing.expect(dt_aware.unix_sec != dt_naive.unix_sec);
+    try testing.expect(dt_aware.unix_sec == -3600);
     try testing.expect(dt_aware.year == dt_naive.year);
     try testing.expect(dt_aware.day == dt_naive.day);
     try testing.expect(dt_aware.hour == dt_naive.hour);
@@ -380,8 +380,8 @@ test "replace tz in aware datetime" {
     const dt_berlin = try dt_utc.tzLocalize(tz_Berlin);
 
     try testing.expect(dt_berlin.tzinfo != null);
-    try testing.expect(dt_berlin.__unix != dt_utc.__unix);
-    try testing.expect(dt_berlin.__unix == -3600);
+    try testing.expect(dt_berlin.unix_sec != dt_utc.unix_sec);
+    try testing.expect(dt_berlin.unix_sec == -3600);
     try testing.expect(dt_berlin.year == dt_utc.year);
     try testing.expect(dt_berlin.day == dt_utc.day);
     try testing.expect(dt_berlin.hour == dt_utc.hour);
@@ -411,7 +411,7 @@ test "convert time zone" {
     tzinfo = try Tz.fromTzfile("America/New_York", testing.allocator);
     const dt_NY = try dt_Berlin.tzConvert(tzinfo);
 
-    try testing.expect(dt_Berlin.__unix == dt_NY.__unix);
+    try testing.expect(dt_Berlin.unix_sec == dt_NY.unix_sec);
     try testing.expect(dt_Berlin.nanosecond == dt_NY.nanosecond);
     try testing.expect(dt_Berlin.hour != dt_NY.hour);
 }
