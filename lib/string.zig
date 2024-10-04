@@ -356,7 +356,16 @@ fn printIntoWriter(
         },
         'Z' => blk: {
             if (dt.isNaive()) break :blk;
-            try writer.print("{s}", .{@constCast(&dt.tzinfo.?).abbreviation()});
+            switch (mod) {
+                0 => try writer.print("{s}", .{@constCast(&dt.tzinfo.?).abbreviation()}),
+                1 => {
+                    if (std.meta.eql(dt.tzinfo.?, Tz.UTC))
+                        try writer.print("{s}", .{@constCast(&dt.tzinfo.?).name()})
+                    else
+                        try writer.print("{s}", .{@constCast(&dt.tzinfo.?).abbreviation()});
+                },
+                else => return error.InvalidFormat,
+            }
         },
         'i' => blk: {
             if (dt.isNaive()) break :blk;
