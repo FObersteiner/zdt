@@ -26,6 +26,7 @@ const test_files = [_][]const u8{
     "test_calendar",
     "test_datetime",
     "test_duration",
+    "test_formats",
     "test_string",
     "test_timezone",
 };
