@@ -142,6 +142,12 @@ test "leap second difference" {
     try testing.expectEqual(@as(i64, -86401), diff.__sec);
     try testing.expectEqual(@as(u32, 0), diff.__nsec);
 
+    a = try Datetime.fromISO8601("1973-01-01");
+    b = try Datetime.fromISO8601("1972-06-30");
+    leaps = a.diffLeap(b);
+    try testing.expectEqual(@as(i64, 2), leaps.__sec);
+    try testing.expectEqual(@as(u32, 0), leaps.__nsec);
+
     a = try Datetime.fromISO8601("1970-01-01");
     b = try Datetime.fromISO8601("2024-01-01");
     leaps = a.diffLeap(b);

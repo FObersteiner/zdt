@@ -488,9 +488,11 @@ pub fn sub(dt: Datetime, td: Duration) ZdtError!Datetime {
     return dt.add(.{ .__sec = td.__sec * -1, .__nsec = td.__nsec });
 }
 
-/// Calculate the duration between two datetimes, independent of the time zone.
+/// Calculate the absolute difference between two datetimes, independent of the time zone.
 /// Excludes leap seconds.
 /// To get the difference in leap seconds, see Datetime.diffLeap().
+///
+/// Result is (this - other) as a Duration.
 pub fn diff(this: *const Datetime, other: Datetime) Duration {
     var s: i64 = this.unix_sec - other.unix_sec;
     var ns: i32 = @as(i32, @intCast(this.nanosecond)) - @as(i32, @intCast(other.nanosecond));
@@ -502,6 +504,9 @@ pub fn diff(this: *const Datetime, other: Datetime) Duration {
 }
 
 /// Calculate wall time difference between two timezone-aware datetimes.
+/// If one of the datetimes is naive (no tz specified), this is considered an error.
+///
+/// Result is ('this' wall time - 'other' wall time) as a Duration.
 pub fn diffWall(this: *const Datetime, other: Datetime) !Duration {
     if (this.isNaive() or other.isNaive()) return error.TzUndefined;
     if (this.tzinfo.?.tzOffset == null or other.tzinfo.?.tzOffset == null) return error.TzUndefined;
@@ -519,7 +524,9 @@ pub fn diffWall(this: *const Datetime, other: Datetime) !Duration {
 
 /// Difference in leap seconds between two datetimes.
 /// To get the absolute time difference between two datetimes including leap seconds,
-/// .add the result of diffleap() to that of diff().
+/// add the result of diffleap() to that of diff().
+///
+/// Result is (leap seconds of 'this' - leap seconds of 'other') as a Duration.
 pub fn diffLeap(this: *const Datetime, other: Datetime) Duration {
     const this_leap: i16 = @as(i16, cal.leapCorrection(this.unix_sec));
     const other_leap: i16 = @as(i16, cal.leapCorrection(other.unix_sec));
