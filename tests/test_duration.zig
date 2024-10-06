@@ -154,10 +154,10 @@ test "leap second difference" {
     try testing.expectEqual(@as(i64, -27), leaps.__sec);
     try testing.expectEqual(@as(u32, 0), leaps.__nsec);
 
-    a = try Datetime.fromISO8601("2016-12-31"); // before last leap second insertion
-    b = try Datetime.fromISO8601("2024-01-01");
+    a = try Datetime.fromISO8601("2024-01-01");
+    b = try Datetime.fromISO8601("2016-12-31"); // before last leap second insertion
     leaps = a.diffLeap(b);
-    try testing.expectEqual(@as(i64, -1), leaps.__sec);
+    try testing.expectEqual(@as(i64, 1), leaps.__sec);
     try testing.expectEqual(@as(u32, 0), leaps.__nsec);
 
     a = try Datetime.fromISO8601("2024-10-01");
