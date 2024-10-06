@@ -20,7 +20,7 @@ Types of changes
 ### Changed
 
 - tzdb version info now part of tzdata.zig, since this is specific to the embedded version.
-- update info on how to update tzdata for developement
+- update info on how to update tzdata for development
 
 ### Removed
 
