@@ -72,7 +72,7 @@ See [changelog](https://github.com/FObersteiner/zdt/blob/master/change.log)
 
 ## Zig version
 
-This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2024-10-01, Zig-0.13 stable or higher should work.
+This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2024-10-06, Zig-0.13 stable or higher should work.
 
 ## IANA timezone database version
 
@@ -83,7 +83,7 @@ This library is developed with Zig `0.14.0-dev` aka 'master', might not compile 
 
 `zdt` comes with [eggert/tz](https://github.com/eggert/tz). The database is compiled and shipped with `zdt` (as-is; not tar-balled or compressed). If you wish to use your own version of the [IANA time zone db](https://www.iana.org/time-zones), you can set a path to it using the `-Dprefix-tzdb="path/to/your/tzdb"` option. See also `zig build --help`
 
-For development, to update the time zone database and the version info, run the following build steps: `zig build update-tz-database && zig build update-tz-version`. Some of the code generation is done with Python scripts, which require Python >= 3.9 but no third party packages, a system installation will do.
+For development, to update the time zone database and the version info, run the following build steps: `zig build update-tzdb && zig build update-tzdb-version`. Some of the code generation is done with Python scripts, which require Python >= 3.9 but no third party packages, a system installation will do.
 
 ## License
 

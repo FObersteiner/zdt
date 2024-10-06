@@ -8,11 +8,12 @@ const Datetime = @import("./Datetime.zig");
 const TzError = @import("./errors.zig").TzError;
 const tzif = @import("./tzif.zig");
 const tzwin = @import("./windows/windows_tz.zig");
-const tzvers = @import("./tzdb_version.zig");
 
 const Timezone = @This();
 
+/// embedded IANA time zone database (eggert/tz)
 pub const tzdata = @import("./tzdata.zig").tzdata;
+pub const tzdb_version = @import("./tzdata.zig").tzdb_version;
 
 // longest tz name is 'America/Argentina/ComodRivadavia' --> 32 ASCII chars
 const cap_name_data: usize = 32;
@@ -25,9 +26,6 @@ tzFile: ?tzif.Tz = null,
 // pure offset from UTC:
 tzOffset: ?UTCoffset = null,
 // ---
-
-/// auto-generated string of the current eggert/tz version
-pub const tzdb_version = tzvers.tzdb_version;
 
 /// auto-generated prefix / path of the current eggert/tz database, as shipped with zdt
 // anonymous import; see build.zig
