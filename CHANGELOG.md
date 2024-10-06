@@ -26,8 +26,6 @@ Types of changes
 
 - gen_tzdb_version script. This is now part of the tzdb_update script.
 
-### Fixed
-
 ## 2024-10-04, v0.3.3
 
 ### Added
