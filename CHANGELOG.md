@@ -11,6 +11,19 @@ Types of changes
 - 'Fixed' for any bug fixes.
 - 'Security' in case of vulnerabilities.
 
+## Unreleased
+
+### Changed
+
+- tzdb version info now part of tzdata.zig, since this is specific to the embedded version.
+- update info on how to update tzdata for developement
+
+### Removed
+
+- gen_tzdb_version script. This is now part of the tzdb_update script.
+
+### Fixed
+
 ## 2024-10-04, v0.3.3
 
 ### Added
