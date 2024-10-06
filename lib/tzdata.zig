@@ -3,6 +3,8 @@
 
 const std = @import("std");
 
+pub const tzdb_version = "2024b";
+
 pub const tzdata = std.StaticStringMap([]const u8).initComptime(.{
     .{ "Africa/Abidjan", @embedFile("./tzdata/zoneinfo/Africa/Abidjan") },
     .{ "Africa/Accra", @embedFile("./tzdata/zoneinfo/Africa/Accra") },

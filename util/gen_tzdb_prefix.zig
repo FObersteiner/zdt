@@ -1,4 +1,5 @@
-//! Update the path to the IANA time zone database shipped with zdt.
+//! Set path to IANA time zone database
+
 const std = @import("std");
 const log = std.log.scoped(.zdt__gen_tzdb_prefix);
 
@@ -21,24 +22,26 @@ pub fn main() !void {
         user_specified;
 
     const prefix = try allocator.dupe(u8, tmp);
-    // POSIX sep 'should' work on Windows while backslash fails in any case.
-    std.mem.replaceScalar(u8, prefix, '\\', '/');
     defer allocator.free(prefix);
 
-    // log.info("tzdb prefix: {s}", .{prefix});
+    // POSIX sep 'should' work on Windows while backslash fails in any case.
+    std.mem.replaceScalar(u8, prefix, '\\', '/');
+
+    //    log.warn("tzdb prefix: {s}", .{prefix});
 
     // filename arg passed in from build.zig
     const filename = args.next().?;
+
+    //    log.warn("tzdb prefix info file: {s}", .{filename});
+
     var file = try std.fs.cwd().createFile(filename, .{});
     defer file.close();
+
     var bw = std.io.bufferedWriter(file.writer());
     const writer = bw.writer();
 
     try writer.writeAll(
         \\// This file is auto-generated. Do not edit!
-        \\//
-        \\// This file is also specific to your copy of zdt;
-        \\// it is not part of the git repository.
         \\//
     );
     try writer.print("\npub const tzdb_prefix = \"{s}\";", .{prefix});

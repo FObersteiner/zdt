@@ -170,6 +170,7 @@ pub fn main() !void {
         .argv = &[_][]const u8{
             "python",
             "../util/gen_tzdb_embedding.py",
+            tzdbtag.?,
         },
     });
     if (proc_tzembed.stdout.len > 0) {
