@@ -131,3 +131,35 @@ test "datetime difference" {
     try testing.expectEqual(@as(i64, 1), diff.__sec);
     try testing.expectEqual(@as(u32, 0), diff.__nsec);
 }
+
+test "leap second difference" {
+    var a = try Datetime.fromISO8601("1972-06-30");
+    var b = try Datetime.fromISO8601("1972-07-01");
+    var leaps = a.diffLeap(b);
+    try testing.expectEqual(@as(i64, -1), leaps.__sec);
+    try testing.expectEqual(@as(u32, 0), leaps.__nsec);
+    var diff = a.diff(b).add(leaps);
+    try testing.expectEqual(@as(i64, -86401), diff.__sec);
+    try testing.expectEqual(@as(u32, 0), diff.__nsec);
+
+    a = try Datetime.fromISO8601("1970-01-01");
+    b = try Datetime.fromISO8601("2024-01-01");
+    leaps = a.diffLeap(b);
+    try testing.expectEqual(@as(i64, -27), leaps.__sec);
+    try testing.expectEqual(@as(u32, 0), leaps.__nsec);
+
+    a = try Datetime.fromISO8601("2016-12-31"); // before last leap second insertion
+    b = try Datetime.fromISO8601("2024-01-01");
+    leaps = a.diffLeap(b);
+    try testing.expectEqual(@as(i64, -1), leaps.__sec);
+    try testing.expectEqual(@as(u32, 0), leaps.__nsec);
+
+    a = try Datetime.fromISO8601("2024-10-01");
+    b = try Datetime.fromISO8601("2024-10-02");
+    leaps = a.diffLeap(b);
+    try testing.expectEqual(@as(i64, 0), leaps.__sec);
+    try testing.expectEqual(@as(u32, 0), leaps.__nsec);
+    diff = a.diff(b).add(leaps);
+    try testing.expectEqual(@as(i64, -86400), diff.__sec);
+    try testing.expectEqual(@as(u32, 0), diff.__nsec);
+}
