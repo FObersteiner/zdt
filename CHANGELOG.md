@@ -13,6 +13,10 @@ Types of changes
 
 ## Unreleased
 
+### Added
+
+- leap second difference between two datetimes: method 'diffLeap', returns Duration type.
+
 ### Changed
 
 - tzdb version info now part of tzdata.zig, since this is specific to the embedded version.
