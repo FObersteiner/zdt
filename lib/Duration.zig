@@ -4,7 +4,12 @@ const std = @import("std");
 
 const Duration = @This();
 
+/// Any duration represented in seconds.
+/// Do not modify directly.
 __sec: i64 = 0,
+
+/// Fractional seconds in nanoseconds, always positive.
+/// Do not modify directly.
 __nsec: u32 = 0, // fraction is always positive
 
 /// Create a duration from multiple of specific a timespan
@@ -114,3 +119,19 @@ pub const Timespan = enum(u64) {
     day = 1_000_000_000 * 60 * 60 * 24,
     week = 1_000_000_000 * 60 * 60 * 24 * 7,
 };
+
+// pub fn fromString(string: []const u8, directives: []const u8) !Duration {
+//
+// };
+
+// pub fn fromISO8601(string: []const u8) !Duration {
+//
+// };
+
+// pub fn toString(duration: Duration, directives: []const u8, writer: anytype) !void {
+//
+// };
+
+// pub fn toISO8601(duration: Duration, writer: anytype) void {
+//
+// };

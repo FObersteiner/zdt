@@ -64,6 +64,8 @@ const ms_per_s: u16 = 1_000;
 const us_per_s: u32 = 1_000_000;
 const ns_per_s: u32 = 1_000_000_000;
 
+/// Enum-representation of a weekday, with Sunday being 0.
+/// Mainly used to get locale-independent English names.
 pub const Weekday = enum(u8) {
     Sunday = 0,
     Monday = 1,
@@ -82,6 +84,8 @@ pub const Weekday = enum(u8) {
     }
 };
 
+/// Enum-representation of a month, with January being 1.
+/// Mainly used to get locale-independent English names.
 pub const Month = enum(u8) {
     January = 1,
     February = 2,
@@ -493,7 +497,7 @@ pub fn sub(dt: Datetime, td: Duration) ZdtError!Datetime {
 /// To get the difference in leap seconds, see Datetime.diffLeap().
 ///
 /// Result is (this - other) as a Duration.
-pub fn diff(this: *const Datetime, other: Datetime) Duration {
+pub fn diff(this: Datetime, other: Datetime) Duration {
     var s: i64 = this.unix_sec - other.unix_sec;
     var ns: i32 = @as(i32, @intCast(this.nanosecond)) - @as(i32, @intCast(other.nanosecond));
     if (ns < 0) {
@@ -507,7 +511,7 @@ pub fn diff(this: *const Datetime, other: Datetime) Duration {
 /// If one of the datetimes is naive (no tz specified), this is considered an error.
 ///
 /// Result is ('this' wall time - 'other' wall time) as a Duration.
-pub fn diffWall(this: *const Datetime, other: Datetime) !Duration {
+pub fn diffWall(this: Datetime, other: Datetime) !Duration {
     if (this.isNaive() or other.isNaive()) return error.TzUndefined;
     if (this.tzinfo.?.tzOffset == null or other.tzinfo.?.tzOffset == null) return error.TzUndefined;
 
@@ -527,7 +531,7 @@ pub fn diffWall(this: *const Datetime, other: Datetime) !Duration {
 /// add the result of diffleap() to that of diff().
 ///
 /// Result is (leap seconds of 'this' - leap seconds of 'other') as a Duration.
-pub fn diffLeap(this: *const Datetime, other: Datetime) Duration {
+pub fn diffLeap(this: Datetime, other: Datetime) Duration {
     const this_leap: i16 = @as(i16, cal.leapCorrection(this.unix_sec));
     const other_leap: i16 = @as(i16, cal.leapCorrection(other.unix_sec));
     return Duration.fromTimespanMultiple(
