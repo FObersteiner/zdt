@@ -34,38 +34,38 @@ pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
 
     // Zig 0.13 :
     var state = TokenizerState.ExpectChar;
-    while (fmt_idx < directives.len) {
+    tokenize: while (fmt_idx < directives.len) {
         switch (state) {
             .ExpectChar => {
                 if (directives[fmt_idx] == token_start) {
                     fmt_idx += 1;
                     state = .ExpectDirectiveOrModifier;
-                    continue;
+                    continue :tokenize;
                 }
                 state = .ProcessChar;
-                continue;
+                continue :tokenize;
             },
             .ExpectDirectiveOrModifier => {
                 if (directives[fmt_idx] == token_start) { // special case: literal 'token_start'
                     state = .ProcessChar;
-                    continue;
+                    continue :tokenize;
                 }
                 state = .ProcessDirective;
-                continue;
+                continue :tokenize;
             },
             .ProcessChar => {
                 if (data[data_idx] != directives[fmt_idx]) return error.InvalidFormat;
                 data_idx += 1;
                 fmt_idx += 1;
-                if (data_idx >= data.len) break;
+                if (data_idx >= data.len) break :tokenize;
                 state = .ExpectChar;
-                continue;
+                continue :tokenize;
             },
             .ProcessDirective => {
                 try parseIntoFields(&fields, data, directives[fmt_idx], &data_idx, &am_pm_flags);
                 fmt_idx += 1;
                 state = .ExpectChar;
-                continue;
+                continue :tokenize;
             },
         }
     }
@@ -129,39 +129,39 @@ pub fn tokenizeAndPrint(dt: *const Datetime, directives: []const u8, writer: any
 
     // Zig 0.13 :
     var state = TokenizerState.ExpectChar;
-    while (fmt_idx < directives.len) {
+    tokenize: while (fmt_idx < directives.len) {
         switch (state) {
             .ExpectChar => {
                 if (directives[fmt_idx] == token_start) {
                     fmt_idx += 1;
                     state = .ExpectDirectiveOrModifier;
-                    continue;
+                    continue :tokenize;
                 }
                 state = .ProcessChar;
-                continue;
+                continue :tokenize;
             },
             .ExpectDirectiveOrModifier => {
                 if (directives[fmt_idx] == modifier) {
                     mod += 1;
                     fmt_idx += 1;
                     state = .ExpectDirectiveOrModifier;
-                    continue;
+                    continue :tokenize;
                 }
                 state = .ProcessDirective;
-                continue;
+                continue :tokenize;
             },
             .ProcessChar => {
                 try writer.print("{c}", .{directives[fmt_idx]});
                 fmt_idx += 1;
                 state = .ExpectChar;
-                continue;
+                continue :tokenize;
             },
             .ProcessDirective => {
                 try printIntoWriter(dt, directives[fmt_idx], mod, writer);
                 mod = 0;
                 fmt_idx += 1;
                 state = .ExpectChar;
-                continue;
+                continue :tokenize;
             },
         }
     }
