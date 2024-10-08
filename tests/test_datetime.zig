@@ -494,6 +494,22 @@ test "isocal from string" {
     try testing.expectError(error.InvalidFormat, err);
 }
 
+test "replace fields" {
+    const dt = try Datetime.fromISO8601("2020-02-03T04:05:06.777888999");
+    var new_dt = try dt.replace(.{ .year = 2022 });
+    try testing.expectEqual(2022, new_dt.year); // must change
+    try testing.expectEqual(2, new_dt.month); // must NOT change
+
+    new_dt = try dt.replace(.{ .month = 3 });
+    try testing.expectEqual(3, new_dt.month);
+
+    new_dt = try dt.replace(.{ .nanosecond = 1 });
+    try testing.expectEqual(1, new_dt.nanosecond);
+
+    const err = dt.replace(.{ .month = 13 });
+    try testing.expectError(error.MonthOutOfRange, err);
+}
+
 // ---vv--- test generated with Python script ---vv---
 
 test "unix nanoseconds, fields" {

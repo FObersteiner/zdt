@@ -190,6 +190,17 @@ pub const Fields = struct {
     }
 };
 
+/// helper for Datetime.replace()
+pub const OptFields = struct {
+    year: ?u16 = null,
+    month: ?u8 = null,
+    day: ?u8 = null,
+    hour: ?u8 = null,
+    minute: ?u8 = null,
+    second: ?u8 = null,
+    nanosecond: ?u32 = null,
+};
+
 pub fn fromFields(fields: Fields) ZdtError!Datetime {
     _ = try fields.validate(); // TODO : should this only be called in debug builds ?
     const d = cal.dateToRD([_]u16{ fields.year, fields.month, fields.day });
@@ -285,6 +296,32 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
 
     // If we came here, either guess 1 or guess 2 is correct.
     if (dt_eq_guess_1) return dt_guess_1 else return dt_guess_2;
+}
+
+/// make a fields struct from a datetime
+pub fn toFields(dt: *const Datetime) Fields {
+    return .{
+        .year = dt.year,
+        .month = dt.month,
+        .day = dt.day,
+        .hour = dt.hour,
+        .minute = dt.minute,
+        .second = dt.second,
+        .nanosecond = dt.nanosecond,
+    };
+}
+
+/// replace a datetime field
+pub fn replace(dt: *const Datetime, new_fields: OptFields) !Datetime {
+    var fields = dt.toFields();
+    if (new_fields.year) |v| fields.year = v;
+    if (new_fields.month) |v| fields.month = v;
+    if (new_fields.day) |v| fields.day = v;
+    if (new_fields.hour) |v| fields.hour = v;
+    if (new_fields.minute) |v| fields.minute = v;
+    if (new_fields.second) |v| fields.second = v;
+    if (new_fields.nanosecond) |v| fields.nanosecond = v;
+    return try Datetime.fromFields(fields);
 }
 
 /// A helper to compare datetime fields, excluding nanosecond field.
