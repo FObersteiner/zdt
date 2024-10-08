@@ -328,7 +328,7 @@ fn printIntoWriter(
         'Y' => try writer.print("{d:0>4}", .{dt.year}),
         'y' => try writer.print("{d:0>2}", .{dt.year % 100}),
         'C' => try writer.print("{d:0>2}", .{dt.year / 100}),
-        'G' => try writer.print("{d:0>4}", .{dt.toISOCalendar().year}),
+        'G' => try writer.print("{d:0>4}", .{dt.toISOCalendar().isoyear}),
         'H' => try writer.print("{d:0>2}", .{dt.hour}),
         'k' => try writer.print("{d: >2}", .{dt.hour}),
         'I' => try writer.print("{d:0>2}", .{twelve_hour_format(dt.hour)}),

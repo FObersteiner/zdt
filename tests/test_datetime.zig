@@ -456,28 +456,28 @@ test "iso calendar" {
 }
 
 test "isocalendar to datetime and vice versa" {
-    var ical = Datetime.ISOCalendar{ .year = 2004, .isoweek = 53, .isoweekday = 6 };
+    var ical = Datetime.ISOCalendar{ .isoyear = 2004, .isoweek = 53, .isoweekday = 6 };
     var ref_dt = try Datetime.fromFields(.{ .year = 2005, .month = 1, .day = 1 });
     var ical_dt = try ical.toDatetime();
     var dt_ical = ical_dt.toISOCalendar();
     try testing.expectEqual(ref_dt, ical_dt);
     try testing.expectEqual(ical, dt_ical);
 
-    ical = Datetime.ISOCalendar{ .year = 2010, .isoweek = 1, .isoweekday = 1 };
+    ical = Datetime.ISOCalendar{ .isoyear = 2010, .isoweek = 1, .isoweekday = 1 };
     ref_dt = try Datetime.fromFields(.{ .year = 2010, .month = 1, .day = 4 });
     ical_dt = try ical.toDatetime();
     dt_ical = ical_dt.toISOCalendar();
     try testing.expectEqual(ref_dt, ical_dt);
     try testing.expectEqual(ical, dt_ical);
 
-    ical = Datetime.ISOCalendar{ .year = 2009, .isoweek = 53, .isoweekday = 7 };
+    ical = Datetime.ISOCalendar{ .isoyear = 2009, .isoweek = 53, .isoweekday = 7 };
     ref_dt = try Datetime.fromFields(.{ .year = 2010, .month = 1, .day = 3 });
     ical_dt = try ical.toDatetime();
     dt_ical = ical_dt.toISOCalendar();
     try testing.expectEqual(ref_dt, ical_dt);
     try testing.expectEqual(ical, dt_ical);
 
-    ical = Datetime.ISOCalendar{ .year = 2024, .isoweek = 40, .isoweekday = 4 };
+    ical = Datetime.ISOCalendar{ .isoyear = 2024, .isoweek = 40, .isoweekday = 4 };
     ref_dt = try Datetime.fromFields(.{ .year = 2024, .month = 10, .day = 3 });
     ical_dt = try ical.toDatetime();
     dt_ical = ical_dt.toISOCalendar();
@@ -486,7 +486,7 @@ test "isocalendar to datetime and vice versa" {
 }
 
 test "isocal from string" {
-    const ical = Datetime.ISOCalendar{ .year = 2024, .isoweek = 40, .isoweekday = 4 };
+    const ical = Datetime.ISOCalendar{ .isoyear = 2024, .isoweek = 40, .isoweekday = 4 };
     const fromstr = try Datetime.ISOCalendar.fromString("2024-W40-4");
     try testing.expectEqual(ical, fromstr);
 
@@ -506,7 +506,11 @@ test "replace fields" {
     new_dt = try dt.replace(.{ .nanosecond = 1 });
     try testing.expectEqual(1, new_dt.nanosecond);
 
-    const err = dt.replace(.{ .month = 13 });
+    // TODO : fields validation should report incorrect leap second
+    new_dt = try dt.replace(.{ .second = 60 });
+    try testing.expectEqual(60, new_dt.second);
+
+    const err = dt.replace(.{ .month = 13 }); // ensure is checked
     try testing.expectError(error.MonthOutOfRange, err);
 }
 
