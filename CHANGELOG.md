@@ -13,15 +13,19 @@ Types of changes
 
 ## Unreleased
 
+## 2024-10-08, v0.3.4
+
 ### Added
 
 - leap second difference between two datetimes: method 'diffLeap', returns Duration type
 - 'replace' method to safely change fields of a datetime
+- 'toFields' method for datetime
 
 ### Changed
 
 - tzdb version info now part of tzdata.zig, since this is specific to the embedded version
 - update info on how to update tzdata for development
+- isocalendar: 'year' field is now called 'isoyear'
 
 ### Removed
 
