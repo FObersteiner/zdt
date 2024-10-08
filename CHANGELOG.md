@@ -16,6 +16,7 @@ Types of changes
 ### Added
 
 - leap second difference between two datetimes: method 'diffLeap', returns Duration type.
+- 'replace' method to safely change fields of a datetime.
 
 ### Changed
 
