@@ -64,6 +64,8 @@ const ms_per_s: u16 = 1_000;
 const us_per_s: u32 = 1_000_000;
 const ns_per_s: u32 = 1_000_000_000;
 
+/// Enum-representation of a weekday, with Sunday being 0.
+/// Mainly used to get locale-independent English names.
 pub const Weekday = enum(u8) {
     Sunday = 0,
     Monday = 1,
@@ -82,6 +84,8 @@ pub const Weekday = enum(u8) {
     }
 };
 
+/// Enum-representation of a month, with January being 1.
+/// Mainly used to get locale-independent English names.
 pub const Month = enum(u8) {
     January = 1,
     February = 2,
@@ -106,12 +110,12 @@ pub const Month = enum(u8) {
 };
 
 pub const ISOCalendar = struct {
-    year: u16, // [1, 9999]
+    isoyear: u16, // [1, 9999]
     isoweek: u8, // [1, 53]
     isoweekday: u8, // [1, 7]
 
     // Date of the first day of given ISO year
-    fn yearStart(iso_year: u16) !Datetime {
+    fn yearStartDate(iso_year: u16) !Datetime {
         const fourth_jan = try Datetime.fromFields(.{ .year = iso_year, .month = 1, .day = 4 });
         return fourth_jan.sub(
             Duration.fromTimespanMultiple(@as(u16, fourth_jan.weekdayIsoNumber() - 1), Duration.Timespan.day),
@@ -120,7 +124,7 @@ pub const ISOCalendar = struct {
 
     /// Gregorian calendar date for given ISOCalendar
     pub fn toDatetime(isocal: ISOCalendar) !Datetime {
-        const year_start = try yearStart(isocal.year);
+        const year_start = try yearStartDate(isocal.isoyear);
         return year_start.add(
             Duration.fromTimespanMultiple(@as(u16, isocal.isoweekday - 1) + @as(u16, isocal.isoweek - 1) * 7, Duration.Timespan.day),
         );
@@ -130,7 +134,7 @@ pub const ISOCalendar = struct {
         if (string.len < 10) return error.InvalidFormat;
         if (string[4] != '-' or std.ascii.toLower(string[5]) != 'w' or string[8] != '-') return error.InvalidFormat;
         return .{
-            .year = try std.fmt.parseInt(u16, string[0..4], 10),
+            .isoyear = try std.fmt.parseInt(u16, string[0..4], 10),
             .isoweek = try std.fmt.parseInt(u8, string[6..8], 10),
             .isoweekday = try std.fmt.parseInt(u8, string[9..10], 10),
         };
@@ -146,12 +150,12 @@ pub const ISOCalendar = struct {
         _ = options;
         try writer.print(
             "{d:0>4}-W{d:0>2}-{d}",
-            .{ calendar.year, calendar.isoweek, calendar.isoweekday },
+            .{ calendar.isoyear, calendar.isoweek, calendar.isoweekday },
         );
     }
 };
 
-/// the fields of a datetime instance
+/// The fields of a datetime instance.
 pub const Fields = struct {
     year: u16 = 1, // [1, 9999]
     month: u8 = 1, // [1, 12]
@@ -186,8 +190,24 @@ pub const Fields = struct {
     }
 };
 
+/// Datetime fields without timezone and dst fold identifier. All fields optional and undefined by default.
+/// Helper for Datetime.replace().
+pub const OptFields = struct {
+    year: ?u16 = null,
+    month: ?u8 = null,
+    day: ?u8 = null,
+    hour: ?u8 = null,
+    minute: ?u8 = null,
+    second: ?u8 = null,
+    nanosecond: ?u32 = null,
+};
+
+/// Make a valid datetime from fields.
 pub fn fromFields(fields: Fields) ZdtError!Datetime {
-    _ = try fields.validate(); // TODO : should this only be called in debug builds ?
+
+    // TODO : should this only be called on demand or only in debug builds ?
+    _ = try fields.validate();
+
     const d = cal.dateToRD([_]u16{ fields.year, fields.month, fields.day });
     // Note : need to truncate seconds to 59 so that Unix time is 'correct'
     const s = if (fields.second == 60) 59 else fields.second;
@@ -281,6 +301,34 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
 
     // If we came here, either guess 1 or guess 2 is correct.
     if (dt_eq_guess_1) return dt_guess_1 else return dt_guess_2;
+}
+
+/// Make a fields struct from a datetime.
+pub fn toFields(dt: *const Datetime) Fields {
+    return .{
+        .year = dt.year,
+        .month = dt.month,
+        .day = dt.day,
+        .hour = dt.hour,
+        .minute = dt.minute,
+        .second = dt.second,
+        .nanosecond = dt.nanosecond,
+        .tzinfo = dt.tzinfo,
+        .dst_fold = dt.dst_fold,
+    };
+}
+
+/// Replace a datetime field.
+pub fn replace(dt: *const Datetime, new_fields: OptFields) !Datetime {
+    var fields = dt.toFields();
+    if (new_fields.year) |v| fields.year = v;
+    if (new_fields.month) |v| fields.month = v;
+    if (new_fields.day) |v| fields.day = v;
+    if (new_fields.hour) |v| fields.hour = v;
+    if (new_fields.minute) |v| fields.minute = v;
+    if (new_fields.second) |v| fields.second = v;
+    if (new_fields.nanosecond) |v| fields.nanosecond = v;
+    return try Datetime.fromFields(fields);
 }
 
 /// A helper to compare datetime fields, excluding nanosecond field.
@@ -493,7 +541,7 @@ pub fn sub(dt: Datetime, td: Duration) ZdtError!Datetime {
 /// To get the difference in leap seconds, see Datetime.diffLeap().
 ///
 /// Result is (this - other) as a Duration.
-pub fn diff(this: *const Datetime, other: Datetime) Duration {
+pub fn diff(this: Datetime, other: Datetime) Duration {
     var s: i64 = this.unix_sec - other.unix_sec;
     var ns: i32 = @as(i32, @intCast(this.nanosecond)) - @as(i32, @intCast(other.nanosecond));
     if (ns < 0) {
@@ -507,7 +555,7 @@ pub fn diff(this: *const Datetime, other: Datetime) Duration {
 /// If one of the datetimes is naive (no tz specified), this is considered an error.
 ///
 /// Result is ('this' wall time - 'other' wall time) as a Duration.
-pub fn diffWall(this: *const Datetime, other: Datetime) !Duration {
+pub fn diffWall(this: Datetime, other: Datetime) !Duration {
     if (this.isNaive() or other.isNaive()) return error.TzUndefined;
     if (this.tzinfo.?.tzOffset == null or other.tzinfo.?.tzOffset == null) return error.TzUndefined;
 
@@ -527,7 +575,7 @@ pub fn diffWall(this: *const Datetime, other: Datetime) !Duration {
 /// add the result of diffleap() to that of diff().
 ///
 /// Result is (leap seconds of 'this' - leap seconds of 'other') as a Duration.
-pub fn diffLeap(this: *const Datetime, other: Datetime) Duration {
+pub fn diffLeap(this: Datetime, other: Datetime) Duration {
     const this_leap: i16 = @as(i16, cal.leapCorrection(this.unix_sec));
     const other_leap: i16 = @as(i16, cal.leapCorrection(other.unix_sec));
     return Duration.fromTimespanMultiple(
@@ -628,14 +676,14 @@ pub fn toISOCalendar(dt: Datetime) ISOCalendar {
     const dow: u16 = @as(u16, dt.weekdayIsoNumber());
     const w: u16 = @divFloor(10 + doy - dow, 7);
     const weeks: u8 = dt.weeksInYear();
-    var isocal = ISOCalendar{ .year = dt.year, .isoweek = 0, .isoweekday = @truncate(dow) };
+    var isocal = ISOCalendar{ .isoyear = dt.year, .isoweek = 0, .isoweekday = @truncate(dow) };
     if (w > weeks) {
         isocal.isoweek = 1;
         return isocal;
     }
     if (w < 1) {
         isocal.isoweek = cal.weeksPerYear(dt.year - 1);
-        isocal.year = dt.year - 1;
+        isocal.isoyear = dt.year - 1;
         return isocal;
     }
     isocal.isoweek = @truncate(w);
