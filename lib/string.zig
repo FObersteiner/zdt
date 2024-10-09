@@ -684,3 +684,53 @@ fn getMonthName(n: u8) ![sz_normal]u8 {
         else => return error.OsUnsupported,
     };
 }
+
+// since locale-specific names might change at runtime,
+// we need to obtain them at runtime.
+
+pub fn allDayNames() ![7][sz_normal]u8 {
+    var result: [7][sz_normal]u8 = undefined;
+    for (result, 0..) |_, i| result[i] = try getDayName(@truncate(i));
+    return result;
+}
+
+pub fn allDayNamesShort() ![7][sz_abbr]u8 {
+    var result: [7][sz_abbr]u8 = undefined;
+    for (result, 0..) |_, i| result[i] = try getDayNameAbbr(@truncate(i));
+    return result;
+}
+
+pub fn allMonthNames() ![12][sz_normal]u8 {
+    var result: [12][sz_normal]u8 = undefined;
+    for (result, 0..) |_, i| result[i] = try getMonthName(@truncate(i));
+    return result;
+}
+
+pub fn allMonthNamesShort() ![12][sz_abbr]u8 {
+    var result: [12][sz_abbr]u8 = undefined;
+    for (result, 0..) |_, i| result[i] = try getMonthNameAbbr(@truncate(i));
+    return result;
+}
+
+test "all names" {
+    const dnames = try allDayNames();
+    for (dnames) |n| {
+        try testing.expect(n[0] != '?'); // default if error
+        try testing.expect(n[1] != 0); // assume at least 2 characters
+    }
+    const dnames_short = try allDayNamesShort();
+    for (dnames_short) |n| {
+        try testing.expect(n[0] != '?');
+        try testing.expect(n[1] != 0);
+    }
+    const mnames = try allMonthNames();
+    for (mnames) |n| {
+        try testing.expect(n[0] != '?');
+        try testing.expect(n[1] != 0);
+    }
+    const mnames_short = try allMonthNamesShort();
+    for (mnames_short) |n| {
+        try testing.expect(n[0] != '?');
+        try testing.expect(n[1] != 0);
+    }
+}
