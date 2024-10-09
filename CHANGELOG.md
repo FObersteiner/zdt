@@ -13,6 +13,10 @@ Types of changes
 
 ## Unreleased
 
+### Changed
+
+- (internal) clean-up of month/day name functions
+
 ## 2024-10-08, v0.3.4
 
 ### Added

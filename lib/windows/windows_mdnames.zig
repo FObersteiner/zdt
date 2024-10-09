@@ -5,11 +5,10 @@ const winnls = @cImport(@cInclude("winnls.h"));
 
 const sz_abbr: usize = 32;
 const sz_normal: usize = 64;
-const questionmark: u8 = 63;
 
 pub fn getDayNameAbbr_(n: u8) [sz_abbr]u8 {
     var result: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
-    result[0] = questionmark;
+    result[0] = '?';
 
     var buf: [sz_abbr / 2]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(
@@ -40,7 +39,7 @@ pub fn getDayNameAbbr_(n: u8) [sz_abbr]u8 {
 
 pub fn getDayName_(n: u8) [sz_normal]u8 {
     var result: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
-    result[0] = questionmark;
+    result[0] = '?';
 
     var buf: [sz_normal / 2]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(
@@ -69,7 +68,7 @@ pub fn getDayName_(n: u8) [sz_normal]u8 {
 
 pub fn getMonthNameAbbr_(n: u8) [sz_abbr]u8 {
     var result: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
-    result[0] = questionmark;
+    result[0] = '?';
 
     var buf: [sz_abbr / 2]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(
@@ -98,7 +97,7 @@ pub fn getMonthNameAbbr_(n: u8) [sz_abbr]u8 {
 
 pub fn getMonthName_(n: u8) [sz_normal]u8 {
     var result: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
-    result[0] = questionmark;
+    result[0] = '?';
 
     var buf: [sz_normal / 2]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(

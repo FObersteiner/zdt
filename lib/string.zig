@@ -4,7 +4,7 @@ const builtin = @import("builtin");
 const std = @import("std");
 const testing = std.testing;
 const assert = std.debug.assert;
-const log = std.log.scoped(.zdt__stringIO);
+const log = std.log.scoped(.zdt__string);
 
 const Datetime = @import("./Datetime.zig");
 const cal = @import("./calendar.zig");
@@ -298,30 +298,42 @@ fn printIntoWriter(
         'e' => try writer.print("{d: >2}", .{dt.day}),
         'a' => {
             switch (mod) {
-                0 => try writer.print("{s}", .{std.mem.sliceTo(getDayNameAbbr(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name short
-                1 => try writer.print("{s}", .{dt.weekday().shortName()}),
+                0 => {
+                    const name = try getDayNameAbbr(dt.weekdayNumber()); // locale-specific, day name short
+                    try writer.print("{s}", .{std.mem.sliceTo(name[0..], 0)});
+                },
+                1 => try writer.print("{s}", .{dt.weekday().shortName()}), // English default
                 else => return error.InvalidFormat,
             }
         },
         'A' => {
             switch (mod) {
-                0 => try writer.print("{s}", .{std.mem.sliceTo(getDayName(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name
-                1 => try writer.print("{s}", .{dt.weekday().longName()}),
+                0 => {
+                    const name = try getDayName(dt.weekdayNumber()); // locale-specific, day name
+                    try writer.print("{s}", .{std.mem.sliceTo(name[0..], 0)});
+                },
+                1 => try writer.print("{s}", .{dt.weekday().longName()}), // English default
                 else => return error.InvalidFormat,
             }
         },
         'm' => try writer.print("{d:0>2}", .{dt.month}),
         'b' => {
             switch (mod) {
-                0 => try writer.print("{s}", .{std.mem.sliceTo(getMonthNameAbbr(dt.month - 1)[0..], 0)}), // locale-specific, month name short
-                1 => try writer.print("{s}", .{dt.monthEnum().shortName()}),
+                0 => {
+                    const name = try getMonthNameAbbr(dt.month - 1); // locale-specific, month name short
+                    try writer.print("{s}", .{std.mem.sliceTo(name[0..], 0)});
+                },
+                1 => try writer.print("{s}", .{dt.monthEnum().shortName()}), // English default
                 else => return error.InvalidFormat,
             }
         },
         'B' => {
             switch (mod) {
-                0 => try writer.print("{s}", .{std.mem.sliceTo(getMonthName(dt.month - 1)[0..], 0)}), // locale-specific, month name
-                1 => try writer.print("{s}", .{dt.monthEnum().longName()}),
+                0 => {
+                    const name = try getMonthName(dt.month - 1); // locale-specific, month name
+                    try writer.print("{s}", .{std.mem.sliceTo(name[0..], 0)});
+                },
+                1 => try writer.print("{s}", .{dt.monthEnum().longName()}), // English default
                 else => return error.InvalidFormat,
             }
         },
@@ -638,45 +650,37 @@ const sz_abbr: usize = 32;
 const sz_normal: usize = 64;
 
 // Get the abbreviated day name in the current locale
-fn getDayNameAbbr(n: u8) [sz_abbr]u8 {
-    var dummy: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
-    dummy[0] = 63;
+fn getDayNameAbbr(n: u8) ![sz_abbr]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getDayNameAbbr_(n),
         .windows => windows_specific.getDayNameAbbr_(n),
-        else => dummy,
+        else => return error.OsUnsupported,
     };
 }
 
 // Get the day name in the current locale
-fn getDayName(n: u8) [sz_normal]u8 {
-    var dummy: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
-    dummy[0] = 63;
+fn getDayName(n: u8) ![sz_normal]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getDayName_(n),
         .windows => windows_specific.getDayName_(n),
-        else => dummy,
+        else => return error.OsUnsupported,
     };
 }
 
 // Get the abbreviated month name in the current locale
-fn getMonthNameAbbr(n: u8) [sz_abbr]u8 {
-    var dummy: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
-    dummy[0] = 63;
+fn getMonthNameAbbr(n: u8) ![sz_abbr]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getMonthNameAbbr_(n),
         .windows => windows_specific.getMonthNameAbbr_(n),
-        else => dummy,
+        else => return error.OsUnsupported,
     };
 }
 
 // Get the month name in the current locale
-fn getMonthName(n: u8) [sz_normal]u8 {
-    var dummy: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
-    dummy[0] = 63;
+fn getMonthName(n: u8) ![sz_normal]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getMonthName_(n),
         .windows => windows_specific.getMonthName_(n),
-        else => dummy,
+        else => return error.OsUnsupported,
     };
 }

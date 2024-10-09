@@ -4,12 +4,11 @@ const c_langinfo = @cImport(@cInclude("langinfo.h"));
 
 const sz_abbr: usize = 32;
 const sz_normal: usize = 64;
-const questionmark: u8 = 63;
 
 pub fn getDayNameAbbr_(n: u8) [sz_abbr]u8 {
     const str = std.mem.span(c_langinfo.nl_langinfo(day_names_abbr[n]));
     var result: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
-    result[0] = questionmark;
+    result[0] = '?';
     if (str.len > sz_abbr) return result;
     var i: usize = 0;
     while (i < str.len) : (i += 1) {
@@ -21,7 +20,7 @@ pub fn getDayNameAbbr_(n: u8) [sz_abbr]u8 {
 pub fn getDayName_(n: u8) [sz_normal]u8 {
     const str = std.mem.span(c_langinfo.nl_langinfo(day_names[n]));
     var result: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
-    result[0] = questionmark;
+    result[0] = '?';
     if (str.len > sz_normal) return result;
     var i: usize = 0;
     while (i < str.len) : (i += 1) {
@@ -33,7 +32,7 @@ pub fn getDayName_(n: u8) [sz_normal]u8 {
 pub fn getMonthNameAbbr_(n: u8) [sz_abbr]u8 {
     const str = std.mem.span(c_langinfo.nl_langinfo(month_names_abbr[n]));
     var result: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
-    result[0] = questionmark;
+    result[0] = '?';
     if (str.len > sz_abbr) return result;
     var i: usize = 0;
     while (i < str.len) : (i += 1) {
@@ -45,7 +44,7 @@ pub fn getMonthNameAbbr_(n: u8) [sz_abbr]u8 {
 pub fn getMonthName_(n: u8) [sz_normal]u8 {
     const str = std.mem.span(c_langinfo.nl_langinfo(month_names[n]));
     var result: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
-    result[0] = questionmark;
+    result[0] = '?';
     if (str.len > sz_normal) return result;
     var i: usize = 0;
     while (i < str.len) : (i += 1) {
