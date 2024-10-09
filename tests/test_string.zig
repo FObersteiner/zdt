@@ -623,7 +623,7 @@ test "parse with abbreviated month and day name, locale-specific" {
 test "parse with month name and day, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
-    const cases = [_]TestCase{
+    var cases = [_]TestCase{
         .{
             .string = "Thursday 01 January 1970, 12 am",
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
@@ -634,6 +634,31 @@ test "parse with month name and day, locale-specific" {
         },
         .{
             .string = "Friday 31 December 2021, 5 pm",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 12, .day = 31, .hour = 17 }),
+        },
+    };
+
+    inline for (cases) |case| {
+        const dt = try Datetime.fromString(case.string, "%A %d %B %Y, %I %p");
+        try testing.expectEqual(case.dt, dt);
+    }
+
+    const new_loc = c_locale.setlocale(c_locale.LC_ALL, "de_DE.UTF-8");
+    try testing.expect(new_loc != null);
+    const new_locale: [:0]const u8 = std.mem.span(new_loc);
+    log.warn("new locale: {s}", .{new_locale});
+
+    cases = [_]TestCase{
+        .{
+            .string = "Donnerstag 01 Januar 1970, 12 am",
+            .dt = try Datetime.fromFields(.{ .year = 1970 }),
+        },
+        .{
+            .string = "Donnerstag 18 Februar 2021, 11 AM",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 11 }),
+        },
+        .{
+            .string = "Freitag 31 Dezember 2021, 5 pm",
             .dt = try Datetime.fromFields(.{ .year = 2021, .month = 12, .day = 31, .hour = 17 }),
         },
     };
