@@ -26,7 +26,7 @@ pub fn getDayNameAbbr_(n: u8) [sz_abbr]u8 {
     const n_bytes = unicode.utf16LeToUtf8(utf8, std.mem.sliceTo(&buf, 0)) catch 0;
 
     if (n_bytes == 0) return result;
-    std.mem.copyForwards(u8, result[0..n_bytes], utf8);
+    std.mem.copyForwards(u8, result[0..n_bytes], utf8[0..n_bytes]);
 
     return result;
 }
@@ -49,7 +49,7 @@ pub fn getDayName_(n: u8) [sz_normal]u8 {
     const n_bytes = unicode.utf16LeToUtf8(utf8, std.mem.sliceTo(&buf, 0)) catch 0;
 
     if (n_bytes == 0) return result;
-    std.mem.copyForwards(u8, result[0..n_bytes], utf8);
+    std.mem.copyForwards(u8, result[0..n_bytes], utf8[0..n_bytes]);
 
     return result;
 }
@@ -72,7 +72,7 @@ pub fn getMonthNameAbbr_(n: u8) [sz_abbr]u8 {
     const n_bytes = unicode.utf16LeToUtf8(utf8, std.mem.sliceTo(&buf, 0)) catch 0;
 
     if (n_bytes == 0) return result;
-    std.mem.copyForwards(u8, result[0..n_bytes], utf8);
+    std.mem.copyForwards(u8, result[0..n_bytes], utf8[0..n_bytes]);
 
     return result;
 }
@@ -95,7 +95,7 @@ pub fn getMonthName_(n: u8) [sz_normal]u8 {
     const n_bytes = unicode.utf16LeToUtf8(utf8, std.mem.sliceTo(&buf, 0)) catch 0;
 
     if (n_bytes == 0) return result;
-    std.mem.copyForwards(u8, result[0..n_bytes], utf8);
+    std.mem.copyForwards(u8, result[0..n_bytes], utf8[0..n_bytes]);
 
     return result;
 }
