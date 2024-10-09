@@ -643,10 +643,9 @@ test "parse with month name and day, locale-specific" {
         try testing.expectEqual(case.dt, dt);
     }
 
+    // Try to set a different locale. This might fail if the locale is not installed.
     const new_loc = c_locale.setlocale(c_locale.LC_ALL, "de_DE.UTF-8");
-    try testing.expect(new_loc != null);
-    const new_locale: [:0]const u8 = std.mem.span(new_loc);
-    log.warn("new locale: {s}", .{new_locale});
+    if (new_loc == null) return error.SkipZigTest;
 
     cases = [_]TestCase{
         .{
