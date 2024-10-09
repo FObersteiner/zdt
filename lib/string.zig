@@ -300,7 +300,7 @@ fn printIntoWriter(
             switch (mod) {
                 0 => {
                     const name = try getDayNameAbbr(dt.weekdayNumber()); // locale-specific, day name short
-                    try writer.print("{s}", .{std.mem.sliceTo(name[0..], 0)});
+                    try writer.print("{s}", .{std.mem.sliceTo(&name, 0)});
                 },
                 1 => try writer.print("{s}", .{dt.weekday().shortName()}), // English default
                 else => return error.InvalidFormat,
@@ -310,7 +310,7 @@ fn printIntoWriter(
             switch (mod) {
                 0 => {
                     const name = try getDayName(dt.weekdayNumber()); // locale-specific, day name
-                    try writer.print("{s}", .{std.mem.sliceTo(name[0..], 0)});
+                    try writer.print("{s}", .{std.mem.sliceTo(&name, 0)});
                 },
                 1 => try writer.print("{s}", .{dt.weekday().longName()}), // English default
                 else => return error.InvalidFormat,
@@ -321,7 +321,7 @@ fn printIntoWriter(
             switch (mod) {
                 0 => {
                     const name = try getMonthNameAbbr(dt.month - 1); // locale-specific, month name short
-                    try writer.print("{s}", .{std.mem.sliceTo(name[0..], 0)});
+                    try writer.print("{s}", .{std.mem.sliceTo(&name, 0)});
                 },
                 1 => try writer.print("{s}", .{dt.monthEnum().shortName()}), // English default
                 else => return error.InvalidFormat,
@@ -331,7 +331,7 @@ fn printIntoWriter(
             switch (mod) {
                 0 => {
                     const name = try getMonthName(dt.month - 1); // locale-specific, month name
-                    try writer.print("{s}", .{std.mem.sliceTo(name[0..], 0)});
+                    try writer.print("{s}", .{std.mem.sliceTo(&name, 0)});
                 },
                 1 => try writer.print("{s}", .{dt.monthEnum().longName()}), // English default
                 else => return error.InvalidFormat,
@@ -350,9 +350,9 @@ fn printIntoWriter(
         'S' => try writer.print("{d:0>2}", .{dt.second}),
         'f' => {
             switch (mod) {
-                0 => try writer.print("{d:0>9}", .{dt.nanosecond}),
-                1 => try writer.print("{d:0>3}", .{dt.nanosecond / 1000000}),
-                2 => try writer.print("{d:0>6}", .{dt.nanosecond / 1000}),
+                0 => try writer.print("{d:0>9}", .{dt.nanosecond}), // 'f' 123456789
+                1 => try writer.print("{d:0>3}", .{dt.nanosecond / 1000000}), // 'f:' 123
+                2 => try writer.print("{d:0>6}", .{dt.nanosecond / 1000}), // 'f::' 123456
                 else => return error.InvalidFormat,
             }
         },
