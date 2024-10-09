@@ -735,11 +735,30 @@ test "all names" {
     }
 }
 
-// test if 'string' starts with the characters from 'target', beginning at
-// idx. Advance idx by target.len characters if true.
-fn strStartswith(string: []const u8, target: []const u8, idx_ptr: *usize) bool {
+/// test if 'string' starts with the characters from 'target', beginning at idx.
+/// Advance idx by target.len characters if true.
+///
+/// An empty input to 'string' or 'target' is considered false.
+fn strStartswith(string: []const u8, idx_ptr: *usize, target: []const u8) bool {
+    if (string.len == 0 or target.len == 0) return false;
+    if (idx_ptr.* >= string.len) return false;
     if (target.len > string[idx_ptr.*..].len) return false;
-    const result = std.mem.eql(u8, string[idx_ptr.*..target.len], target);
+    const result = std.mem.eql(u8, string[idx_ptr.* .. idx_ptr.* + target.len], target);
     if (result) idx_ptr.* += target.len;
     return result;
+}
+
+test "starts with" {
+    const string = "some text";
+    var idx: usize = 0;
+    try testing.expect(!strStartswith(string, &idx, ""));
+    try testing.expectEqual(0, idx);
+    try testing.expect(!strStartswith(string, &idx, "no"));
+    try testing.expectEqual(0, idx);
+    try testing.expect(strStartswith(string, &idx, "some"));
+    try testing.expectEqual(4, idx);
+    try testing.expect(strStartswith(string, &idx, " te"));
+    try testing.expectEqual(7, idx);
+    idx = 10;
+    try testing.expect(!strStartswith(string, &idx, ""));
 }
