@@ -734,3 +734,12 @@ test "all names" {
         try testing.expect(n[1] != 0);
     }
 }
+
+// test if 'string' starts with the characters from 'target', beginning at
+// idx. Advance idx by target.len characters if true.
+fn strStartswith(string: []const u8, target: []const u8, idx_ptr: *usize) bool {
+    if (target.len > string[idx_ptr.*..].len) return false;
+    const result = std.mem.eql(u8, string[idx_ptr.*..target.len], target);
+    if (result) idx_ptr.* += target.len;
+    return result;
+}
