@@ -15,7 +15,7 @@ pub fn getDayNameAbbr_(n: u8) [sz_abbr]u8 {
         null, // TODO : following consts fail: winnls.LOCALE_NAME_SYSTEM_DEFAULT // winnls.LOCALE_NAME_USER_DEFAULT - why?
         day_names_abbr[n],
         &buf,
-        sz_abbr,
+        sz_abbr / 2,
     );
     if (code <= 0) return result;
 
@@ -40,7 +40,7 @@ pub fn getDayName_(n: u8) [sz_normal]u8 {
         null,
         day_names[n],
         &buf,
-        sz_normal,
+        sz_normal / 2,
     );
     if (code <= 0) return result;
 
@@ -63,7 +63,7 @@ pub fn getMonthNameAbbr_(n: u8) [sz_abbr]u8 {
         null,
         month_names_abbr[n],
         &buf,
-        sz_abbr,
+        sz_abbr / 2,
     );
     if (code <= 0) return result;
 
@@ -86,7 +86,7 @@ pub fn getMonthName_(n: u8) [sz_normal]u8 {
         null,
         month_names[n],
         &buf,
-        sz_normal,
+        sz_normal / 2,
     );
     if (code <= 0) return result;
 
