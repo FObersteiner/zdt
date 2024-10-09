@@ -20,12 +20,10 @@ pub fn getDayNameAbbr_(n: u8) [sz_abbr]u8 {
     if (code <= 0) return result;
 
     // Windows UTF-16 LE ("WTF") to UTF-8:
-    var arr: [sz_abbr]u8 = undefined;
-    // TODO : this could maybe be put into 'result' directly?
-    const utf8 = arr[0 .. sz_abbr - 1];
-    const n_bytes = unicode.utf16LeToUtf8(utf8, std.mem.sliceTo(&buf, 0)) catch 0;
+    var utf8: [sz_abbr]u8 = undefined;
+    const n_bytes = unicode.utf16LeToUtf8(&utf8, std.mem.sliceTo(&buf, 0)) catch 0;
 
-    if (n_bytes == 0) return result;
+    if (n_bytes == 0) return result; // data started with null byte...
     std.mem.copyForwards(u8, result[0..n_bytes], utf8[0..n_bytes]);
 
     return result;
@@ -44,9 +42,8 @@ pub fn getDayName_(n: u8) [sz_normal]u8 {
     );
     if (code <= 0) return result;
 
-    var arr: [sz_normal]u8 = undefined;
-    const utf8 = arr[0 .. sz_normal - 1];
-    const n_bytes = unicode.utf16LeToUtf8(utf8, std.mem.sliceTo(&buf, 0)) catch 0;
+    var utf8: [sz_abbr]u8 = undefined;
+    const n_bytes = unicode.utf16LeToUtf8(&utf8, std.mem.sliceTo(&buf, 0)) catch 0;
 
     if (n_bytes == 0) return result;
     std.mem.copyForwards(u8, result[0..n_bytes], utf8[0..n_bytes]);
@@ -67,9 +64,8 @@ pub fn getMonthNameAbbr_(n: u8) [sz_abbr]u8 {
     );
     if (code <= 0) return result;
 
-    var arr: [sz_abbr]u8 = undefined;
-    const utf8 = arr[0 .. sz_abbr - 1];
-    const n_bytes = unicode.utf16LeToUtf8(utf8, std.mem.sliceTo(&buf, 0)) catch 0;
+    var utf8: [sz_abbr]u8 = undefined;
+    const n_bytes = unicode.utf16LeToUtf8(&utf8, std.mem.sliceTo(&buf, 0)) catch 0;
 
     if (n_bytes == 0) return result;
     std.mem.copyForwards(u8, result[0..n_bytes], utf8[0..n_bytes]);
@@ -90,9 +86,8 @@ pub fn getMonthName_(n: u8) [sz_normal]u8 {
     );
     if (code <= 0) return result;
 
-    var arr: [sz_normal]u8 = undefined;
-    const utf8 = arr[0 .. sz_normal - 1];
-    const n_bytes = unicode.utf16LeToUtf8(utf8, std.mem.sliceTo(&buf, 0)) catch 0;
+    var utf8: [sz_abbr]u8 = undefined;
+    const n_bytes = unicode.utf16LeToUtf8(&utf8, std.mem.sliceTo(&buf, 0)) catch 0;
 
     if (n_bytes == 0) return result;
     std.mem.copyForwards(u8, result[0..n_bytes], utf8[0..n_bytes]);
