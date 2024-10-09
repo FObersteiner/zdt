@@ -1,5 +1,5 @@
 const std = @import("std");
-const log = std.log.scoped(.zdt__stringIO_windows);
+const log = std.log.scoped(.zdt__string_windows);
 const c_langinfo = @cImport(@cInclude("langinfo.h"));
 
 const sz_abbr: usize = 32;
@@ -10,10 +10,7 @@ pub fn getDayNameAbbr_(n: u8) [sz_abbr]u8 {
     var result: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
     result[0] = '?';
     if (str.len > sz_abbr) return result;
-    var i: usize = 0;
-    while (i < str.len) : (i += 1) {
-        result[i] = str[i];
-    }
+    std.mem.copyForwards(u8, result[0..str.len], str);
     return result;
 }
 
@@ -22,10 +19,7 @@ pub fn getDayName_(n: u8) [sz_normal]u8 {
     var result: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
     result[0] = '?';
     if (str.len > sz_normal) return result;
-    var i: usize = 0;
-    while (i < str.len) : (i += 1) {
-        result[i] = str[i];
-    }
+    std.mem.copyForwards(u8, result[0..str.len], str);
     return result;
 }
 
@@ -34,10 +28,7 @@ pub fn getMonthNameAbbr_(n: u8) [sz_abbr]u8 {
     var result: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
     result[0] = '?';
     if (str.len > sz_abbr) return result;
-    var i: usize = 0;
-    while (i < str.len) : (i += 1) {
-        result[i] = str[i];
-    }
+    std.mem.copyForwards(u8, result[0..str.len], str);
     return result;
 }
 
@@ -46,10 +37,7 @@ pub fn getMonthName_(n: u8) [sz_normal]u8 {
     var result: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
     result[0] = '?';
     if (str.len > sz_normal) return result;
-    var i: usize = 0;
-    while (i < str.len) : (i += 1) {
-        result[i] = str[i];
-    }
+    std.mem.copyForwards(u8, result[0..str.len], str);
     return result;
 }
 
