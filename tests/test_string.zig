@@ -7,7 +7,7 @@ const log = std.log.scoped(.zdt_test_string);
 
 const c_locale = @cImport(@cInclude("locale.h"));
 const time_mask = switch (builtin.os.tag) {
-    .linux => c_locale.LC_TIME_MASK,
+    .linux => c_locale.LC_ALL, // TIME_MASK,
     else => c_locale.LC_TIME,
 };
 
@@ -644,7 +644,7 @@ test "parse with month name and day, locale-specific" {
     }
 
     // Try to set a different locale. This might fail if the locale is not installed.
-    const new_loc = c_locale.setlocale(c_locale.LC_ALL, "de_DE.UTF-8");
+    const new_loc = c_locale.setlocale(time_mask, "de_DE.UTF-8");
     if (new_loc == null) return error.SkipZigTest;
 
     cases = [_]TestCase{
