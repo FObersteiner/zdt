@@ -13,6 +13,11 @@ Types of changes
 
 ## Unreleased
 
+### Added
+
+- parser for locale-sepcific day and month names
+- (internal) handle parser flags as an enum
+
 ### Changed
 
 - (internal) clean-up of month/day name functions
