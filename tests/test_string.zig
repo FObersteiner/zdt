@@ -640,7 +640,7 @@ test "parse with abbreviated month and day name, locale-specific" {
 }
 
 test "parse with month name and day, user-defined locale" {
-    // does not work on Windows atm, need to have a look at this some other time...
+    // TODO : does not work on Windows atm, need to have a look at this some other time...
     if (builtin.os.tag == .windows) return error.SkipZigTest;
 
     // Try to set a different locale. This might fail if the locale is not installed.
@@ -650,7 +650,8 @@ test "parse with month name and day, user-defined locale" {
         log.warn("skip test (locale is null)", .{});
         return error.SkipZigTest;
     }
-    // verify that locale has been set does not seem to be easy; the following
+
+    // TODO : verify that locale has been set does not seem to be easy; the following
     // check fails, but the test passes, so the locale actually has been set!
     //
     // const loc_is = c_locale.setlocale(time_mask, "");

@@ -3,6 +3,7 @@ const unicode = std.unicode;
 const log = std.log.scoped(.zdt__string_windows);
 const winnls = @cImport(@cInclude("winnls.h"));
 
+const locale_ptr = winnls.LOCALE_NAME_USER_DEFAULT;
 const sz_abbr: usize = 32;
 const sz_normal: usize = 64;
 
@@ -10,12 +11,12 @@ pub fn getDayNameAbbr_(n: u8) [sz_abbr]u8 {
     var result: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
     result[0] = '?';
 
-    var buf: [sz_abbr / 2]c_ushort = undefined; // u16
+    var buf: [sz_abbr]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(
-        null, // TODO : following consts fail: winnls.LOCALE_NAME_SYSTEM_DEFAULT // winnls.LOCALE_NAME_USER_DEFAULT - why?
+        @ptrCast(@alignCast(locale_ptr)),
         day_names_abbr[n],
         &buf,
-        sz_abbr / 2,
+        sz_abbr,
     );
     if (code <= 0) return result;
 
@@ -33,12 +34,12 @@ pub fn getDayName_(n: u8) [sz_normal]u8 {
     var result: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
     result[0] = '?';
 
-    var buf: [sz_normal / 2]c_ushort = undefined; // u16
+    var buf: [sz_normal]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(
-        null,
+        @ptrCast(@alignCast(locale_ptr)),
         day_names[n],
         &buf,
-        sz_normal / 2,
+        sz_normal,
     );
     if (code <= 0) return result;
 
@@ -55,12 +56,12 @@ pub fn getMonthNameAbbr_(n: u8) [sz_abbr]u8 {
     var result: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
     result[0] = '?';
 
-    var buf: [sz_abbr / 2]c_ushort = undefined; // u16
+    var buf: [sz_abbr]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(
-        null,
+        @ptrCast(@alignCast(locale_ptr)),
         month_names_abbr[n],
         &buf,
-        sz_abbr / 2,
+        sz_abbr,
     );
     if (code <= 0) return result;
 
@@ -77,12 +78,12 @@ pub fn getMonthName_(n: u8) [sz_normal]u8 {
     var result: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
     result[0] = '?';
 
-    var buf: [sz_normal / 2]c_ushort = undefined; // u16
+    var buf: [sz_normal]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(
-        null,
+        @ptrCast(@alignCast(locale_ptr)),
         month_names[n],
         &buf,
-        sz_normal / 2,
+        sz_normal,
     );
     if (code <= 0) return result;
 
