@@ -7,7 +7,8 @@ const log = std.log.scoped(.zdt_test_string);
 
 const c_locale = @cImport(@cInclude("locale.h"));
 const time_mask = switch (builtin.os.tag) {
-    .linux => c_locale.LC_ALL, // TIME_MASK,
+    .linux => c_locale.LC_ALL,
+    // .linux => c_locale.LC_TIME_MASK, // does not suffice, not sure why
     else => c_locale.LC_TIME,
 };
 
@@ -639,11 +640,25 @@ test "parse with abbreviated month and day name, locale-specific" {
 }
 
 test "parse with month name and day, user-defined locale" {
-    // TODO : does not work on Windows atm, need to have a look at this some other time...
+    // does not work on Windows atm, need to have a look at this some other time...
     if (builtin.os.tag == .windows) return error.SkipZigTest;
+
     // Try to set a different locale. This might fail if the locale is not installed.
-    const new_loc = c_locale.setlocale(time_mask, "de_DE.UTF-8");
-    if (new_loc == null) return error.SkipZigTest;
+    const l = "de_DE.UTF-8";
+    const new_loc = c_locale.setlocale(time_mask, l);
+    if (new_loc == null) {
+        log.warn("skip test (locale is null)", .{});
+        return error.SkipZigTest;
+    }
+    // verify that locale has been set does not seem to be easy; the following
+    // check fails, but the test passes, so the locale actually has been set!
+    //
+    // const loc_is = c_locale.setlocale(time_mask, "");
+    // const loc_is_: [:0]const u8 = std.mem.span(loc_is);
+    // if (!std.mem.eql(u8, loc_is_, l)) {
+    //     log.warn("skip test (locale is wrong, want {s}, got {s})", .{ l, loc_is_ });
+    //     return error.SkipZigTest;
+    // }
 
     const cases = [_]TestCase{
         .{
