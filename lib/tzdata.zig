@@ -603,4 +603,4 @@ pub const tzdata = std.StaticStringMap([]const u8).initComptime(.{
     .{ "W-SU", @embedFile("./tzdata/zoneinfo/W-SU") },
     .{ "WET", @embedFile("./tzdata/zoneinfo/WET") },
     .{ "Zulu", @embedFile("./tzdata/zoneinfo/Zulu") },
- });
+});

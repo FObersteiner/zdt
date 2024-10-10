@@ -61,14 +61,14 @@ pub const UTC = Timezone{
 pub fn name(tz: *Timezone) []const u8 {
     // 'tz' must be a pointer to TZ, otherwise returned slice would point to an out-of-scope
     // copy of the TZ instance. See also <https://ziggit.dev/t/pointers-to-temporary-memory/>
-    return std.mem.sliceTo(tz.__name_data[0..], 0);
+    return std.mem.sliceTo(&tz.__name_data, 0);
 }
 
 /// Time zone abbreviation, such as "CET" for Central European Time in Europe/Berlin, winter.
 /// The tzOffset must be defined; otherwise, it is not possible to distinguish e.g. CET and CEST.
 pub fn abbreviation(tz: *Timezone) []const u8 {
     if (tz.tzOffset == null) return "";
-    return std.mem.sliceTo(tz.tzOffset.?.__abbrev_data[0..], 0);
+    return std.mem.sliceTo(&tz.tzOffset.?.__abbrev_data, 0);
 }
 
 /// Make a time zone from IANA tz database TZif data, taken from the embedded tzdata.

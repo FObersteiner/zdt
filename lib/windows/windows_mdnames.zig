@@ -1,126 +1,97 @@
 const std = @import("std");
 const unicode = std.unicode;
-const log = std.log.scoped(.zdt__stringIO_windows);
+const log = std.log.scoped(.zdt__string_windows);
 const winnls = @cImport(@cInclude("winnls.h"));
 
+const locale_ptr = winnls.LOCALE_NAME_USER_DEFAULT;
 const sz_abbr: usize = 32;
 const sz_normal: usize = 64;
-const questionmark: u8 = 63;
 
 pub fn getDayNameAbbr_(n: u8) [sz_abbr]u8 {
     var result: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
-    result[0] = questionmark;
+    result[0] = '?';
 
-    var buf: [sz_abbr / 2]c_ushort = undefined; // u16
+    var buf: [sz_abbr]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(
-        null, // TODO : following consts fail: winnls.LOCALE_NAME_SYSTEM_DEFAULT // winnls.LOCALE_NAME_USER_DEFAULT - why?
+        @ptrCast(@alignCast(locale_ptr)),
         day_names_abbr[n],
         &buf,
-        sz_abbr / 2,
+        sz_abbr,
     );
     if (code <= 0) return result;
 
     // Windows UTF-16 LE ("WTF") to UTF-8:
-    var arr: [sz_abbr]u8 = undefined;
-    // TODO : this could maybe be put into 'result' directly?
-    const utf8 = arr[0 .. sz_abbr - 1];
-    const n_bytes = unicode.utf16LeToUtf8(
-        utf8,
-        std.mem.sliceTo(buf[0..], 0),
-    ) catch 0;
-    if (n_bytes == 0) return result;
+    var utf8: [sz_abbr]u8 = undefined;
+    const n_bytes = unicode.utf16LeToUtf8(&utf8, std.mem.sliceTo(&buf, 0)) catch 0;
 
-    var i: usize = 0;
-    while (i < n_bytes) : (i += 1) {
-        result[i] = utf8[i];
-    }
+    if (n_bytes == 0) return result; // data started with null byte...
+    std.mem.copyForwards(u8, result[0..n_bytes], utf8[0..n_bytes]);
 
     return result;
 }
 
 pub fn getDayName_(n: u8) [sz_normal]u8 {
     var result: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
-    result[0] = questionmark;
+    result[0] = '?';
 
-    var buf: [sz_normal / 2]c_ushort = undefined; // u16
+    var buf: [sz_normal]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(
-        null,
+        @ptrCast(@alignCast(locale_ptr)),
         day_names[n],
         &buf,
-        sz_normal / 2,
+        sz_normal,
     );
     if (code <= 0) return result;
 
-    var arr: [sz_normal]u8 = undefined;
-    const utf8 = arr[0 .. sz_normal - 1];
-    const n_bytes = unicode.utf16LeToUtf8(
-        utf8,
-        std.mem.sliceTo(buf[0..], 0),
-    ) catch 0;
-    if (n_bytes == 0) return result;
+    var utf8: [sz_abbr]u8 = undefined;
+    const n_bytes = unicode.utf16LeToUtf8(&utf8, std.mem.sliceTo(&buf, 0)) catch 0;
 
-    var i: usize = 0;
-    while (i < n_bytes) : (i += 1) {
-        result[i] = utf8[i];
-    }
+    if (n_bytes == 0) return result;
+    std.mem.copyForwards(u8, result[0..n_bytes], utf8[0..n_bytes]);
 
     return result;
 }
 
 pub fn getMonthNameAbbr_(n: u8) [sz_abbr]u8 {
     var result: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
-    result[0] = questionmark;
+    result[0] = '?';
 
-    var buf: [sz_abbr / 2]c_ushort = undefined; // u16
+    var buf: [sz_abbr]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(
-        null,
+        @ptrCast(@alignCast(locale_ptr)),
         month_names_abbr[n],
         &buf,
-        sz_abbr / 2,
+        sz_abbr,
     );
     if (code <= 0) return result;
 
-    var arr: [sz_abbr]u8 = undefined;
-    const utf8 = arr[0 .. sz_abbr - 1];
-    const n_bytes = unicode.utf16LeToUtf8(
-        utf8,
-        std.mem.sliceTo(buf[0..], 0),
-    ) catch 0;
-    if (n_bytes == 0) return result;
+    var utf8: [sz_abbr]u8 = undefined;
+    const n_bytes = unicode.utf16LeToUtf8(&utf8, std.mem.sliceTo(&buf, 0)) catch 0;
 
-    var i: usize = 0;
-    while (i < n_bytes) : (i += 1) {
-        result[i] = utf8[i];
-    }
+    if (n_bytes == 0) return result;
+    std.mem.copyForwards(u8, result[0..n_bytes], utf8[0..n_bytes]);
 
     return result;
 }
 
 pub fn getMonthName_(n: u8) [sz_normal]u8 {
     var result: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
-    result[0] = questionmark;
+    result[0] = '?';
 
-    var buf: [sz_normal / 2]c_ushort = undefined; // u16
+    var buf: [sz_normal]c_ushort = undefined; // u16
     const code = winnls.GetLocaleInfoEx(
-        null,
+        @ptrCast(@alignCast(locale_ptr)),
         month_names[n],
         &buf,
-        sz_normal / 2,
+        sz_normal,
     );
     if (code <= 0) return result;
 
-    var arr: [sz_normal]u8 = undefined;
-    const utf8 = arr[0 .. sz_normal - 1];
-    const n_bytes = unicode.utf16LeToUtf8(
-        utf8,
-        std.mem.sliceTo(buf[0..], 0),
-    ) catch 0;
-    if (n_bytes == 0) return result;
+    var utf8: [sz_abbr]u8 = undefined;
+    const n_bytes = unicode.utf16LeToUtf8(&utf8, std.mem.sliceTo(&buf, 0)) catch 0;
 
-    var i: usize = 0;
-    while (i < n_bytes) : (i += 1) {
-        result[i] = utf8[i];
-    }
+    if (n_bytes == 0) return result;
+    std.mem.copyForwards(u8, result[0..n_bytes], utf8[0..n_bytes]);
 
     return result;
 }
