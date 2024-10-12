@@ -1,7 +1,5 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const assert = std.debug.assert;
-
 const c_locale = @cImport(@cInclude("locale.h"));
 
 const zdt = @import("zdt");
@@ -17,21 +15,14 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     const time_mask = switch (builtin.os.tag) {
-        .linux => c_locale.LC_ALL,
-        // .linux => c_locale.LC_TIME_MASK, // does not suffice, not sure why
+        .linux, .windows => c_locale.LC_ALL,
         else => c_locale.LC_TIME,
     };
 
-    const loc = switch (builtin.os.tag) {
-        .linux, .macos => "de_DE.UTF-8",
-        .windows => "deu-deu",
-        else => return error.OsUnsupported,
-    };
-
+    const loc = "de_DE.UTF-8";
     const new_loc = c_locale.setlocale(time_mask, loc);
     if (new_loc == null) {
-        std.log.warn("skip example, failed to set locale", .{});
-        return;
+        std.log.err("skip example, failed to set locale", .{});
     }
 
     const dt = try Datetime.fromISO8601("2024-10-12");
