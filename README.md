@@ -4,7 +4,7 @@
 
 # zdt
 
-**Datetime with Timezones in Zig.** Opinionated, and mostly for learning purposes.
+**Timezoned Datetime in Zig.** Opinionated, and mostly for learning purposes.
 
 - [API overview](https://github.com/FObersteiner/zdt/wiki/API-overview)
 - [Roadmap](https://github.com/FObersteiner/zdt/wiki/Roadmap)
