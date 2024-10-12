@@ -13,6 +13,18 @@ Types of changes
 
 ## Unreleased
 
+## 2024-10-12, v0.3.5
+
+### Added
+
+- parser for locale-specific day and month names (Unix)
+  - note: setting the locale on Windows has proven difficult - requires more work
+- (internal) handle parser flags as an enum
+
+### Changed
+
+- (internal) clean-up of month/day name functions
+
 ## 2024-10-08, v0.3.4
 
 ### Added

@@ -4,7 +4,7 @@ const builtin = @import("builtin");
 const std = @import("std");
 const testing = std.testing;
 const assert = std.debug.assert;
-const log = std.log.scoped(.zdt__stringIO);
+const log = std.log.scoped(.zdt__string);
 
 const Datetime = @import("./Datetime.zig");
 const cal = @import("./calendar.zig");
@@ -25,52 +25,59 @@ const TokenizerState = enum(u8) {
 const token_start: u8 = '%';
 const modifier: u8 = ':';
 
+const ParserFlags = enum(u32) {
+    OK = 0,
+    AM = 1,
+    PM = 2,
+    clock_12h = 4,
+};
+
 /// Tokenize the parsing directives and parse the datetime string accordingly.
 pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
     var fmt_idx: usize = 0;
     var data_idx: usize = 0;
-    var am_pm_flags: u8 = 0; // bits; 0 - am, 1 - pm, 2 - found %I
+    var flags: u32 = 0; // see ParserFlags
     var fields = Datetime.Fields{};
 
     // Zig 0.13 :
     var state = TokenizerState.ExpectChar;
-    while (fmt_idx < directives.len) {
+    tokenize: while (fmt_idx < directives.len) {
         switch (state) {
             .ExpectChar => {
                 if (directives[fmt_idx] == token_start) {
                     fmt_idx += 1;
                     state = .ExpectDirectiveOrModifier;
-                    continue;
+                    continue :tokenize;
                 }
                 state = .ProcessChar;
-                continue;
+                continue :tokenize;
             },
             .ExpectDirectiveOrModifier => {
                 if (directives[fmt_idx] == token_start) { // special case: literal 'token_start'
                     state = .ProcessChar;
-                    continue;
+                    continue :tokenize;
                 }
                 state = .ProcessDirective;
-                continue;
+                continue :tokenize;
             },
             .ProcessChar => {
                 if (data[data_idx] != directives[fmt_idx]) return error.InvalidFormat;
                 data_idx += 1;
                 fmt_idx += 1;
-                if (data_idx >= data.len) break;
+                if (data_idx >= data.len) break :tokenize;
                 state = .ExpectChar;
-                continue;
+                continue :tokenize;
             },
             .ProcessDirective => {
-                try parseIntoFields(&fields, data, directives[fmt_idx], &data_idx, &am_pm_flags);
+                try parseIntoFields(&fields, data, directives[fmt_idx], &data_idx, &flags);
                 fmt_idx += 1;
                 state = .ExpectChar;
-                continue;
+                continue :tokenize;
             },
         }
     }
     if (data_idx != data.len) return error.InvalidFormat;
-    switch (am_pm_flags) {
+    switch (flags) {
         0b000 => {}, // neither %I nor am/pm in input string
         0b101 => fields.hour = fields.hour % 12, //  %I and 'am'
         0b110 => fields.hour = fields.hour % 12 + 12, //  %I and 'pm'
@@ -129,39 +136,39 @@ pub fn tokenizeAndPrint(dt: *const Datetime, directives: []const u8, writer: any
 
     // Zig 0.13 :
     var state = TokenizerState.ExpectChar;
-    while (fmt_idx < directives.len) {
+    tokenize: while (fmt_idx < directives.len) {
         switch (state) {
             .ExpectChar => {
                 if (directives[fmt_idx] == token_start) {
                     fmt_idx += 1;
                     state = .ExpectDirectiveOrModifier;
-                    continue;
+                    continue :tokenize;
                 }
                 state = .ProcessChar;
-                continue;
+                continue :tokenize;
             },
             .ExpectDirectiveOrModifier => {
                 if (directives[fmt_idx] == modifier) {
                     mod += 1;
                     fmt_idx += 1;
                     state = .ExpectDirectiveOrModifier;
-                    continue;
+                    continue :tokenize;
                 }
                 state = .ProcessDirective;
-                continue;
+                continue :tokenize;
             },
             .ProcessChar => {
                 try writer.print("{c}", .{directives[fmt_idx]});
                 fmt_idx += 1;
                 state = .ExpectChar;
-                continue;
+                continue :tokenize;
             },
             .ProcessDirective => {
                 try printIntoWriter(dt, directives[fmt_idx], mod, writer);
                 mod = 0;
                 fmt_idx += 1;
                 state = .ExpectChar;
-                continue;
+                continue :tokenize;
             },
         }
     }
@@ -211,16 +218,19 @@ fn parseIntoFields(
     string: []const u8,
     directive: u8,
     idx_ptr: *usize,
-    am_pm_flags: *u8,
+    flags: *u32,
 ) !void {
     switch (directive) {
         'd' => fields.day = try parseDigits(u8, string, idx_ptr, 2),
         // 'e' - use 'd'
-        // 'a', // locale-specific, day name short
-        // 'A', // locale-specific, day name
+
+        // TODO : result should not be ignored...
+        'a' => _ = try parseDayNameAbbr(string, idx_ptr),
+        'A' => _ = try parseDayName(string, idx_ptr),
+
         'm' => fields.month = try parseDigits(u8, string, idx_ptr, 2),
-        // 'b', // locale-specific, month name short
-        // 'B', // locale-specific, month name
+        'b' => fields.month = try parseMonthNameAbbr(string, idx_ptr),
+        'B' => fields.month = try parseMonthName(string, idx_ptr),
         'Y' => fields.year = try parseDigits(u16, string, idx_ptr, 4),
         'y' => fields.year = try parseDigits(u16, string, idx_ptr, 2) + Datetime.century,
         // 'C', - formatting-only
@@ -229,11 +239,11 @@ fn parseIntoFields(
         // 'k' - use 'H'
         'I' => fields.hour = blk: { // must be in [1..12]
             const h = try parseDigits(u8, string, idx_ptr, 2);
-            am_pm_flags.* |= 4;
+            flags.* |= @intFromEnum(ParserFlags.clock_12h);
             if (h >= 1 and h <= 12) break :blk h else return error.InvalidFormat;
         },
-        'P' => am_pm_flags.* |= try parseAmPm(string, idx_ptr),
-        'p' => am_pm_flags.* |= try parseAmPm(string, idx_ptr),
+        'P' => flags.* |= @intFromEnum(try parseAmPm(string, idx_ptr)),
+        'p' => flags.* |= @intFromEnum(try parseAmPm(string, idx_ptr)),
         'M' => fields.minute = try parseDigits(u8, string, idx_ptr, 2),
         'S' => fields.second = try parseDigits(u8, string, idx_ptr, 2),
         'f' => {
@@ -298,30 +308,42 @@ fn printIntoWriter(
         'e' => try writer.print("{d: >2}", .{dt.day}),
         'a' => {
             switch (mod) {
-                0 => try writer.print("{s}", .{std.mem.sliceTo(getDayNameAbbr(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name short
-                1 => try writer.print("{s}", .{dt.weekday().shortName()}),
+                0 => {
+                    const name = try getDayNameAbbr(dt.weekdayNumber()); // locale-specific, day name short
+                    try writer.print("{s}", .{std.mem.sliceTo(&name, 0)});
+                },
+                1 => try writer.print("{s}", .{dt.weekday().shortName()}), // English default
                 else => return error.InvalidFormat,
             }
         },
         'A' => {
             switch (mod) {
-                0 => try writer.print("{s}", .{std.mem.sliceTo(getDayName(dt.weekdayNumber())[0..], 0)}), // locale-specific, day name
-                1 => try writer.print("{s}", .{dt.weekday().longName()}),
+                0 => {
+                    const name = try getDayName(dt.weekdayNumber()); // locale-specific, day name
+                    try writer.print("{s}", .{std.mem.sliceTo(&name, 0)});
+                },
+                1 => try writer.print("{s}", .{dt.weekday().longName()}), // English default
                 else => return error.InvalidFormat,
             }
         },
         'm' => try writer.print("{d:0>2}", .{dt.month}),
         'b' => {
             switch (mod) {
-                0 => try writer.print("{s}", .{std.mem.sliceTo(getMonthNameAbbr(dt.month - 1)[0..], 0)}), // locale-specific, month name short
-                1 => try writer.print("{s}", .{dt.monthEnum().shortName()}),
+                0 => {
+                    const name = try getMonthNameAbbr(dt.month - 1); // locale-specific, month name short
+                    try writer.print("{s}", .{std.mem.sliceTo(&name, 0)});
+                },
+                1 => try writer.print("{s}", .{dt.monthEnum().shortName()}), // English default
                 else => return error.InvalidFormat,
             }
         },
         'B' => {
             switch (mod) {
-                0 => try writer.print("{s}", .{std.mem.sliceTo(getMonthName(dt.month - 1)[0..], 0)}), // locale-specific, month name
-                1 => try writer.print("{s}", .{dt.monthEnum().longName()}),
+                0 => {
+                    const name = try getMonthName(dt.month - 1); // locale-specific, month name
+                    try writer.print("{s}", .{std.mem.sliceTo(&name, 0)});
+                },
+                1 => try writer.print("{s}", .{dt.monthEnum().longName()}), // English default
                 else => return error.InvalidFormat,
             }
         },
@@ -338,9 +360,9 @@ fn printIntoWriter(
         'S' => try writer.print("{d:0>2}", .{dt.second}),
         'f' => {
             switch (mod) {
-                0 => try writer.print("{d:0>9}", .{dt.nanosecond}),
-                1 => try writer.print("{d:0>3}", .{dt.nanosecond / 1000000}),
-                2 => try writer.print("{d:0>6}", .{dt.nanosecond / 1000}),
+                0 => try writer.print("{d:0>9}", .{dt.nanosecond}), // 'f' 123456789
+                1 => try writer.print("{d:0>3}", .{dt.nanosecond / 1000000}), // 'f:' 123
+                2 => try writer.print("{d:0>6}", .{dt.nanosecond / 1000}), // 'f::' 123456
                 else => return error.InvalidFormat,
             }
         },
@@ -402,13 +424,13 @@ fn parseDigits(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits:
 }
 
 // AM or PM string, no matter if upper or lower case.
-fn parseAmPm(string: []const u8, idx_ptr: *usize) !u8 {
+fn parseAmPm(string: []const u8, idx_ptr: *usize) !ParserFlags {
     if (idx_ptr.* + 2 > string.len) return error.InvalidFormat;
 
-    var flag: u8 = 0;
+    var flag = ParserFlags.OK;
     flag = switch (std.ascii.toLower(string[idx_ptr.*])) {
-        'a' => 1,
-        'p' => 2,
+        'a' => ParserFlags.AM,
+        'p' => ParserFlags.PM,
         else => return error.InvalidFormat,
     };
 
@@ -638,45 +660,171 @@ const sz_abbr: usize = 32;
 const sz_normal: usize = 64;
 
 // Get the abbreviated day name in the current locale
-fn getDayNameAbbr(n: u8) [sz_abbr]u8 {
-    var dummy: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
-    dummy[0] = 63;
+fn getDayNameAbbr(n: u8) ![sz_abbr]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getDayNameAbbr_(n),
         .windows => windows_specific.getDayNameAbbr_(n),
-        else => dummy,
+        else => return error.OsUnsupported,
     };
 }
 
 // Get the day name in the current locale
-fn getDayName(n: u8) [sz_normal]u8 {
-    var dummy: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
-    dummy[0] = 63;
+fn getDayName(n: u8) ![sz_normal]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getDayName_(n),
         .windows => windows_specific.getDayName_(n),
-        else => dummy,
+        else => return error.OsUnsupported,
     };
 }
 
 // Get the abbreviated month name in the current locale
-fn getMonthNameAbbr(n: u8) [sz_abbr]u8 {
-    var dummy: [sz_abbr]u8 = std.mem.zeroes([sz_abbr]u8);
-    dummy[0] = 63;
+fn getMonthNameAbbr(n: u8) ![sz_abbr]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getMonthNameAbbr_(n),
         .windows => windows_specific.getMonthNameAbbr_(n),
-        else => dummy,
+        else => return error.OsUnsupported,
     };
 }
 
 // Get the month name in the current locale
-fn getMonthName(n: u8) [sz_normal]u8 {
-    var dummy: [sz_normal]u8 = std.mem.zeroes([sz_normal]u8);
-    dummy[0] = 63;
+fn getMonthName(n: u8) ![sz_normal]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getMonthName_(n),
         .windows => windows_specific.getMonthName_(n),
-        else => dummy,
+        else => return error.OsUnsupported,
     };
+}
+
+// since locale-specific names might change at runtime,
+// we need to obtain them at runtime.
+
+fn allDayNames() ![7][sz_normal]u8 {
+    var result: [7][sz_normal]u8 = undefined;
+    for (result, 0..) |_, i| result[i] = try getDayName(@truncate(i));
+    return result;
+}
+
+fn allDayNamesShort() ![7][sz_abbr]u8 {
+    var result: [7][sz_abbr]u8 = undefined;
+    for (result, 0..) |_, i| result[i] = try getDayNameAbbr(@truncate(i));
+    return result;
+}
+
+fn allMonthNames() ![12][sz_normal]u8 {
+    var result: [12][sz_normal]u8 = undefined;
+    for (result, 0..) |_, i| result[i] = try getMonthName(@truncate(i));
+    return result;
+}
+
+fn allMonthNamesShort() ![12][sz_abbr]u8 {
+    var result: [12][sz_abbr]u8 = undefined;
+    for (result, 0..) |_, i| result[i] = try getMonthNameAbbr(@truncate(i));
+    return result;
+}
+
+test "all names" {
+    const dnames = try allDayNames();
+    for (dnames) |n| {
+        try testing.expect(n[0] != '?'); // '?' is default if error
+        try testing.expect(n[1] != 0); // assume at least 2 characters
+    }
+    const dnames_short = try allDayNamesShort();
+    for (dnames_short) |n| {
+        try testing.expect(n[0] != '?');
+        try testing.expect(n[1] != 0);
+    }
+    const mnames = try allMonthNames();
+    for (mnames) |n| {
+        try testing.expect(n[0] != '?');
+        try testing.expect(n[1] != 0);
+    }
+    const mnames_short = try allMonthNamesShort();
+    for (mnames_short) |n| {
+        try testing.expect(n[0] != '?');
+        try testing.expect(n[1] != 0);
+    }
+}
+
+fn parseDayName(string: []const u8, idx_ptr: *usize) !u8 {
+    const allnames = try allDayNames();
+    var daynum: u8 = 0;
+    while (daynum < 7) : (daynum += 1) {
+        if (strStartswith(string, idx_ptr, std.mem.sliceTo(&allnames[daynum], 0)))
+            return daynum;
+    }
+    return error.InvalidFormat;
+}
+
+fn parseDayNameAbbr(string: []const u8, idx_ptr: *usize) !u8 {
+    const allnames = try allDayNamesShort();
+    var daynum: u8 = 0;
+    while (daynum < 7) : (daynum += 1) {
+        if (strStartswith(string, idx_ptr, std.mem.sliceTo(&allnames[daynum], 0)))
+            return daynum;
+    }
+    return error.InvalidFormat;
+}
+
+fn parseMonthName(string: []const u8, idx_ptr: *usize) !u8 {
+    const allnames = try allMonthNames();
+    var monthnum: u8 = 0;
+    while (monthnum < 12) : (monthnum += 1) {
+        if (strStartswith(string, idx_ptr, std.mem.sliceTo(&allnames[monthnum], 0)))
+            return monthnum + 1;
+    }
+    return error.InvalidFormat;
+}
+
+fn parseMonthNameAbbr(string: []const u8, idx_ptr: *usize) !u8 {
+    const allnames = try allMonthNamesShort();
+    var monthnum: u8 = 0;
+    while (monthnum < 12) : (monthnum += 1) {
+        if (strStartswith(string, idx_ptr, std.mem.sliceTo(&allnames[monthnum], 0)))
+            return monthnum + 1;
+    }
+    return error.InvalidFormat;
+}
+
+test "day / month name in string to day / month number" {
+    var idx: usize = 8;
+    const string = "...text Monday Tue December Mar text...";
+    var n = try parseDayName(string, &idx);
+    try testing.expectEqual(1, n);
+    idx += 1;
+    n = try parseDayNameAbbr(string, &idx);
+    try testing.expectEqual(2, n);
+    idx += 1;
+    n = try parseMonthName(string, &idx);
+    try testing.expectEqual(12, n);
+    idx += 1;
+    n = try parseMonthNameAbbr(string, &idx);
+    try testing.expectEqual(3, n);
+}
+
+/// Look if 'string' starts with the characters from 'target', beginning at idx.
+/// Advance idx by target.len characters if true.
+///
+/// An empty input to 'string' or 'target' is considered false.
+fn strStartswith(string: []const u8, idx_ptr: *usize, target: []const u8) bool {
+    if (string.len == 0 or target.len == 0) return false;
+    if (idx_ptr.* >= string.len) return false;
+    if (target.len > string[idx_ptr.*..].len) return false;
+    const result = std.mem.eql(u8, string[idx_ptr.* .. idx_ptr.* + target.len], target);
+    if (result) idx_ptr.* += target.len;
+    return result;
+}
+
+test "starts with" {
+    const string = "some text";
+    var idx: usize = 0;
+    try testing.expect(!strStartswith(string, &idx, ""));
+    try testing.expectEqual(0, idx);
+    try testing.expect(!strStartswith(string, &idx, "no"));
+    try testing.expectEqual(0, idx);
+    try testing.expect(strStartswith(string, &idx, "some"));
+    try testing.expectEqual(4, idx);
+    try testing.expect(strStartswith(string, &idx, " te"));
+    try testing.expectEqual(7, idx);
+    idx = 10;
+    try testing.expect(!strStartswith(string, &idx, ""));
 }

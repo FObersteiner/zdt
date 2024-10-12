@@ -7,7 +7,8 @@ const log = std.log.scoped(.zdt_test_string);
 
 const c_locale = @cImport(@cInclude("locale.h"));
 const time_mask = switch (builtin.os.tag) {
-    .linux => c_locale.LC_TIME_MASK,
+    .linux => c_locale.LC_ALL,
+    // .linux => c_locale.LC_TIME_MASK, // does not suffice, not sure why
     else => c_locale.LC_TIME,
 };
 
@@ -592,6 +593,103 @@ test "comptime parse with comptime format string, am/pm and 12-hour input" {
 
     inline for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%d/%m/%Y, %I %p");
+        try testing.expectEqual(case.dt, dt);
+    }
+}
+
+test "parse with abbreviated month and day name, locale-specific" {
+    if (!locale_ok()) return error.SkipZigTest;
+
+    const cases = [_]TestCase{
+        .{
+            .string = "Thu 01 Jan 1970, 12 am",
+            .dt = try Datetime.fromFields(.{ .year = 1970 }),
+            .directive = "%a %d %b %Y, %I %p",
+        },
+        .{
+            .string = "Thu 18 Feb 2021, 11 AM",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 11 }),
+            .directive = "%a %d %b %Y, %I %p",
+        },
+        .{
+            .string = "Fri 31 Dec 2021, 5 pm",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 12, .day = 31, .hour = 17 }),
+            .directive = "%a %d %b %Y, %I %p",
+        },
+        .{
+            .string = "Thursday 01 January 1970, 12 am",
+            .dt = try Datetime.fromFields(.{ .year = 1970 }),
+            .directive = "%A %d %B %Y, %I %p",
+        },
+        .{
+            .string = "Thursday 18 February 2021, 11 AM",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 11 }),
+            .directive = "%A %d %B %Y, %I %p",
+        },
+        .{
+            .string = "Friday 31 December 2021, 5 pm",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 12, .day = 31, .hour = 17 }),
+            .directive = "%A %d %B %Y, %I %p",
+        },
+    };
+
+    for (cases) |case| {
+        const dt = try Datetime.fromString(case.string, case.directive);
+        try testing.expectEqual(case.dt, dt);
+    }
+}
+
+test "parse with month name and day, user-defined locale" {
+    // TODO : does not work on Windows atm, need to have a look at this some other time...
+    if (builtin.os.tag == .windows) return error.SkipZigTest;
+
+    // Try to set a different locale. This might fail if the locale is not installed.
+    const loc = "de_DE.UTF-8";
+    const new_loc = c_locale.setlocale(time_mask, loc);
+    if (new_loc == null) {
+        log.warn("skip test (locale is null)", .{});
+        return error.SkipZigTest;
+    }
+
+    const cases = [_]TestCase{
+        .{
+            .string = "Do 01 Jan 1970, 12 am",
+            .dt = try Datetime.fromFields(.{ .year = 1970 }),
+            .directive = "%a %d %b %Y, %I %p",
+        },
+        .{
+            .string = "Do 18 Feb 2021, 11 AM",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 11 }),
+            .directive = "%a %d %b %Y, %I %p",
+        },
+        .{
+            .string = "Fr 31 Dez 2021, 5 pm",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 12, .day = 31, .hour = 17 }),
+            .directive = "%a %d %b %Y, %I %p",
+        },
+        .{
+            .string = "Donnerstag 01 Januar 1970, 12 am",
+            .dt = try Datetime.fromFields(.{ .year = 1970 }),
+            .directive = "%A %d %B %Y, %I %p",
+        },
+        .{
+            .string = "Donnerstag 18 Februar 2021, 11 AM",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 11 }),
+            .directive = "%A %d %B %Y, %I %p",
+        },
+        .{
+            .string = "Freitag 31 Dezember 2021, 5 pm",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 12, .day = 31, .hour = 17 }),
+            .directive = "%A %d %B %Y, %I %p",
+        },
+    };
+
+    for (cases) |case| {
+        // var buf = std.ArrayList(u8).init(testing.allocator);
+        // defer buf.deinit();
+        // try case.dt.toString(case.directive, buf.writer());
+        // log.warn("str: {s}", .{buf.items});
+        const dt = try Datetime.fromString(case.string, case.directive);
         try testing.expectEqual(case.dt, dt);
     }
 }
