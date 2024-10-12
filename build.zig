@@ -17,6 +17,7 @@ const example_files = [_][]const u8{
     "ex_demo",
     "ex_datetime",
     "ex_duration",
+    "ex_locale",
     "ex_offsetTz",
     "ex_strings",
     "ex_timezones",
