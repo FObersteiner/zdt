@@ -13,6 +13,8 @@ Types of changes
 
 ## Unreleased
 
+## 2024-10-12, v0.3.5
+
 ### Added
 
 - parser for locale-specific day and month names (Unix)
