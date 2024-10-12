@@ -15,8 +15,8 @@ Types of changes
 
 ### Added
 
-- parser for locale-sepcific day and month names
-  - note: setting the locale for a test does not seem to work properly on Windows, so this OS is skipped in CI
+- parser for locale-specific day and month names (Unix)
+  - note: setting the locale on Windows has proven difficult - requires more work
 - (internal) handle parser flags as an enum
 
 ### Changed

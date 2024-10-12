@@ -644,22 +644,12 @@ test "parse with month name and day, user-defined locale" {
     if (builtin.os.tag == .windows) return error.SkipZigTest;
 
     // Try to set a different locale. This might fail if the locale is not installed.
-    const l = "de_DE.UTF-8";
-    const new_loc = c_locale.setlocale(time_mask, l);
+    const loc = "de_DE.UTF-8";
+    const new_loc = c_locale.setlocale(time_mask, loc);
     if (new_loc == null) {
         log.warn("skip test (locale is null)", .{});
         return error.SkipZigTest;
     }
-
-    // TODO : verify that locale has been set does not seem to be easy; the following
-    // check fails, but the test passes, so the locale actually has been set!
-    //
-    // const loc_is = c_locale.setlocale(time_mask, "");
-    // const loc_is_: [:0]const u8 = std.mem.span(loc_is);
-    // if (!std.mem.eql(u8, loc_is_, l)) {
-    //     log.warn("skip test (locale is wrong, want {s}, got {s})", .{ l, loc_is_ });
-    //     return error.SkipZigTest;
-    // }
 
     const cases = [_]TestCase{
         .{
