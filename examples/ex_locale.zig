@@ -30,6 +30,8 @@ pub fn main() !void {
     var buf = std.ArrayList(u8).init(allocator);
     defer buf.deinit();
 
+    // datetime to string
+    //
     try dt.toString("%a, %b %d %Y, %H:%Mh", buf.writer());
     println("", .{});
     println("formatted {s}\n  to '{s}'", .{ dt, buf.items });
@@ -39,6 +41,10 @@ pub fn main() !void {
     try dt.toString("%A, %B %d %Y, %H:%Mh", buf.writer());
     println("", .{});
     println("formatted {s}\n  to '{s}'", .{ dt, buf.items });
+
+    // string to datetime
+    //
+    // TODO :
 }
 
 fn println(comptime fmt: []const u8, args: anytype) void {
