@@ -704,6 +704,18 @@ fn allDayNames() ![7][sz_normal]u8 {
     return result;
 }
 
+fn allDayNamesEng() ![7][sz_normal]u8 {
+    return [7][sz_normal]u8{
+        [6]u8{ 'S', 'u', 'n', 'd', 'a', 'y' } ++ std.mem.zeroes([sz_normal - 6]u8),
+        [6]u8{ 'M', 'o', 'n', 'd', 'a', 'y' } ++ std.mem.zeroes([sz_normal - 6]u8),
+        [7]u8{ 'T', 'u', 'e', 's', 'd', 'a', 'y' } ++ std.mem.zeroes([sz_normal - 7]u8),
+        [9]u8{ 'W', 'e', 'd', 'n', 'e', 's', 'd', 'a', 'y' } ++ std.mem.zeroes([sz_normal - 9]u8),
+        [8]u8{ 'T', 'h', 'u', 'r', 's', 'd', 'a', 'y' } ++ std.mem.zeroes([sz_normal - 8]u8),
+        [6]u8{ 'F', 'r', 'i', 'd', 'a', 'y' } ++ std.mem.zeroes([sz_normal - 6]u8),
+        [8]u8{ 'S', 'a', 't', 'u', 'r', 'd', 'a', 'y' } ++ std.mem.zeroes([sz_normal - 8]u8),
+    };
+}
+
 fn allDayNamesShort() ![7][sz_abbr]u8 {
     var result: [7][sz_abbr]u8 = undefined;
     for (result, 0..) |_, i| result[i] = try getDayNameAbbr(@truncate(i));
@@ -745,6 +757,8 @@ test "all names" {
     }
 }
 
+// TODO : make allnames a function parameter so that this can also be used
+// to parse English-only names
 fn parseDayName(string: []const u8, idx_ptr: *usize) !u8 {
     const allnames = try allDayNames();
     var daynum: u8 = 0;

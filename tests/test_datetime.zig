@@ -339,12 +339,24 @@ test "weekday enum" {
     try testing.expectEqual(Datetime.Weekday.Thursday, dt.weekday());
     try testing.expectEqualStrings("Thu", dt.weekday().shortName());
     try testing.expectEqualStrings("Thursday", dt.weekday().longName());
+
+    var d = try Datetime.Weekday.nameToInt("Saturday");
+    try testing.expectEqual(6, d);
+
+    d = try Datetime.Weekday.nameShortToInt("Thu");
+    try testing.expectEqual(4, d);
 }
 
 test "month enum" {
     const dt = try Datetime.fromFields(.{ .year = 1970 });
     try testing.expectEqualStrings("Jan", dt.monthEnum().shortName());
     try testing.expectEqualStrings("January", dt.monthEnum().longName());
+
+    var m = try Datetime.Month.nameToInt("June");
+    try testing.expectEqual(6, m);
+
+    m = try Datetime.Month.nameShortToInt("Apr");
+    try testing.expectEqual(4, m);
 }
 
 test "next weekday" {
