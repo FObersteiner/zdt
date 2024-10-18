@@ -682,7 +682,12 @@ test "parse with month name and day, user-defined locale" {
             .dt = try Datetime.fromFields(.{ .year = 2021, .month = 12, .day = 31, .hour = 17 }),
             .directive = "%A %d %B %Y, %I %p",
         },
-        // TODO : add test cases with English names
+        // locale is not English, however we must still be able to parse English names:
+        .{
+            .string = "Friday Fri 31 December Dec 2021, 5 pm",
+            .dt = try Datetime.fromFields(.{ .year = 2021, .month = 12, .day = 31, .hour = 17 }),
+            .directive = "%:A %:a %d %:B %:b %Y, %I %p",
+        },
     };
 
     for (cases) |case| {
