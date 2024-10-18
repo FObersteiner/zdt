@@ -13,6 +13,11 @@ Types of changes
 
 ## Unreleased
 
+### Added
+
+- option to use a modifier in parsing directives
+- allow parsing of English month/day names, independent of the current locale
+
 ## 2024-10-12, v0.3.5
 
 ### Added
