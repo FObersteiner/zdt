@@ -82,6 +82,20 @@ pub const Weekday = enum(u8) {
     pub fn longName(w: Weekday) []const u8 {
         return @tagName(w);
     }
+
+    pub fn nameToInt(name: []const u8) !u8 {
+        inline for (std.meta.fields(Weekday)) |f| {
+            if (std.mem.eql(u8, name, f.name)) return f.value;
+        }
+        return error.DayOutOfRange;
+    }
+
+    pub fn nameShortToInt(name: []const u8) !u8 {
+        inline for (std.meta.fields(Weekday)) |f| {
+            if (std.mem.eql(u8, name, f.name[0..3])) return f.value;
+        }
+        return error.DayOutOfRange;
+    }
 };
 
 /// Enum-representation of a month, with January being 1.
@@ -106,6 +120,20 @@ pub const Month = enum(u8) {
 
     pub fn longName(m: Month) []const u8 {
         return @tagName(m);
+    }
+
+    pub fn nameToInt(name: []const u8) !u8 {
+        inline for (std.meta.fields(Month)) |f| {
+            if (std.mem.eql(u8, name, f.name)) return f.value;
+        }
+        return error.MonthOutOfRange;
+    }
+
+    pub fn nameShortToInt(name: []const u8) !u8 {
+        inline for (std.meta.fields(Month)) |f| {
+            if (std.mem.eql(u8, name, f.name[0..3])) return f.value;
+        }
+        return error.MonthOutOfRange;
     }
 };
 

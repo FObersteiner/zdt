@@ -39,7 +39,7 @@ pub fn main() !void {
     println("", .{});
     println("---> (usage): parse some non-standard format", .{});
     const dayfirst_dtstr = "23.7.2021, 9:45h";
-    parsed = try Datetime.fromString("%d.%m.%Y, %H:%Mh", dayfirst_dtstr);
+    parsed = try Datetime.fromString(dayfirst_dtstr, "%d.%m.%Y, %H:%Mh");
     // zdt.Datetime.strptime is also available for people used to strftime/strptime
     assert(parsed.day == 23);
     println("parsed '{s}'\n  to {s}", .{ dayfirst_dtstr, parsed });
