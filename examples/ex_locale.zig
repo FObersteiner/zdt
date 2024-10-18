@@ -44,7 +44,17 @@ pub fn main() !void {
 
     // string to datetime
     //
-    // TODO :
+    const input = "Mittwoch, 23. Januar 1974, 03:17h";
+    const parsed = try Datetime.fromString(input, "%A, %d. %B %Y, %H:%Mh");
+    println("", .{});
+    println("parsed '{s}'\n  to '{s}'", .{ input, parsed });
+
+    // by adding a modifier character, you can always parse English month names,
+    // independent of the locale:
+    const input_eng = "Wednesday, January 23 1974, 03:17h";
+    const parsed_eng = try Datetime.fromString(input_eng, "%:A, %:B %d %Y, %H:%Mh");
+    println("", .{});
+    println("parsed '{s}'\n  to '{s}'", .{ input_eng, parsed_eng });
 }
 
 fn println(comptime fmt: []const u8, args: anytype) void {
