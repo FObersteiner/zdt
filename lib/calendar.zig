@@ -1,7 +1,9 @@
 //! calendric stuff
 
 const std = @import("std");
+const log = std.log.scoped(.zdt__calendar);
 const assert = std.debug.assert;
+const testing = std.testing;
 
 pub const isLeapYear = std.time.epoch.isLeapYear;
 
@@ -89,24 +91,67 @@ pub const leaps = [_]u64{
     1483228800, // 2017-01-01
 };
 
-/// For a given Unix time in seconds, give me the number of leap seconds that
-/// were added in UTC.
-pub fn leapCorrection(unixtime: i64) u8 {
-    if (unixtime < leaps[0]) return 10;
-    if (unixtime >= leaps[leaps.len - 1]) return leaps.len + 10;
-    const index = index: {
+/// Find the index in 'leap' where the respective value
+/// directly preceedes or is equal to input 'unixtime'
+fn preceedingLeapIndex(unixtime: i64) usize {
+    return blk: {
         var left: usize = 0;
         var right: usize = leaps.len;
         var mid: usize = 0;
         while (left < right) {
             mid = left + (right - left) / 2;
             switch (std.math.order(unixtime, leaps[mid])) {
-                .eq => break :index mid,
+                .eq => break :blk mid,
                 .gt => left = mid + 1,
                 .lt => right = mid,
             }
         }
-        break :index mid - @intFromBool(leaps[mid] > unixtime);
+        break :blk mid;
+    };
+}
+
+test "leap index" {
+    try testing.expectEqual(0, preceedingLeapIndex(0));
+    try testing.expectEqual(0, preceedingLeapIndex(78796800));
+    try testing.expectEqual(0, preceedingLeapIndex(78796801));
+    try testing.expectEqual(1, preceedingLeapIndex(94694400));
+}
+
+/// Analyze if a given Unix time falls on a leapsecond
+pub fn mightBeLeap(unixtime: i64) bool {
+    if (unixtime < leaps[0] - 1) return false;
+    if (unixtime >= leaps[leaps.len - 1]) return false;
+    const idx = preceedingLeapIndex(unixtime - 1);
+    return leaps[idx + 1] == unixtime + 1;
+}
+
+test "might be leap second" {
+    try testing.expect(!mightBeLeap(0));
+    try testing.expect(!mightBeLeap(820454398));
+    try testing.expect(mightBeLeap(820454399));
+    try testing.expect(!mightBeLeap(820454400));
+    try testing.expect(mightBeLeap(1483228799));
+    try testing.expect(!mightBeLeap(1483228800));
+}
+
+/// For a given Unix time in seconds, give me the number of leap seconds that
+/// were added in UTC.
+pub fn leapCorrection(unixtime: i64) u8 {
+    if (unixtime < leaps[0]) return 10;
+    if (unixtime >= leaps[leaps.len - 1]) return leaps.len + 10;
+    const index = blk: {
+        var left: usize = 0;
+        var right: usize = leaps.len;
+        var mid: usize = 0;
+        while (left < right) {
+            mid = left + (right - left) / 2;
+            switch (std.math.order(unixtime, leaps[mid])) {
+                .eq => break :blk mid,
+                .gt => left = mid + 1,
+                .lt => right = mid,
+            }
+        }
+        break :blk mid - @intFromBool(leaps[mid] > unixtime);
     };
     return @intCast(index + 11);
 }

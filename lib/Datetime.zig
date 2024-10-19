@@ -2,6 +2,7 @@
 
 const std = @import("std");
 const log = std.log.scoped(.zdt__Datetime);
+const assert = std.debug.assert;
 
 const cal = @import("./calendar.zig");
 const str = @import("./string.zig");
@@ -596,6 +597,13 @@ pub fn diffWall(this: Datetime, other: Datetime) !Duration {
         ns += 1_000_000_000;
     }
     return .{ .__sec = s, .__nsec = @intCast(ns) };
+}
+
+/// Validate a datetime in terms of leap seconds;
+/// checks if the datetime could be a leap second if .second is == 60.
+pub fn validateLeap(this: *const Datetime) !void {
+    if (this.second != 60) return;
+    if (!cal.mightBeLeap(this.unix_sec)) return error.SecondOutOfRange;
 }
 
 /// Difference in leap seconds between two datetimes.

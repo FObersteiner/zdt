@@ -15,8 +15,9 @@ Types of changes
 
 ### Added
 
-- option to use a modifier in parsing directives
+- datetime parser: option to use a modifier in parsing directives
 - allow parsing of English month/day names, independent of the current locale
+- method to test whether a datetime with seconds == 60 actually is a leap second datetime
 
 ## 2024-10-12, v0.3.5
 

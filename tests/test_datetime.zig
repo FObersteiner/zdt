@@ -109,8 +109,13 @@ test "Datetime Unix epoch roundtrip" {
 test "Fields can represent leap second, Unix cannot" {
     const dt_from_fields = try Datetime.fromFields(.{ .year = 1970, .second = 60 });
     try testing.expectEqual(@as(u8, 60), dt_from_fields.second);
+    try testing.expectError(ZdtError.SecondOutOfRange, dt_from_fields.validateLeap());
     const unix_s = dt_from_fields.toUnix(Duration.Resolution.second);
     try testing.expectEqual(@as(i128, 59), unix_s);
+    const normal_dt = try Datetime.fromFields(.{ .year = 1985, .month = 6, .day = 30, .hour = 23, .minute = 59, .second = 59 });
+    _ = try normal_dt.validateLeap();
+    const leap_dt = try Datetime.fromFields(.{ .year = 1985, .month = 6, .day = 30, .hour = 23, .minute = 59, .second = 60 });
+    _ = try leap_dt.validateLeap();
 
     const dt_from_int = try Datetime.fromUnix(60, Duration.Resolution.second, null);
     try testing.expectEqual(@as(u8, 0), dt_from_int.second);
