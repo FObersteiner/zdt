@@ -3,9 +3,8 @@
 //! `tests`              - run unit tests
 //! `examples`           - build examples
 //! `docs`               - run autodoc generation
-//! `update-tz-version`  - retreive version of tzdata from local copy and set in zig file
-//! `update-tz-prefix`   - update tzdata path
-//! `update-tz-database` - retreive latest tagged version of eggert/tz and build tzdata
+//! `update-tzdb`        - retreive version of tzdata from local copy and set in zig file
+//! `update-tzdb-prefix` - update tzdata path
 //! ---
 const std = @import("std");
 const builtin = @import("builtin");
@@ -85,7 +84,10 @@ pub fn build(b: *std.Build) !void {
     // path prefix to tz data is always updated on install
     const install = b.getInstallStep();
 
-    const set_tzdb_prefix = b.step("update-tzdb-prefix", "generate timezone database prefix (path)");
+    const set_tzdb_prefix = b.step(
+        "update-tzdb-prefix",
+        "generate timezone database prefix (path)",
+    );
     var gen_tzdb_prefix = b.addExecutable(.{
         .name = "gen_tzdb_prefix",
         .root_source_file = b.path("util/gen_tzdb_prefix.zig"),

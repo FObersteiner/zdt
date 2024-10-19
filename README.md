@@ -21,6 +21,7 @@
   // zdt embeds the IANA tz database:
   var tz_LA = try zdt.Timezone.fromTzdata("America/Los_Angeles", allocator);
   defer tz_LA.deinit();
+
   // you can also use your system's tz data if it provides it:
   var tz_Paris = try zdt.Timezone.fromTzfile("Europe/Paris", allocator);
   defer tz_Paris.deinit();
@@ -72,7 +73,7 @@ See [changelog](https://github.com/FObersteiner/zdt/blob/master/change.log)
 
 ## Zig version
 
-This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2024-10-12, Zig-0.13 stable or higher should work.
+This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2024-10-19, Zig-0.13 stable or higher should work.
 
 ## IANA timezone database version
 
