@@ -58,7 +58,7 @@ pub const UTC = Timezone{
 };
 
 /// A time zone's name (identifier).
-pub fn name(tz: *Timezone) []const u8 {
+pub fn name(tz: *const Timezone) []const u8 {
     // 'tz' must be a pointer to TZ, otherwise returned slice would point to an out-of-scope
     // copy of the TZ instance. See also <https://ziggit.dev/t/pointers-to-temporary-memory/>
     return std.mem.sliceTo(&tz.__name_data, 0);
@@ -66,7 +66,7 @@ pub fn name(tz: *Timezone) []const u8 {
 
 /// Time zone abbreviation, such as "CET" for Central European Time in Europe/Berlin, winter.
 /// The tzOffset must be defined; otherwise, it is not possible to distinguish e.g. CET and CEST.
-pub fn abbreviation(tz: *Timezone) []const u8 {
+pub fn abbreviation(tz: *const Timezone) []const u8 {
     if (tz.tzOffset == null) return "";
     return std.mem.sliceTo(&tz.tzOffset.?.__abbrev_data, 0);
 }
@@ -255,22 +255,21 @@ pub fn atUnixtime(tz: Timezone, unixtime: i64) TzError!UTCoffset {
 }
 
 pub fn format(
-    tz: Timezone,
+    tz: *const Timezone,
     comptime fmt: []const u8,
     options: std.fmt.FormatOptions,
     writer: anytype,
 ) !void {
     _ = fmt;
     _ = options;
-    var _tz = tz; // need a variable copy because we have pointer methods
     try writer.print("Time zone, name: {c}", .{
-        _tz.name(),
+        tz.name(),
     });
-    if (_tz.tzOffset) |offset| {
+    if (tz.tzOffset) |offset| {
         try writer.print(
             ", abbreviation: {c}, offset from UTC: {d} s, daylight saving time? {}",
             .{
-                _tz.abbreviation(),
+                tz.abbreviation(),
                 offset.seconds_east,
                 offset.is_dst,
             },
