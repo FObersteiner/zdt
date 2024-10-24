@@ -414,19 +414,19 @@ fn printIntoWriter(
         'Z' => blk: {
             if (dt.isNaive()) break :blk;
             switch (modifier_count) {
-                0 => try writer.print("{s}", .{@constCast(&dt.tzinfo.?).abbreviation()}),
+                0 => try writer.print("{s}", .{dt.tzinfo.?.abbreviation()}),
                 1 => {
                     if (std.meta.eql(dt.tzinfo.?, Tz.UTC))
-                        try writer.print("{s}", .{@constCast(&dt.tzinfo.?).name()})
+                        try writer.print("{s}", .{dt.tzinfo.?.name()})
                     else
-                        try writer.print("{s}", .{@constCast(&dt.tzinfo.?).abbreviation()});
+                        try writer.print("{s}", .{dt.tzinfo.?.abbreviation()});
                 },
                 else => return error.InvalidFormat,
             }
         },
         'i' => blk: {
             if (dt.isNaive()) break :blk;
-            try writer.print("{s}", .{@constCast(&dt.tzinfo.?).name()});
+            try writer.print("{s}", .{dt.tzinfo.?.name()});
         },
         'j' => try writer.print("{d:0>3}", .{dt.dayOfYear()}),
         'w' => try writer.print("{d}", .{dt.weekdayNumber()}),

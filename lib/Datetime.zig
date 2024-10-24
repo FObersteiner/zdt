@@ -749,11 +749,11 @@ pub fn toString(dt: Datetime, directives: []const u8, writer: anytype) !void {
     return try str.tokenizeAndPrint(&dt, directives, writer);
 }
 
-pub fn tzName(dt: *Datetime) []const u8 {
-    return @constCast(&dt.tzinfo.?).name();
+pub fn tzName(dt: *const Datetime) []const u8 {
+    return dt.tzinfo.?.name();
 }
-pub fn tzAbbreviation(dt: *Datetime) []const u8 {
-    return @constCast(&dt.tzinfo.?).abbreviation();
+pub fn tzAbbreviation(dt: *const Datetime) []const u8 {
+    return dt.tzinfo.?.abbreviation();
 }
 
 /// Formatted printing for UTC offset
