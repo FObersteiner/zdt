@@ -413,13 +413,14 @@ fn printIntoWriter(
         },
         'Z' => blk: {
             if (dt.isNaive()) break :blk;
+            const tzinfo = &dt.tzinfo.?; // !isNaive asserts that tzinfo is not null
             switch (modifier_count) {
-                0 => try writer.print("{s}", .{dt.tzinfo.?.abbreviation()}),
+                0 => try writer.print("{s}", .{tzinfo.abbreviation()}),
                 1 => {
-                    if (std.meta.eql(dt.tzinfo.?, Tz.UTC))
-                        try writer.print("{s}", .{dt.tzinfo.?.name()})
+                    if (std.meta.eql(tzinfo.*, Tz.UTC))
+                        try writer.print("{s}", .{tzinfo.name()})
                     else
-                        try writer.print("{s}", .{dt.tzinfo.?.abbreviation()});
+                        try writer.print("{s}", .{tzinfo.abbreviation()});
                 },
                 else => return error.InvalidFormat,
             }
@@ -663,11 +664,11 @@ pub fn parseISO8601(string: []const u8, idx_ptr: *usize) !Datetime.Fields {
         }
     }
 
-    if (utcoffset != null) {
+    if (utcoffset) |offset| {
         if (string[idx_ptr.* - 1] == 'Z')
             fields.tzinfo = Tz.UTC
         else
-            fields.tzinfo = try Tz.fromOffset(utcoffset.?, "");
+            fields.tzinfo = try Tz.fromOffset(offset, "");
     }
 
     return fields;

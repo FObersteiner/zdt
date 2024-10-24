@@ -408,9 +408,9 @@ pub fn fromUnix(quantity: i128, resolution: Duration.Resolution, tzinfo: ?Timezo
 /// UTC offset of the time zone (if such is supplied).
 fn __normalize(dt: *Datetime) TzError!void {
     var fake_unix = dt.unix_sec; // "local" Unix time to get the fields right
-    if (dt.isAware()) {
-        dt.tzinfo.?.tzOffset = try dt.tzinfo.?.atUnixtime(dt.unix_sec);
-        fake_unix += dt.tzinfo.?.tzOffset.?.seconds_east;
+    if (dt.tzinfo) |*tzinfo| {
+        tzinfo.tzOffset = try tzinfo.atUnixtime(dt.unix_sec);
+        fake_unix += tzinfo.tzOffset.?.seconds_east;
     }
     const s_after_midnight: i32 = @intCast(@mod(fake_unix, s_per_day));
     const days: i32 = @intCast(@divFloor(fake_unix, s_per_day));
