@@ -19,6 +19,10 @@ Types of changes
 - allow parsing of English month/day names, independent of the current locale
 - method to test whether a datetime with seconds == 60 actually is a leap second datetime
 
+### Changed
+
+- (internal) improve Timezone.format method, remove usage of `@constCast` and reduce usage of `.?` on optionals - by @Ratakor
+
 ## 2024-10-12, v0.3.5
 
 ### Added
