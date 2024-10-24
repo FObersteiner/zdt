@@ -18,8 +18,8 @@ test "utc" {
     try testing.expectEqualStrings(utc.name(), "UTC");
     try testing.expectEqualStrings(utc.abbreviation(), "Z");
     var utc_now = Datetime.nowUTC();
-    try testing.expectEqualStrings(@constCast(&utc_now.tzinfo.?).name(), "UTC");
-    try testing.expectEqualStrings(@constCast(&utc_now.tzinfo.?).abbreviation(), "Z");
+    try testing.expectEqualStrings(utc_now.tzinfo.?.name(), "UTC");
+    try testing.expectEqualStrings(utc_now.tzinfo.?.abbreviation(), "Z");
     try testing.expectEqualStrings(utc_now.tzName(), "UTC");
     try testing.expectEqualStrings(utc_now.tzAbbreviation(), "Z");
 }

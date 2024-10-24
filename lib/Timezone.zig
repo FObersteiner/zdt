@@ -67,8 +67,7 @@ pub fn name(tz: *const Timezone) []const u8 {
 /// Time zone abbreviation, such as "CET" for Central European Time in Europe/Berlin, winter.
 /// The tzOffset must be defined; otherwise, it is not possible to distinguish e.g. CET and CEST.
 pub fn abbreviation(tz: *const Timezone) []const u8 {
-    if (tz.tzOffset == null) return "";
-    return std.mem.sliceTo(&tz.tzOffset.?.__abbrev_data, 0);
+    return if (tz.tzOffset) |*offset| std.mem.sliceTo(&offset.__abbrev_data, 0) else "";
 }
 
 /// Make a time zone from IANA tz database TZif data, taken from the embedded tzdata.
@@ -216,22 +215,18 @@ pub fn tzLocal(allocator: std.mem.Allocator) TzError!Timezone {
 /// Priority for offset determination is tzfile > POSIX TZ > fixed offset.
 /// tzFile and tzPosix set tzOffset if possible.
 pub fn atUnixtime(tz: Timezone, unixtime: i64) TzError!UTCoffset {
-    if (tz.tzFile == null and tz.tzOffset == null) { // and tz.tzPosix == null
-        return TzError.AllTZRulesUndefined;
-    }
-
-    if (tz.tzFile != null) {
-        const idx = findTransition(tz.tzFile.?.transitions, unixtime);
+    if (tz.tzFile) |*tzfile| {
+        const idx = findTransition(tzfile.transitions, unixtime);
         const timet = switch (idx) {
-            -1 => if (tz.tzFile.?.timetypes.len == 1) // UTC offset time zones...
-                tz.tzFile.?.timetypes[0]
+            -1 => if (tzfile.timetypes.len == 1) // UTC offset time zones...
+                tzfile.timetypes[0]
             else
                 return TzError.InvalidTz,
             // Unix time exceeds defined range of transitions => could use POSIX rule here as well
-            -2 => tz.tzFile.?.transitions[tz.tzFile.?.transitions.len - 1].timetype.*,
+            -2 => tzfile.transitions[tzfile.transitions.len - 1].timetype.*,
             // Unix time precedes defined range of transitions => use first entry in timetypes (should be LMT)
-            -3 => tz.tzFile.?.timetypes[0],
-            else => tz.tzFile.?.transitions[@intCast(idx)].timetype.*,
+            -3 => tzfile.timetypes[0],
+            else => tzfile.transitions[@intCast(idx)].timetype.*,
         };
 
         return .{
