@@ -8,25 +8,15 @@ const Datetime = @import("./Datetime.zig");
 const UTCoffset = @import("./UTCoffset.zig");
 const TzError = @import("./errors.zig").TzError;
 const tzif = @import("./tzif.zig");
+const posix = @import("./posix.zig");
 const tzwin = @import("./windows/windows_tz.zig");
 
 const Timezone = @This();
 
 /// embedded IANA time zone database (eggert/tz)
 pub const tzdata = @import("./tzdata.zig").tzdata;
+
 pub const tzdb_version = @import("./tzdata.zig").tzdb_version;
-
-// longest tz name is 'America/Argentina/ComodRivadavia' --> 32 ASCII chars
-const cap_name_data: usize = 32;
-__name_data: [cap_name_data]u8 = std.mem.zeroes([cap_name_data]u8),
-__name_data_len: usize = 0,
-
-// --- time zone rule sources ---
-// IANA tzdata file:
-tzFile: ?tzif.Tz = null,
-// pure offset from UTC:
-tzOffset: ?UTCoffset = null,
-// ---
 
 /// auto-generated prefix / path of the current eggert/tz database, as shipped with zdt
 // anonymous import; see build.zig
@@ -35,17 +25,28 @@ pub const tzdb_prefix = @import("tzdb_prefix").tzdb_prefix;
 /// Where to comptime-load IANA tz database files from
 const comptime_tzdb_prefix = "./tzdata/zoneinfo/"; // IANA db as provided by the library
 
-/// A time zone's name (identifier).
-pub fn name(tz: *const Timezone) []const u8 {
-    // 'tz' must be a pointer to TZ, otherwise returned slice would point to an out-of-scope
-    // copy of the TZ instance. See also <https://ziggit.dev/t/pointers-to-temporary-memory/>
-    return std.mem.sliceTo(&tz.__name_data, 0);
-}
+// longest tz name is 'America/Argentina/ComodRivadavia' --> 32 ASCII chars
+const cap_name_data: usize = 32;
 
-/// Time zone abbreviation, such as "CET" for Central European Time in Europe/Berlin, winter.
-/// The tzOffset must be defined; otherwise, it is not possible to distinguish e.g. CET and CEST.
-pub fn abbreviation(tz: *const Timezone) []const u8 {
-    return if (tz.tzOffset) |*offset| std.mem.sliceTo(&offset.__abbrev_data, 0) else "";
+const ruleTypes = enum {
+    tzif,
+    posixtz,
+};
+
+__name_data: [cap_name_data]u8 = std.mem.zeroes([cap_name_data]u8),
+__name_data_len: usize = 0,
+
+/// rules for a time zone
+rules: union(ruleTypes) {
+    /// IANA tz-db/tzdata TZif file
+    tzif: tzif.Tz,
+    /// POSIX TZ string
+    posixtz: posix.Tz,
+},
+
+/// A time zone's identifier name.
+pub fn name(tz: *const Timezone) []const u8 {
+    return std.mem.sliceTo(&tz.__name_data, 0);
 }
 
 /// Make a time zone from IANA tz database TZif data, taken from the embedded tzdata.
@@ -54,17 +55,20 @@ pub fn abbreviation(tz: *const Timezone) []const u8 {
 pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
 
-    if (std.mem.eql(u8, identifier, "localtime")) return tzLocal(allocator);
+    //    if (std.mem.eql(u8, identifier, "localtime")) return tzLocal(allocator);
 
-    if (tzdata.get(identifier)) |tzifbytes| {
-        var in_stream = std.io.fixedBufferStream(tzifbytes);
+    if (tzdata.get(identifier)) |TZifBytes| {
+        var in_stream = std.io.fixedBufferStream(TZifBytes);
         const tzif_tz = tzif.Tz.parse(allocator, in_stream.reader()) catch
             return TzError.TZifUnreadable;
+
         // ensure that there is a footer: requires v2+ TZif files.
         _ = tzif_tz.footer orelse return TzError.BadTZifVersion;
-        var tz = Timezone{ .tzFile = tzif_tz };
+
+        var tz = Timezone{ .rules = .{ .tzif = tzif_tz } };
         tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
         @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
+
         return tz;
     }
     return TzError.TzUndefined;
@@ -81,9 +85,11 @@ pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator)
     var in_stream = std.io.fixedBufferStream(data);
     const tzif_tz = tzif.Tz.parse(allocator, in_stream.reader()) catch
         return TzError.TZifUnreadable;
+
     // ensure that there is a footer: requires v2+ TZif files.
     _ = tzif_tz.footer orelse return TzError.BadTZifVersion;
-    var tz = Timezone{ .tzFile = tzif_tz };
+
+    var tz = Timezone{ .rules = .{ .tzif = tzif_tz } };
     tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
     @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
 
@@ -110,7 +116,7 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
     // ensure that there is a footer: requires v2+ TZif files.
     _ = tzif_tz.footer orelse return TzError.BadTZifVersion;
 
-    var tz = Timezone{ .tzFile = tzif_tz };
+    var tz = Timezone{ .rules = .{ .tzif = tzif_tz } };
     // default: use identifier as name
     tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
     @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
@@ -134,34 +140,13 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
     return tz;
 }
 
-// /// Make a time zone from an offset from UTC.
-// pub fn fromOffset(offset_sec_East: i32, identifier: []const u8) TzError!Timezone {
-//     if (offset_sec_East < UTC_off_range[0] or offset_sec_East > UTC_off_range[1]) {
-//         return TzError.InvalidOffset;
-//     }
-//     if (std.mem.eql(u8, identifier, "UTC")) {
-//         return UTC;
-//     }
-//
-//     var name_data = std.mem.zeroes([cap_name_data]u8);
-//     const len: usize = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
-//     @memcpy(name_data[0..len], identifier[0..len]);
-//
-//     return .{
-//         .tzOffset = .{ .seconds_east = @intCast(offset_sec_East) },
-//         .__name_data = name_data,
-//         .__name_data_len = len,
-//     };
-// }
-
 /// Clear a TZ instance and free potentially used memory (tzFile).
 pub fn deinit(tz: *Timezone) void {
-    if (tz.tzFile != null) {
-        tz.tzFile.?.deinit(); // free memory allocated for the data from the tzfile
-        tz.tzFile = null;
+    switch (tz.rules) {
+        .tzif => tz.rules.tzif.deinit(), // free memory allocated for the data from the tzfile
+        .posixtz => tz.rules.posixtz.deinit(),
     }
-    // tz.tzPosix = null;
-    tz.tzOffset = null;
+
     tz.__name_data = std.mem.zeroes([cap_name_data]u8);
     tz.__name_data_len = 0;
 }
@@ -189,44 +174,6 @@ pub fn tzLocal(allocator: std.mem.Allocator) TzError!Timezone {
     }
 }
 
-/// Get the UTC offset at a certain Unix time. Creates a new UTCoffset.
-/// Priority for offset determination is tzfile > POSIX TZ > fixed offset.
-/// tzFile and tzPosix set tzOffset if possible.
-pub fn atUnixtime(tz: Timezone, unixtime: i64) TzError!UTCoffset {
-    if (tz.tzFile) |*tzfile| {
-        const idx = findTransition(tzfile.transitions, unixtime);
-        const timet = switch (idx) {
-            -1 => if (tzfile.timetypes.len == 1) // UTC offset time zones...
-                tzfile.timetypes[0]
-            else
-                return TzError.InvalidTz,
-            // Unix time exceeds defined range of transitions => could use POSIX rule here as well
-            -2 => tzfile.transitions[tzfile.transitions.len - 1].timetype.*,
-            // Unix time precedes defined range of transitions => use first entry in timetypes (should be LMT)
-            -3 => tzfile.timetypes[0],
-            else => tzfile.transitions[@intCast(idx)].timetype.*,
-        };
-
-        return .{
-            .seconds_east = @intCast(timet.offset),
-            .is_dst = timet.isDst(),
-            .__abbrev_data = timet.name_data,
-            .__transition_index = idx,
-        };
-    }
-
-    // if (tz.tzPosix != null) {
-    //     return TzError.NotImplemented;
-    // }
-
-    // if we already have an offset here but no tzFile or tzPosix, there's nothing more we can do.
-    if (tz.tzOffset) |offset| {
-        return offset;
-    }
-
-    return TzError.AllTZRulesUndefined;
-}
-
 pub fn format(
     tz: *const Timezone,
     comptime fmt: []const u8,
@@ -235,48 +182,7 @@ pub fn format(
 ) !void {
     _ = fmt;
     _ = options;
-    try writer.print("Time zone, name: {c}", .{
-        tz.name(),
-    });
-    if (tz.tzOffset) |offset| {
-        try writer.print(
-            ", abbreviation: {c}, offset from UTC: {d} s, daylight saving time? {}",
-            .{
-                tz.abbreviation(),
-                offset.seconds_east,
-                offset.is_dst,
-            },
-        );
-    }
-}
-
-/// Get the index of the UTC offset transition equal to or less than the given target.
-/// Invalid value indicators:
-/// -1 : transition array has len zero
-/// -2 : target is larger than last transition element
-/// -3 : target is smaller than first transition element
-fn findTransition(array: []const tzif.Transition, target: i64) i32 {
-    if (array.len == 0) return -1;
-    // we know that transitions in 'array' are sorted, so we can check first and last indices.
-    // if 'target' is out of range, caller should return to use tz.timetype[0]
-    // or tz.timetype[-1] resp.
-    if (target > array[array.len - 1].ts) return -2;
-    if (target < array[0].ts) return -3;
-
-    // now do a binary search:
-    var left: usize = 0;
-    var right: usize = array.len - 1;
-    while (left <= right) {
-        const middle = left + @divFloor(right - left, 2);
-        if (array[middle].ts < target) {
-            left = middle + 1;
-        } else if (array[middle].ts > target) {
-            right = middle - 1;
-        } else {
-            return @as(i32, @intCast(middle));
-        }
-    }
-    return @as(i32, @intCast(left - 1));
+    try writer.print("Time zone, name: {c}", .{tz.name()});
 }
 
 /// Time zone identifiers must only contain alpha-numeric characters

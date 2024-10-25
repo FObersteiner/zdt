@@ -8,22 +8,25 @@ const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
 const Duration = zdt.Duration;
 const Tz = zdt.Timezone;
+const UTCoffset = zdt.UTCoffset;
 const ZdtError = zdt.ZdtError;
 
 const log = std.log.scoped(.test_timezone);
 
-// test "utc" {
-//     var utc = Tz.UTC;
-//     try testing.expect(utc.tzOffset.?.seconds_east == 0);
-//     try testing.expectEqualStrings(utc.name(), "UTC");
-//     try testing.expectEqualStrings(utc.abbreviation(), "Z");
-//     var utc_now = Datetime.nowUTC();
-//     try testing.expectEqualStrings(utc_now.tzinfo.?.name(), "UTC");
-//     try testing.expectEqualStrings(utc_now.tzinfo.?.abbreviation(), "Z");
-//     try testing.expectEqualStrings(utc_now.tzName(), "UTC");
-//     try testing.expectEqualStrings(utc_now.tzAbbreviation(), "Z");
-// }
-//
+test "utc" {
+    var utc = UTCoffset.UTC;
+    try testing.expect(utc.seconds_east == 0);
+    try testing.expectEqualStrings(utc.originName(), "UTC");
+    try testing.expectEqualStrings(utc.abbreviation(), "Z");
+
+    var utc_now = Datetime.nowUTC();
+    try testing.expectEqualStrings(utc_now.utc_offset.originName(), "UTC");
+    try testing.expectEqualStrings(utc_now.utc_offset.abbreviation(), "Z");
+
+    try testing.expectEqualStrings(utc_now.tzName(), "UTC");
+    try testing.expectEqualStrings(utc_now.tzAbbreviation(), "Z");
+}
+
 // test "offset tz never changes offset" {
 //     var tzinfo = try Tz.fromOffset(999, "hello world");
 //     try testing.expect(std.mem.eql(u8, tzinfo.name(), "hello world"));
