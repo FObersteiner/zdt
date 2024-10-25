@@ -10,6 +10,7 @@ const tzif = @import("./tzif.zig");
 
 const Duration = @import("./Duration.zig");
 const Timezone = @import("./Timezone.zig");
+const UTCoffset = @import("./UTCoffset.zig");
 
 const RangeError = @import("./errors.zig").RangeError;
 const TzError = @import("./errors.zig").TzError;
@@ -42,14 +43,14 @@ nanosecond: u32 = 0, // [0, 999999999]
 /// Always refers to 1970-01-01T00:00:00Z, not counting leap seconds.
 /// Do not modify directly.
 unix_sec: i64 = unix_s_min, // [unix_s_min, unix_s_max]
-//
-/// Optional time zone of a datetime.
-/// Do not modify directly.
-tzinfo: ?Timezone = null,
 
-/// DST fold position; 0 = early side, 1 = late side
+/// Offset from UTC. Is calculated whenever a Timezone is defined for a datetime
+/// or if the Timezone of a datetime is changed.
 /// Do not modify directly.
-dst_fold: ?u1 = null,
+utc_offset: ?UTCoffset = null,
+
+/// Optional pointer to time zone rule set. Do not modify directly.
+tz: ?*const Timezone = null,
 
 pub const min_year: u16 = 1; // r.d.; 0001-01-01
 pub const max_year: u16 = 9999;
@@ -193,8 +194,8 @@ pub const Fields = struct {
     minute: u8 = 0, // [0, 59]
     second: u8 = 0, // [0, 60]
     nanosecond: u32 = 0, // [0, 999999999]
-    tzinfo: ?Timezone = null,
-    dst_fold: ?u1 = null, // DST fold position; 0 = early side, 1 = late side
+    utc_offset: ?UTCoffset = null,
+    tz: ?*const Timezone = null,
 
     pub fn validate(fields: Fields) ZdtError!void {
         if (fields.year > max_year or fields.year < min_year) return ZdtError.YearOutOfRange;
@@ -206,8 +207,11 @@ pub const Fields = struct {
         if (fields.second > 60) return ZdtError.SecondOutOfRange;
         if (fields.nanosecond > 999999999) return ZdtError.NanosecondOutOfRange;
 
+        // TODO : UTCoffset
+
         // if a tz is provided, it must allow offset calculation, which requires
         // one of the types to be not-null:
+        // TODO : revise
         if (fields.tzinfo) |tzinfo| {
             if (tzinfo.tzFile == null and
                 // and tzinfo.tzPosix == null
@@ -219,7 +223,7 @@ pub const Fields = struct {
     }
 };
 
-/// Datetime fields without timezone and dst fold identifier. All fields optional and undefined by default.
+/// Datetime fields without timezone and UTC offset. All fields optional and undefined by default.
 /// Helper for Datetime.replace().
 pub const OptFields = struct {
     year: ?u16 = null,
@@ -248,8 +252,8 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         .minute = @truncate(fields.minute),
         .second = @truncate(fields.second),
         .nanosecond = fields.nanosecond,
-        .tzinfo = fields.tzinfo,
-        .dst_fold = fields.dst_fold,
+        .utc_offset = fields.utc_offset,
+        .tz = fields.tz,
         .unix_sec = ( //
             @as(i40, d) * s_per_day +
             @as(u17, fields.hour) * s_per_hour +

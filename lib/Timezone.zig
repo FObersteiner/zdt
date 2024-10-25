@@ -5,6 +5,7 @@ const builtin = @import("builtin");
 const log = std.log.scoped(.zdt__Timezone);
 
 const Datetime = @import("./Datetime.zig");
+const UTCoffset = @import("./UTCoffset.zig");
 const TzError = @import("./errors.zig").TzError;
 const tzif = @import("./tzif.zig");
 const tzwin = @import("./windows/windows_tz.zig");
@@ -33,29 +34,6 @@ pub const tzdb_prefix = @import("tzdb_prefix").tzdb_prefix;
 
 /// Where to comptime-load IANA tz database files from
 const comptime_tzdb_prefix = "./tzdata/zoneinfo/"; // IANA db as provided by the library
-
-/// offset from UTC should be in range -25h to +26h as specified by
-/// RFC8536, sect. 3.2, TZif data block.
-pub const UTC_off_range = [2]i32{ -89999, 93599 };
-
-/// Offset from UTC, in seconds East of Greenwich.
-/// This type can be used for any datetime, given a time zone rule.
-pub const UTCoffset = struct {
-    seconds_east: i32 = 0,
-    is_dst: bool = false,
-    __abbrev_data: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 },
-    __transition_index: i32 = -1, // TZif transitions index. < 0 means invalid
-};
-
-/// UTC is constant. Presumably.
-pub const UTC = Timezone{
-    .tzOffset = UTCoffset{
-        .seconds_east = 0,
-        .__abbrev_data = [6:0]u8{ 'Z', 0, 0, 0, 0, 0 },
-    },
-    .__name_data_len = 3,
-    .__name_data = [3]u8{ 'U', 'T', 'C' } ++ std.mem.zeroes([cap_name_data - 3]u8),
-};
 
 /// A time zone's name (identifier).
 pub fn name(tz: *const Timezone) []const u8 {
@@ -156,25 +134,25 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
     return tz;
 }
 
-/// Make a time zone from an offset from UTC.
-pub fn fromOffset(offset_sec_East: i32, identifier: []const u8) TzError!Timezone {
-    if (offset_sec_East < UTC_off_range[0] or offset_sec_East > UTC_off_range[1]) {
-        return TzError.InvalidOffset;
-    }
-    if (std.mem.eql(u8, identifier, "UTC")) {
-        return UTC;
-    }
-
-    var name_data = std.mem.zeroes([cap_name_data]u8);
-    const len: usize = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
-    @memcpy(name_data[0..len], identifier[0..len]);
-
-    return .{
-        .tzOffset = .{ .seconds_east = @intCast(offset_sec_East) },
-        .__name_data = name_data,
-        .__name_data_len = len,
-    };
-}
+// /// Make a time zone from an offset from UTC.
+// pub fn fromOffset(offset_sec_East: i32, identifier: []const u8) TzError!Timezone {
+//     if (offset_sec_East < UTC_off_range[0] or offset_sec_East > UTC_off_range[1]) {
+//         return TzError.InvalidOffset;
+//     }
+//     if (std.mem.eql(u8, identifier, "UTC")) {
+//         return UTC;
+//     }
+//
+//     var name_data = std.mem.zeroes([cap_name_data]u8);
+//     const len: usize = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
+//     @memcpy(name_data[0..len], identifier[0..len]);
+//
+//     return .{
+//         .tzOffset = .{ .seconds_east = @intCast(offset_sec_East) },
+//         .__name_data = name_data,
+//         .__name_data_len = len,
+//     };
+// }
 
 /// Clear a TZ instance and free potentially used memory (tzFile).
 pub fn deinit(tz: *Timezone) void {
