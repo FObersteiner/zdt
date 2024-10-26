@@ -212,7 +212,6 @@ pub const Fields = struct {
         if (fields.minute > 59) return ZdtError.MinuteOutOfRange;
         if (fields.second > 60) return ZdtError.SecondOutOfRange;
         if (fields.nanosecond > 999999999) return ZdtError.NanosecondOutOfRange;
-        // TODO : check offset / tz ?
     }
 };
 
@@ -231,7 +230,7 @@ pub const OptFields = struct {
 /// Make a valid datetime from fields.
 pub fn fromFields(fields: Fields) ZdtError!Datetime {
 
-    // TODO : should this only be called on demand or only in debug builds ?
+    // NOTE : should this only be called on demand or only in debug builds ?
     _ = try fields.validate();
 
     const d = cal.dateToRD([_]u16{ fields.year, fields.month, fields.day });
@@ -254,29 +253,41 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         ),
     };
 
-    // Shortcut #1: if tz is null, make and return naive datetime
-    if (fields.tz == null) {
+    // special treatment for UTC
+    if (dt.tz) |tz_ptr| {
+        if (std.meta.eql(tz_ptr.*, Timezone.UTC)) {
+            dt.utc_offset = UTCoffset.UTC;
+            return dt;
+        }
+    }
+
+    // Shortcut #1: if tz is null, use offset or return naive datetime
+    if (dt.tz == null) {
         // Shortcut #2: if we have a fixed offset, we can calculate Unix time easily
-        if (dt.utc_offset) |off| dt.unix_sec -= off.seconds_east;
+        if (dt.utc_offset) |off| {
+            dt.unix_sec -= off.seconds_east;
+            // again, special treatment for UTC
+            if (std.meta.eql(off, UTCoffset.UTC)) dt.tz = &Timezone.UTC;
+        }
         return dt;
     }
 
     // A "real" time zone is more complicated. We have already calculated a
     // 'localized' Unix time, as dt.unix_sec.
     // For that, We can obtain a UTC offset, subtract it and see if we get the same datetime.
-    const local_offset = try UTCoffset.atUnixtime(fields.tz.?, dt.unix_sec);
+    const local_offset = try UTCoffset.atUnixtime(dt.tz.?, dt.unix_sec);
     const unix_guess_1 = dt.unix_sec - local_offset.seconds_east;
     var dt_guess_1 = try Datetime.fromUnix(
         unix_guess_1,
         Duration.Resolution.second,
         null,
-        fields.tz,
+        dt.tz,
     );
-    dt_guess_1.nanosecond = fields.nanosecond;
+    dt_guess_1.nanosecond = dt.nanosecond;
 
     // However, we could still have an ambiguous datetime or a datetime in a gap of
     // a DST transition. To exclude that, we need the surrounding timetypes of the current one.
-    const sts = try getSurroundingTimetypes(local_offset.__transition_index, fields.tz.?);
+    const sts = try getSurroundingTimetypes(local_offset.__transition_index, dt.tz.?);
 
     // #1 - if there are no surrounding timetypes, we can only use the first guessed datetime
     // to compare to.
@@ -297,9 +308,9 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         unix_guess_2,
         Duration.Resolution.second,
         null,
-        fields.tz,
+        dt.tz,
     );
-    dt_guess_2.nanosecond = fields.nanosecond;
+    dt_guess_2.nanosecond = dt.nanosecond;
 
     // Now we have
     // - dt         : the original fields
@@ -829,8 +840,7 @@ pub fn getSurroundingTimetypes(idx: i32, _tz: *const Timezone) ![3]?*tzif.Timety
             }
             return surrounding;
         },
-        .posixtz => {
-            return TzError.NotImplemented;
-        },
+        .utc => return TzError.NotImplemented,
+        .posixtz => return TzError.NotImplemented,
     }
 }

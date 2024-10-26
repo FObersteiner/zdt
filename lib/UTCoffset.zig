@@ -86,6 +86,9 @@ pub fn atUnixtime(tz: *const Timezone, unixtime: i64) TzError!UTCoffset {
         .posixtz => {
             return TzError.NotImplemented;
         },
+        .utc => {
+            return TzError.NotImplemented;
+        },
     }
 }
 

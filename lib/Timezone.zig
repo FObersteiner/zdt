@@ -31,8 +31,7 @@ const cap_name_data: usize = 32;
 const ruleTypes = enum {
     tzif,
     posixtz,
-    // TODO :
-    //  utc,
+    utc,
 };
 
 // 'internal' data for the name / identifier
@@ -45,13 +44,15 @@ rules: union(ruleTypes) {
     tzif: tzif.Tz,
     /// POSIX TZ string
     posixtz: posix.Tz,
-    // TODO :
     // UTC placeholder; constant offset of zero
-    // utc: UTCoffset,
+    utc: struct {},
 },
 
-// TODO :
-// pub const UTC: Timezone = .{ .utc = UTCoffset.UTC };
+pub const UTC: Timezone = .{
+    .rules = .{ .utc = .{} },
+    .__name_data = [3]u8{ 'U', 'T', 'C' } ++ std.mem.zeroes([cap_name_data - 3]u8),
+    .__name_data_len = 3,
+};
 
 /// A time zone's identifier name.
 pub fn name(tz: *const Timezone) []const u8 {
@@ -153,9 +154,10 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
 
 /// Clear a TZ instance and free potentially used memory (tzFile).
 pub fn deinit(tz: *Timezone) void {
-    switch (tz.rules) {
+    blk: switch (tz.rules) {
         .tzif => tz.rules.tzif.deinit(), // free memory allocated for the data from the tzfile
-        .posixtz => tz.rules.posixtz.deinit(),
+        .posixtz => break :blk,
+        .utc => break :blk,
     }
 
     tz.__name_data = std.mem.zeroes([cap_name_data]u8);

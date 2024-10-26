@@ -229,34 +229,33 @@ test "format with z, strange directive" {
 test "format with Z" {
     var buf = std.ArrayList(u8).init(testing.allocator);
     defer buf.deinit();
-    const dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3 });
+    var dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3 });
     try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z%Z", buf.writer());
     // 'Z' has no effect on naive datetime:
     try testing.expectEqualStrings("2023-12-09T01:02:03", buf.items);
     buf.clearAndFree();
 
-    // TODO :
-    // const tz_utc = Tz.UTC;
-    // dt = try dt.tzLocalize(tz_utc);
-    // try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%:z%Z", buf.writer());
-    // try testing.expectEqualStrings("2023-12-09T01:02:03+00:00Z", buf.items);
+    const tz_utc = Tz.UTC;
+    dt = try dt.tzLocalize(&tz_utc);
+    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%:z%:Z", buf.writer());
+    try testing.expectEqualStrings("2023-12-09T01:02:03+00:00Z", buf.items);
 
-    // var tz_pacific = try Tz.fromTzfile("America/Los_Angeles", testing.allocator);
-    // defer tz_pacific.deinit();
-    // const dt_std = try dt.tzConvert(&tz_pacific);
-    // var s_std = std.ArrayList(u8).init(testing.allocator);
-    // defer s_std.deinit();
-    // const directive_us = "%Y-%m-%dT%H:%M:%S%:z %Z (%i)";
-    // const string_std = "2023-12-08T17:02:03-08:00 PST (America/Los_Angeles)";
-    // try Datetime.toString(dt_std, directive_us, s_std.writer());
-    // try testing.expectEqualStrings(string_std, s_std.items);
-    //
-    // const dt_dst = try dt_std.add(td.fromTimespanMultiple(6 * 4, td.Timespan.week));
-    // var s_dst = std.ArrayList(u8).init(testing.allocator);
-    // defer s_dst.deinit();
-    // const string_dst = "2024-05-24T18:02:03-07:00 PDT (America/Los_Angeles)";
-    // try Datetime.toString(dt_dst, directive_us, s_dst.writer());
-    // try testing.expectEqualStrings(string_dst, s_dst.items);
+    var tz_pacific = try Tz.fromTzfile("America/Los_Angeles", testing.allocator);
+    defer tz_pacific.deinit();
+    const dt_std = try dt.tzConvert(&tz_pacific);
+    var s_std = std.ArrayList(u8).init(testing.allocator);
+    defer s_std.deinit();
+    const directive_us = "%Y-%m-%dT%H:%M:%S%:z %Z (%i)";
+    const string_std = "2023-12-08T17:02:03-08:00 PST (America/Los_Angeles)";
+    try Datetime.toString(dt_std, directive_us, s_std.writer());
+    try testing.expectEqualStrings(string_std, s_std.items);
+
+    const dt_dst = try dt_std.add(td.fromTimespanMultiple(6 * 4, td.Timespan.week));
+    var s_dst = std.ArrayList(u8).init(testing.allocator);
+    defer s_dst.deinit();
+    const string_dst = "2024-05-24T18:02:03-07:00 PDT (America/Los_Angeles)";
+    try Datetime.toString(dt_dst, directive_us, s_dst.writer());
+    try testing.expectEqualStrings(string_dst, s_dst.items);
 }
 
 test "format with abbreviated day name, locale-specific" {
@@ -978,89 +977,87 @@ test "parse isocalendar, %t" {
     }
 }
 
-// test "parse ISO" {
-// TODO :
-//     const tzutc = Tz.UTC;
-//     var dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8 });
-//     var dt = try Datetime.fromISO8601("2014-08");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt = try Datetime.fromISO8601("201408");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23 });
-//     dt = try Datetime.fromISO8601("2014-08-23");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt = try Datetime.fromISO8601("20140823");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 3, .day = 23 });
-//     dt = try Datetime.fromISO8601("2014-082");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt = try Datetime.fromISO8601("2014082");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt_ref = try Datetime.fromFields(.{ .year = 2024, .month = 12, .day = 31 });
-//     dt = try Datetime.fromISO8601("2024-366");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15 });
-//     dt = try Datetime.fromISO8601("2014-08-23 12:15");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56 });
-//     dt = try Datetime.fromISO8601("2014-08-23 12:15:56");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt_ref = try Datetime.fromFields(.{ .year = 2016, .month = 12, .day = 31, .hour = 23, .minute = 59, .second = 60 });
-//     dt = try Datetime.fromISO8601("2016-12-31T23:59:60");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123400000 });
-//     dt = try Datetime.fromISO8601("2014-08-23 12:15:56,1234");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123000000 });
-//     dt = try Datetime.fromISO8601("2014-08-23 12:15:56,123");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123456000 });
-//     dt = try Datetime.fromISO8601("2014-08-23 12:15:56,123456");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .tzinfo = tzutc });
-//     dt = try Datetime.fromISO8601("2014-08-23 12:15:56Z");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123400000, .tzinfo = tzutc });
-//     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.1234Z");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 99, .tzinfo = tzutc });
-//     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099Z");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     var offset = try UTCoffset.fromSeconds(0, "");
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 99, .utc_offset = offset });
-//     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00:00");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00:00:00");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     offset = try UTCoffset.fromSeconds(2 * 3600 + 15 * 60 + 30, "");
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .utc_offset = offset });
-//     dt = try Datetime.fromISO8601("2014-08-23T12:15:56+02:15:30");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-//
-//     offset = try UTCoffset.fromSeconds(-2 * 3600, "");
-//     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .utc_offset = offset });
-//     dt = try Datetime.fromISO8601("2014-08-23T12:15:56-0200");
-//     try testing.expect(std.meta.eql(dt_ref, dt));
-// }
+test "parse ISO" {
+    var dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8 });
+    var dt = try Datetime.fromISO8601("2014-08");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt = try Datetime.fromISO8601("201408");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23 });
+    dt = try Datetime.fromISO8601("2014-08-23");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt = try Datetime.fromISO8601("20140823");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 3, .day = 23 });
+    dt = try Datetime.fromISO8601("2014-082");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt = try Datetime.fromISO8601("2014082");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2024, .month = 12, .day = 31 });
+    dt = try Datetime.fromISO8601("2024-366");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15 });
+    dt = try Datetime.fromISO8601("2014-08-23 12:15");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56 });
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2016, .month = 12, .day = 31, .hour = 23, .minute = 59, .second = 60 });
+    dt = try Datetime.fromISO8601("2016-12-31T23:59:60");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123400000 });
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56,1234");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123000000 });
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56,123");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123456000 });
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56,123456");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .utc_offset = UTCoffset.UTC, .tz = &Tz.UTC });
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56Z");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 123400000, .utc_offset = UTCoffset.UTC, .tz = &Tz.UTC });
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.1234Z");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 99, .utc_offset = UTCoffset.UTC, .tz = &Tz.UTC });
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099Z");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    var offset = try UTCoffset.fromSeconds(0, "");
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 99, .utc_offset = offset });
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00:00");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+    dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00:00:00");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    offset = try UTCoffset.fromSeconds(2 * 3600 + 15 * 60 + 30, "");
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .utc_offset = offset });
+    dt = try Datetime.fromISO8601("2014-08-23T12:15:56+02:15:30");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+
+    offset = try UTCoffset.fromSeconds(-2 * 3600, "");
+    dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .utc_offset = offset });
+    dt = try Datetime.fromISO8601("2014-08-23T12:15:56-0200");
+    try testing.expect(std.meta.eql(dt_ref, dt));
+}
 
 test "parse ISO with %T" {
     const cases = [_]TestCase{

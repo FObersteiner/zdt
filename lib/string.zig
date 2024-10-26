@@ -415,11 +415,11 @@ fn printIntoWriter(
         },
         'Z' => blk: {
             if (dt.isNaive()) break :blk;
-            const offset = &dt.utc_offset.?; // !isNaive asserts that offset is not null
+            const offset = dt.utc_offset.?; // !isNaive asserts that offset is not null
             switch (modifier_count) {
                 0 => try writer.print("{s}", .{offset.designation()}),
                 1 => {
-                    if (std.meta.eql(offset, &UTCoffset.UTC))
+                    if (std.meta.eql(offset, UTCoffset.UTC))
                         try writer.print("Z", .{})
                     else
                         try writer.print("{s}", .{offset.designation()});
