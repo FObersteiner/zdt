@@ -378,6 +378,7 @@ fn __equalFields(this: Datetime, other: Datetime) bool {
 }
 
 /// Construct a datetime from Unix time with a specific precision (time unit)
+// TODO : unify offset and tz_ptr as 'tz_options'? => .{.offset = ..., .tz_ptr = ...}
 pub fn fromUnix(
     quantity: i128,
     resolution: Duration.Resolution,
@@ -457,6 +458,10 @@ pub fn isAware(dt: *const Datetime) bool {
 /// true if no offset from UTC is defined
 pub fn isNaive(dt: *const Datetime) bool {
     return !dt.isAware();
+}
+
+pub fn isDST(dt: *const Datetime) bool {
+    return if (dt.utc_offset) |offset| offset.is_dst else false;
 }
 
 /// Make a datetime local to a given time zone.
@@ -756,21 +761,19 @@ pub fn toString(dt: Datetime, directives: []const u8, writer: anytype) !void {
     return try str.tokenizeAndPrint(&dt, directives, writer);
 }
 
-/// IANA identifier or POSIX,
-/// empty string if undefined
+/// IANA identifier or POSIX string, empty string if undefined
 pub fn tzName(dt: *const Datetime) []const u8 {
     if (dt.tz) |tz_ptr| return tz_ptr.name();
-    if (dt.utc_offset) |off| {
-        if (std.meta.eql(off, UTCoffset.UTC)) return off.designation();
+    if (dt.utc_offset) |*off| {
+        if (std.meta.eql(off.*, UTCoffset.UTC)) return off.designation();
     }
     return "";
 }
 
-///
+/// Time zone abbreviation, such as 'CET' for Europe/Berlin zone in winter
 pub fn tzAbbreviation(dt: *const Datetime) []const u8 {
-    if (dt.utc_offset) |off| {
-        if (std.mem.eql(u8, off.designation(), "UTC")) return "Z";
-        return off.designation();
+    if (dt.utc_offset) |*off| {
+        return if (std.mem.eql(u8, off.designation(), "UTC")) "Z" else off.designation();
     }
     return "";
 }
@@ -781,9 +784,7 @@ pub fn formatOffset(
     options: std.fmt.FormatOptions,
     writer: anytype,
 ) !void {
-    // if the offset is null, we cannot do anything:
-    if (dt.isNaive()) return;
-    return dt.utc_offset.?.format("", options, writer);
+    return if (dt.isAware()) dt.utc_offset.?.format("", options, writer);
 }
 
 /// Formatted printing for Datetime. Defaults to ISO8601 / RFC3339nano.
@@ -808,8 +809,7 @@ pub fn format(
         else => if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond}),
     } else if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond});
 
-    // TODO :
-    // if (dt.tzinfo != null) try dt.formatOffset(.{ .fill = ':', .precision = 1 }, writer);
+    if (dt.utc_offset) |off| try off.format("", .{ .fill = ':', .precision = 1 }, writer);
 }
 
 /// Surrounding timetypes at a given transition index. This index might be

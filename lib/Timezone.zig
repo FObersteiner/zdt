@@ -31,6 +31,8 @@ const cap_name_data: usize = 32;
 const ruleTypes = enum {
     tzif,
     posixtz,
+    // TODO :
+    //  utc,
 };
 
 // 'internal' data for the name / identifier
@@ -43,7 +45,13 @@ rules: union(ruleTypes) {
     tzif: tzif.Tz,
     /// POSIX TZ string
     posixtz: posix.Tz,
+    // TODO :
+    // UTC placeholder; constant offset of zero
+    // utc: UTCoffset,
 },
+
+// TODO :
+// pub const UTC: Timezone = .{ .utc = UTCoffset.UTC };
 
 /// A time zone's identifier name.
 pub fn name(tz: *const Timezone) []const u8 {
@@ -80,6 +88,8 @@ pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!
 /// via the tzdb_prefix option in the build.zig.
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned TZ instance.
+/// TODO : remove?
+/// tz should either be obtained from embedded tzdata (compile time) or from TZif file of system (runtime)
 pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     const data = @embedFile(comptime_tzdb_prefix ++ identifier);

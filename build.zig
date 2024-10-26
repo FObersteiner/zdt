@@ -10,13 +10,15 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
+// TODO : bump version
 const zdt_version = std.SemanticVersion{ .major = 0, .minor = 3, .patch = 5 };
 
+// TODO : examples
 const example_files = [_][]const u8{
-    // "ex_demo",
+    "ex_demo",
     // "ex_datetime",
-    // "ex_duration",
-    // "ex_locale",
+    "ex_duration",
+    "ex_locale",
     // "ex_offsetTz",
     // "ex_strings",
     "ex_timezones",

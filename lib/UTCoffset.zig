@@ -51,7 +51,7 @@ pub fn fromSeconds(offset_sec_East: i32, name: []const u8) TzError!UTCoffset {
 
     var name_data = std.mem.zeroes([cap_designation_data:0]u8);
     const len: usize = if (name.len <= cap_designation_data) name.len else cap_designation_data;
-    @memcpy(name_data[0..len], name[0..len]);
+    std.mem.copyForwards(u8, name_data[0..len], name[0..len]);
 
     return .{
         .seconds_east = offset_sec_East,
