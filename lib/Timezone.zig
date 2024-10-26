@@ -33,6 +33,7 @@ const ruleTypes = enum {
     posixtz,
 };
 
+// 'internal' data for the name / identifier
 __name_data: [cap_name_data]u8 = std.mem.zeroes([cap_name_data]u8),
 __name_data_len: usize = 0,
 

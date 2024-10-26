@@ -30,19 +30,32 @@ random.seed(314)
 allzones = tuple(zoneinfo.available_timezones())
 unixrange = range(-2145920400, 2145913200)
 
+za, zb = random.sample(allzones, 2)
+ta, tb = random.sample(unixrange, 2)
+dta = datetime.fromtimestamp(ta, tz=ZoneInfo(za))
+dtb = datetime.fromtimestamp(tb, tz=ZoneInfo(zb))
+s_b = dtb.astimezone(ZoneInfo(za)).isoformat(timespec="seconds")
+if s_b.count(":") < 4:
+    s_b += ":00"
+s_c = dta.astimezone(ZoneInfo(zb)).isoformat(timespec="seconds")
+if s_c.count(":") < 4:
+    s_c += ":00"
 content.append(
-    """test "conversion between random time zones" {
-    var tz_a = Tz{};
-    var tz_b = Tz{};
-    defer tz_a.deinit();
-    defer tz_b.deinit();
-    var dt_a = Datetime{};
-    var dt_b = Datetime{};
-    var dt_c = Datetime{};
-    var s_b = std.ArrayList(u8).init(testing.allocator);
-    var s_c = std.ArrayList(u8).init(testing.allocator);
-    defer s_b.deinit();
-    defer s_c.deinit();\n"""
+    f"""
+var tz_a = try Tz.fromTzfile("{za}", std.testing.allocator);
+var tz_b = try Tz.fromTzfile("{zb}", std.testing.allocator);
+var dt_a = try Datetime.fromUnix({ta}, Duration.Resolution.second, tz_a);
+var dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second, tz_b);
+var dt_c = try dt_a.tzConvert(tz_b);
+var dt_b = try dt_b.tzConvert(tz_a);
+try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
+try testing.expectEqualStrings("{s_b}", s_b.items);
+try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
+try testing.expectEqualStrings("{s_c}", s_c.items);
+tz_a.deinit();
+tz_b.deinit();
+s_b.clearAndFree();
+s_c.clearAndFree();\n"""
 )
 
 for _ in range(N):

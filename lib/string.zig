@@ -9,6 +9,8 @@ const log = std.log.scoped(.zdt__string);
 const Datetime = @import("./Datetime.zig");
 const cal = @import("./calendar.zig");
 const Tz = @import("./Timezone.zig");
+const UTCoffset = @import("./UTCoffset.zig");
+
 const ZdtError = @import("./errors.zig").ZdtError;
 const FormatError = @import("./errors.zig").FormatError;
 const unix_specific = @import("./unix/unix_mdnames.zig");
@@ -294,9 +296,9 @@ fn parseIntoFields(
         'z' => { // UTC offset (+|-)hh[:mm[:ss]] or Z
             const utcoffset = try parseOffset(i32, string, idx_ptr, 9);
             if (string[idx_ptr.* - 1] == 'Z')
-                fields.tzinfo = Tz.UTC
+                fields.utc_offset = UTCoffset.UTC
             else
-                fields.tzinfo = try Tz.fromOffset(utcoffset, "");
+                fields.utc_offset = try UTCoffset.fromSeconds(utcoffset, "");
         },
         // 'Z', - ambiguous!
         // 'i', - IANA identifer; would require allocator
@@ -413,21 +415,21 @@ fn printIntoWriter(
         },
         'Z' => blk: {
             if (dt.isNaive()) break :blk;
-            const tzinfo = &dt.tzinfo.?; // !isNaive asserts that tzinfo is not null
+            const offset = &dt.utc_offset.?; // !isNaive asserts that offset is not null
             switch (modifier_count) {
-                0 => try writer.print("{s}", .{tzinfo.abbreviation()}),
+                0 => try writer.print("{s}", .{offset.designation()}),
                 1 => {
-                    if (std.meta.eql(tzinfo.*, Tz.UTC))
-                        try writer.print("{s}", .{tzinfo.name()})
+                    if (std.meta.eql(offset, &UTCoffset.UTC))
+                        try writer.print("Z", .{})
                     else
-                        try writer.print("{s}", .{tzinfo.abbreviation()});
+                        try writer.print("{s}", .{offset.designation()});
                 },
                 else => return error.InvalidFormat,
             }
         },
         'i' => blk: {
             if (dt.isNaive()) break :blk;
-            try writer.print("{s}", .{dt.tzinfo.?.name()});
+            try writer.print("{s}", .{dt.tzName()});
         },
         'j' => try writer.print("{d:0>3}", .{dt.dayOfYear()}),
         'w' => try writer.print("{d}", .{dt.weekdayNumber()}),
@@ -666,9 +668,9 @@ pub fn parseISO8601(string: []const u8, idx_ptr: *usize) !Datetime.Fields {
 
     if (utcoffset) |offset| {
         if (string[idx_ptr.* - 1] == 'Z')
-            fields.tzinfo = Tz.UTC
+            fields.utc_offset = UTCoffset.UTC
         else
-            fields.tzinfo = try Tz.fromOffset(offset, "");
+            fields.utc_offset = try UTCoffset.fromSeconds(offset, "");
     }
 
     return fields;

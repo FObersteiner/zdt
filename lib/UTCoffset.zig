@@ -8,7 +8,7 @@ const tzif = @import("./tzif.zig");
 
 const UTCoffset = @This();
 
-const cap_name_data: usize = 32;
+const cap_designation_data: usize = 6;
 
 /// offset from UTC should be in range -25h to +26h as specified by
 /// RFC8536, sect. 3.2, TZif data block.
@@ -21,56 +21,45 @@ seconds_east: i32 = 0,
 /// from a tz rule for given datetime.
 is_dst: bool = false,
 
-// TODO : might not need both name data AND abbreviation data
-__name_data: [cap_name_data]u8 = std.mem.zeroes([cap_name_data]u8),
-__name_str_len: usize = 0,
+// 'internal' data for the ofset designation
+__designation_data: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 },
 
-__abbrev_data: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 },
-__transition_index: i32 = -1, // TZif transitions index; < 0 means invalid
+// TZif transitions index; < 0 means invalid
+__transition_index: i32 = -1,
 
 /// UTC is constant. Presumably.
 pub const UTC = UTCoffset{
-    .seconds_east = 0,
-    .__abbrev_data = [6:0]u8{ 'Z', 0, 0, 0, 0, 0 },
-    .__name_str_len = 3,
-    .__name_data = [3]u8{ 'U', 'T', 'C' } ++ std.mem.zeroes([cap_name_data - 3]u8),
+    .__designation_data = [6:0]u8{ 'U', 'T', 'C', 0, 0, 0 },
 };
 
-/// Abbreviation such as "CET" for Central European Time in Europe/Berlin, winter.
+/// Designation / abbreviated time zone nmae such as "CET" for
+/// Central European Time in Europe/Berlin, winter.
 ///
 /// Note that multiple time zones can share the same abbreviated name and are
 /// therefore ambiguous.
-pub fn abbreviation(offset: *const UTCoffset) []const u8 {
-    return std.mem.sliceTo(&offset.__abbrev_data, 0);
+pub fn designation(offset: *const UTCoffset) []const u8 {
+    return std.mem.sliceTo(&offset.__designation_data, 0);
 }
 
-/// Name of the origin time zone of a UTC offset.
-pub fn originName(offset: *const UTCoffset) []const u8 {
-    return std.mem.sliceTo(&offset.__name_data, 0);
-}
-
-pub fn fromSeconds(offset_sec_East: i32, identifier: []const u8) TzError!UTCoffset {
+pub fn fromSeconds(offset_sec_East: i32, name: []const u8) TzError!UTCoffset {
     if (offset_sec_East < offset_range[0] or offset_sec_East > offset_range[1]) {
         return TzError.InvalidOffset;
     }
-    if (std.mem.eql(u8, identifier, "UTC")) {
+    if (std.mem.eql(u8, name, "UTC")) {
         return UTC;
     }
 
-    var name_data = std.mem.zeroes([cap_name_data]u8);
-    const len: usize = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
-    @memcpy(name_data[0..len], identifier[0..len]);
+    var name_data = std.mem.zeroes([cap_designation_data:0]u8);
+    const len: usize = if (name.len <= cap_designation_data) name.len else cap_designation_data;
+    @memcpy(name_data[0..len], name[0..len]);
 
     return .{
         .seconds_east = offset_sec_East,
-        .__name_data = name_data,
-        .__name_data_len = len,
+        .__designation_data = name_data,
     };
 }
 
-/// Get the UTC offset at a certain Unix time. Creates a new UTCoffset.
-/// Priority for offset determination is tzfile > POSIX TZ > fixed offset.
-/// tzFile and tzPosix set tzOffset if possible.
+/// Given time zone rules, get the UTC offset at a certain Unix time.
 pub fn atUnixtime(tz: *const Timezone, unixtime: i64) TzError!UTCoffset {
     switch (tz.rules) {
         .tzif => {
@@ -90,13 +79,41 @@ pub fn atUnixtime(tz: *const Timezone, unixtime: i64) TzError!UTCoffset {
             return .{
                 .seconds_east = @intCast(timet.offset),
                 .is_dst = timet.isDst(),
-                .__abbrev_data = timet.name_data,
+                .__designation_data = timet.name_data,
                 .__transition_index = idx,
             };
         },
         .posixtz => {
             return TzError.NotImplemented;
         },
+    }
+}
+
+pub fn format(
+    offset: UTCoffset,
+    comptime fmt: []const u8,
+    options: std.fmt.FormatOptions,
+    writer: anytype,
+) !void {
+    _ = fmt;
+    const off = offset.seconds_east;
+    const absoff: u32 = if (off < 0) @intCast(off * -1) else @intCast(off);
+    const sign = if (off < 0) "-" else "+";
+    const hours = absoff / 3600;
+    const minutes = (absoff % 3600) / 60;
+    const seconds = (absoff % 3600) % 60;
+
+    // precision: 0 - hours, 1 - hours:minutes, 2 - hours:minutes:seconds
+    const precision = if (options.precision) |p| p else 1;
+
+    if (options.fill != 0) {
+        try writer.print("{s}{d:0>2}", .{ sign, hours });
+        if (precision > 0)
+            try writer.print("{u}{d:0>2}", .{ options.fill, minutes });
+        if (precision > 1)
+            try writer.print("{u}{d:0>2}", .{ options.fill, seconds });
+    } else {
+        try writer.print("{s}{d:0>2}{d:0>2}", .{ sign, hours, minutes });
     }
 }
 
