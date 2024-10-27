@@ -21,11 +21,10 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // TODO : example with UTC as time zone
+    println("time zone database version: {s}", .{Tz.tzdb_version});
+    println("path to local tz database: {s}\n", .{Tz.tzdb_prefix});
 
-    println("time zone database version: {s}\n", .{Tz.tzdb_version});
-
-    var tz_berlin: Tz = try Tz.fromTzdata("Europe/Berlin", allocator);
+    const tz_berlin: Tz = try Tz.fromTzdata("Europe/Berlin", allocator);
     defer tz_berlin.deinit();
     var now_berlin: Datetime = try Datetime.now(.{ .tz = &tz_berlin });
     const now_utc: Datetime = Datetime.nowUTC();
@@ -33,7 +32,7 @@ pub fn main() !void {
     println("Now, Berlin time : {s} ({s})", .{ now_berlin, now_berlin.tzAbbreviation() });
     println("Datetimes have UTC offset / time zone? : {}, {}\n", .{ now_utc.isAware(), now_berlin.isAware() });
 
-    var my_tz: Tz = try Tz.tzLocal(allocator);
+    const my_tz: Tz = try Tz.tzLocal(allocator);
     defer my_tz.deinit();
     var now_local = try now_berlin.tzConvert(.{ .tz = &my_tz });
     println("My time zone : {s}", .{my_tz.name()});
@@ -41,7 +40,7 @@ pub fn main() !void {
     println("Now, my time zone : {s} ({s})", .{ now_local, now_local.tzAbbreviation() });
     println("", .{});
 
-    var tz_ny = try Tz.fromTzdata("America/New_York", allocator);
+    const tz_ny = try Tz.fromTzdata("America/New_York", allocator);
     defer tz_ny.deinit();
     var now_ny: Datetime = try now_local.tzConvert(.{ .tz = &tz_ny });
     println("Now in New York : {s} ({s})", .{ now_ny, now_ny.tzAbbreviation() });
@@ -49,7 +48,7 @@ pub fn main() !void {
     println("", .{});
 
     println("New York has DST currently? : {}", .{now_ny.isDST()});
-    var ny_summer_2023: Datetime = try Datetime.fromFields(.{
+    const ny_summer_2023: Datetime = try Datetime.fromFields(.{
         .year = 2023,
         .month = 8,
         .day = 9,
@@ -61,14 +60,7 @@ pub fn main() !void {
 
     // non-existing datetime: DST gap
     // always errors:
-    const err_ne = Datetime.fromFields(.{
-        .year = 2024,
-        .month = 3,
-        .day = 10,
-        .hour = 2,
-        .minute = 30,
-        .tz_options = .{ .tz = &tz_ny },
-    });
+    const err_ne = Datetime.fromFields(.{ .year = 2024, .month = 3, .day = 10, .hour = 2, .minute = 30, .tz_options = .{ .tz = &tz_ny } });
     println("Attempt to create non-existing datetime: {any}", .{err_ne});
 
     // ambiguous datetime: DST fold

@@ -10,12 +10,12 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     // zdt embeds the IANA tz database:
-    var tz_LA = try zdt.Timezone.fromTzdata("America/Los_Angeles", allocator);
+    const tz_LA = try zdt.Timezone.fromTzdata("America/Los_Angeles", allocator);
     defer tz_LA.deinit();
 
     // you can also use your system's tz data at runtime;
     // this will very likely not work on Windows, wo we can use the embedded version.
-    var tz_Paris = switch (builtin.os.tag) {
+    const tz_Paris = switch (builtin.os.tag) {
         .windows => try zdt.Timezone.fromTzdata("Europe/Paris", allocator),
         else => try zdt.Timezone.runtimeFromTzfile("Europe/Paris", zdt.Timezone.tzdb_prefix, allocator),
     };

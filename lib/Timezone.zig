@@ -134,7 +134,7 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
 
 /// Clear a TZ instance and free potentially used memory (tzFile).
 pub fn deinit(tz: *const Timezone) void {
-    // must remove const qualifier to remove presend time zone config
+    // must remove const qualifier to clear presend time zone config
     const _tz_ptr = @constCast(tz);
     _tz_ptr.__name_data = std.mem.zeroes([cap_name_data]u8);
     _tz_ptr.__name_data_len = 0;
