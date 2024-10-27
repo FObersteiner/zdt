@@ -21,7 +21,7 @@ seconds_east: i32 = 0,
 /// from a tz rule for given datetime.
 is_dst: bool = false,
 
-// 'internal' data for the ofset designation
+// 'internal' data for the offset designation
 __designation_data: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 },
 
 // TZif transitions index; < 0 means invalid

@@ -301,7 +301,7 @@ fn parseIntoFields(
                 fields.tz_options = .{ .utc_offset = try UTCoffset.fromSeconds(utcoffset, "") };
         },
         // 'Z', - ambiguous!
-        // 'i', - IANA identifer; would require allocator
+        // 'i', - IANA identifier; would require allocator
         'j' => {
             const doy = try parseDigits(u16, string, idx_ptr, 3);
             if (doy == 0) return error.InvalidFormat;
@@ -508,7 +508,7 @@ fn parseOffset(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits:
     // clean offset string:
     var index: usize = 0;
     var offset_chars = [6]u8{ 48, 48, 48, 48, 48, 48 }; // start with 000000;
-    for (string[start_idx + 1 .. idx_ptr.*]) |c| { //                  hhmmss
+    for (string[start_idx + 1 .. idx_ptr.*]) |c| { //                 hhmmss
         if (c != ':') {
             offset_chars[index] = c;
             index += 1;
@@ -538,13 +538,13 @@ const ISOParserState = enum(u8) {
     Offset,
 };
 
-/// Parse ISO8601 formats. The format is infered at runtime.
+/// Parse ISO8601 formats. The format is inferred at runtime.
 /// Requires at least a year and a month, separated by ASCII minus.
 /// Date and time separator is either 'T' or ASCII space.
 ///
 /// Examples:
 /// ---
-/// string                         len  datetime, normlized ISO8601
+/// string                         len  datetime, normalized ISO8601
 /// ------------------------------|----|------------------------------------
 /// 2014-08                        7    2014-08-01T00:00:00
 /// 2014-08-23                     10   2014-08-23T00:00:00

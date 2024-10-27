@@ -213,9 +213,6 @@ pub const Fields = struct {
     dst_fold: ?u1 = null,
     tz_options: ?tz_options = null,
 
-    // utc_offset: ?UTCoffset = null,
-    // tz: ?*const Timezone = null,
-
     pub fn validate(fields: Fields) ZdtError!void {
         if (fields.year > max_year or fields.year < min_year) return ZdtError.YearOutOfRange;
         if (fields.month > 12 or fields.month < 1) return ZdtError.MonthOutOfRange;
@@ -257,8 +254,6 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         .minute = @truncate(fields.minute),
         .second = @truncate(fields.second),
         .nanosecond = fields.nanosecond,
-        // .utc_offset = fields.utc_offset,
-        // .tz = fields.tz,
         .unix_sec = ( //
             @as(i40, d) * s_per_day +
             @as(u17, fields.hour) * s_per_hour +
@@ -354,7 +349,7 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         }
     }
 
-    // If both guesses did not succeede, we have a non-existent datetime.
+    // If both guesses did not succeed, we have a non-existent datetime.
     // this should give an error.
     if (!dt_eq_guess_1 and !dt_eq_guess_2) return ZdtError.NonexistentDatetime;
 
@@ -447,7 +442,7 @@ pub fn fromUnix(
 }
 
 /// A helper to update datetime fields so that they agree with the unix_sec internal
-/// representation. Expects a "local" unix time, to be corrected by the
+/// representation. Expects a "local" Unix time, to be corrected by the
 /// UTC offset of the time zone (if such is supplied).
 ///
 /// Modifies input in-place.
@@ -566,7 +561,7 @@ pub fn floorTo(dt: *const Datetime, timespan: Duration.Timespan) !Datetime {
 }
 
 /// The current time with nanosecond resolution.
-/// If 'null' is supplied as tzinfo, naive datetime resembling UTC is returned.
+/// If 'null' is supplied as tz_options, naive datetime resembling UTC is returned.
 pub fn now(opts: ?tz_options) ZdtError!Datetime {
     const t = std.time.nanoTimestamp();
     return try Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, opts);

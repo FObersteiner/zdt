@@ -132,15 +132,15 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
     return tz;
 }
 
-/// Clear a TZ instance and free potentially used memory (tzFile).
+/// Clear a TZ instance and free potentially used memory
 pub fn deinit(tz: *const Timezone) void {
-    // must remove const qualifier to clear presend time zone config
+    // must remove const qualifier to clear present time zone rules
     const _tz_ptr = @constCast(tz);
     _tz_ptr.__name_data = std.mem.zeroes([cap_name_data]u8);
     _tz_ptr.__name_data_len = 0;
 
     switch (tz.rules) {
-        .tzif => _tz_ptr.rules.tzif.deinit(), // free memory allocated for the data from the tzfile
+        .tzif => _tz_ptr.rules.tzif.deinit(),
         .posixtz => return,
         .utc => return,
     }
@@ -208,7 +208,7 @@ pub fn identifierValid(idf: []const u8) bool {
     return true;
 }
 
-test "embed tzif from lib dir" {
+test "embed TZif from lib dir" {
     const tzfile = comptime_tzdb_prefix ++ "Europe/Berlin";
     const data = @embedFile(tzfile);
     var in_stream = std.io.fixedBufferStream(data);
