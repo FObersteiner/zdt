@@ -24,7 +24,7 @@ pub fn main() !void {
     println("time zone database version: {s}", .{Tz.tzdb_version});
     println("path to local tz database: {s}\n", .{Tz.tzdb_prefix});
 
-    const tz_berlin: Tz = try Tz.fromTzdata("Europe/Berlin", allocator);
+    var tz_berlin: Tz = try Tz.fromTzdata("Europe/Berlin", allocator);
     defer tz_berlin.deinit();
     var now_berlin: Datetime = try Datetime.now(.{ .tz = &tz_berlin });
     const now_utc: Datetime = Datetime.nowUTC();
@@ -32,7 +32,7 @@ pub fn main() !void {
     println("Now, Berlin time : {s} ({s})", .{ now_berlin, now_berlin.tzAbbreviation() });
     println("Datetimes have UTC offset / time zone? : {}, {}\n", .{ now_utc.isAware(), now_berlin.isAware() });
 
-    const my_tz: Tz = try Tz.tzLocal(allocator);
+    var my_tz: Tz = try Tz.tzLocal(allocator);
     defer my_tz.deinit();
     var now_local = try now_berlin.tzConvert(.{ .tz = &my_tz });
     println("My time zone : {s}", .{my_tz.name()});
@@ -40,7 +40,7 @@ pub fn main() !void {
     println("Now, my time zone : {s} ({s})", .{ now_local, now_local.tzAbbreviation() });
     println("", .{});
 
-    const tz_ny = try Tz.fromTzdata("America/New_York", allocator);
+    var tz_ny = try Tz.fromTzdata("America/New_York", allocator);
     defer tz_ny.deinit();
     var now_ny: Datetime = try now_local.tzConvert(.{ .tz = &tz_ny });
     println("Now in New York : {s} ({s})", .{ now_ny, now_ny.tzAbbreviation() });
