@@ -72,7 +72,7 @@ See [Wiki](https://github.com/FObersteiner/zdt/wiki)
 
 ## Development
 
-See [changelog](https://github.com/FObersteiner/zdt/blob/master/change.log)
+See [changelog](https://github.com/FObersteiner/zdt/blob/master/CHANGELOG.md)
 
 ## Zig version
 
