@@ -17,11 +17,23 @@ Types of changes
 
 - datetime parser: option to use a modifier in parsing directives
 - allow parsing of English month/day names, independent of the current locale
-- method to test whether a datetime with seconds == 60 actually is a leap second datetime
+- method 'validateLeap' to test whether a datetime with seconds == 60 actually is a leap second datetime
+- method 'diffLeap' to calculate difference in leap seconds between two datetimes
+- new type / struct 'UTCoffset', which is used to specify a concrete offset from UTC for a zoned datetime
+- new helper struct 'tz_options', to provide either a time zone or a UTC offset for functions that set or convert time zones of a datetime
 
 ### Changed
 
 - (internal) improve Timezone.format method, remove usage of `@constCast` and reduce usage of `.?` on optionals - by @Ratakor
+- (internal) Timezone handling as a tagged union for different sources of rules (IANA db TZif or POSIX; POSIX only prepared, not implemented yet)
+- API changes:
+  - datetime creation: methods 'fromFields' and 'fromUnix' now take an optional 'tz_options', which is a tagged union that either can be a UTC offset or a Timezone
+  - time zone set / change: methods 'tzLocalize' and 'tzConvert' also now take 'tz_options'
+  - 'Datetime.now': also takes 'tz_options' now instead of a Timezone
+
+### Removed
+
+- method 'fromTzfile' (Timezone creation). A Timezone should either be created from the embedded tzdata (method 'fromTzdata', comptime or runtime) or at runtime from the system's tzdata (method 'runtimeFromTzfile')
 
 ## 2024-10-12, v0.3.5
 

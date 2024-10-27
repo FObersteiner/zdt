@@ -22,7 +22,9 @@ pub fn main() !void {
     const loc = "de_DE.UTF-8";
     const new_loc = c_locale.setlocale(time_mask, loc);
     if (new_loc == null) {
-        std.process.fatal("skip example, failed to set locale", .{});
+        // Zig 0.14:
+        // std.process.fatal("skip example, failed to set locale", .{});
+        std.log.err("skip example, failed to set locale", .{});
     }
 
     const dt = try Datetime.fromISO8601("2024-10-12");

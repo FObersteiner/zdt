@@ -2,12 +2,12 @@
 //! <https://pkg.go.dev/time#pkg-constants>
 
 pub const ANSIC = "%:a %:b %e %H:%M:%S %Y";
-pub const UnixDate = "%:a %:b %e %H:%M:%S %:Z %Y";
+pub const UnixDate = "%:a %:b %e %H:%M:%S %Z %Y";
 pub const RubyDate = "%:a %:b %e %H:%M:%S %z %Y";
-pub const RFC822 = "%d %:b %y %H:%M %:Z";
+pub const RFC822 = "%d %:b %y %H:%M %Z";
 pub const RFC822Z = "%d %:b %y %H:%M %z";
-pub const RFC850 = "%:A, %d-%:b-%y %H:%M:%S %:Z";
-pub const RFC1123 = "%:a, %d %:b %Y %H:%M:%S %:Z";
+pub const RFC850 = "%:A, %d-%:b-%y %H:%M:%S %Z";
+pub const RFC1123 = "%:a, %d %:b %Y %H:%M:%S %Z";
 pub const RFC1123Z = "%:a, %d %:b %Y %H:%M:%S %z";
 pub const RFC3339 = "%Y-%m-%dT%H:%M:%S%:z";
 pub const RFC3339nano = "%Y-%m-%dT%H:%M:%S.%f%:z";

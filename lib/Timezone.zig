@@ -34,10 +34,6 @@ const ruleTypes = enum {
     utc,
 };
 
-// 'internal' data for the name / identifier
-__name_data: [cap_name_data]u8 = std.mem.zeroes([cap_name_data]u8),
-__name_data_len: usize = 0,
-
 /// rules for a time zone
 rules: union(ruleTypes) {
     /// IANA tz-db/tzdata TZif file
@@ -47,6 +43,10 @@ rules: union(ruleTypes) {
     // UTC placeholder; constant offset of zero
     utc: struct {},
 },
+
+// 'internal' data for the name / identifier
+__name_data: [cap_name_data]u8 = std.mem.zeroes([cap_name_data]u8),
+__name_data_len: usize = 0,
 
 pub const UTC: Timezone = .{
     .rules = .{ .utc = .{} },
@@ -82,30 +82,6 @@ pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!
         return tz;
     }
     return TzError.TzUndefined;
-}
-
-/// Make a time zone from a IANA tz database TZif file. The identifier must be comptime-known.
-/// This method allows the usage of a user-supplied tzdata; that path has to be specified
-/// via the tzdb_prefix option in the build.zig.
-/// The caller must make sure to de-allocate memory used for storing the TZif file's content
-/// by calling the deinit method of the returned TZ instance.
-/// TODO : remove?
-/// tz should either be obtained from embedded tzdata (compile time) or from TZif file of system (runtime)
-pub fn fromTzfile(comptime identifier: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
-    if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
-    const data = @embedFile(comptime_tzdb_prefix ++ identifier);
-    var in_stream = std.io.fixedBufferStream(data);
-    const tzif_tz = tzif.Tz.parse(allocator, in_stream.reader()) catch
-        return TzError.TZifUnreadable;
-
-    // ensure that there is a footer: requires v2+ TZif files.
-    _ = tzif_tz.footer orelse return TzError.BadTZifVersion;
-
-    var tz = Timezone{ .rules = .{ .tzif = tzif_tz } };
-    tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
-    @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
-
-    return tz;
 }
 
 /// Same as fromTzfile but for runtime-known tz identifiers.
@@ -153,15 +129,17 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
 }
 
 /// Clear a TZ instance and free potentially used memory (tzFile).
-pub fn deinit(tz: *Timezone) void {
-    blk: switch (tz.rules) {
-        .tzif => tz.rules.tzif.deinit(), // free memory allocated for the data from the tzfile
-        .posixtz => break :blk,
-        .utc => break :blk,
-    }
+pub fn deinit(tz: *const Timezone) void {
+    // must remove const qualifier to remove presend time zone config
+    const _tz_ptr = @constCast(tz);
+    _tz_ptr.__name_data = std.mem.zeroes([cap_name_data]u8);
+    _tz_ptr.__name_data_len = 0;
 
-    tz.__name_data = std.mem.zeroes([cap_name_data]u8);
-    tz.__name_data_len = 0;
+    switch (tz.rules) {
+        .tzif => _tz_ptr.rules.tzif.deinit(), // free memory allocated for the data from the tzfile
+        .posixtz => return,
+        .utc => return,
+    }
 }
 
 /// Try to obtain the system's local time zone.

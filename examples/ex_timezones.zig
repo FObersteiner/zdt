@@ -27,7 +27,7 @@ pub fn main() !void {
 
     var tz_berlin: Tz = try Tz.fromTzdata("Europe/Berlin", allocator);
     defer tz_berlin.deinit();
-    var now_berlin: Datetime = try Datetime.now(&tz_berlin);
+    var now_berlin: Datetime = try Datetime.now(.{ .tz = &tz_berlin });
     const now_utc: Datetime = Datetime.nowUTC();
     println("Now, UTC time    : {s}", .{now_utc});
     println("Now, Berlin time : {s} ({s})", .{ now_berlin, now_berlin.tzAbbreviation() });
@@ -35,7 +35,7 @@ pub fn main() !void {
 
     var my_tz: Tz = try Tz.tzLocal(allocator);
     defer my_tz.deinit();
-    var now_local = try now_berlin.tzConvert(&my_tz);
+    var now_local = try now_berlin.tzConvert(.{ .tz = &my_tz });
     println("My time zone : {s}", .{my_tz.name()});
 
     println("Now, my time zone : {s} ({s})", .{ now_local, now_local.tzAbbreviation() });
@@ -43,7 +43,7 @@ pub fn main() !void {
 
     var tz_ny = try Tz.fromTzdata("America/New_York", allocator);
     defer tz_ny.deinit();
-    var now_ny: Datetime = try now_local.tzConvert(&tz_ny);
+    var now_ny: Datetime = try now_local.tzConvert(.{ .tz = &tz_ny });
     println("Now in New York : {s} ({s})", .{ now_ny, now_ny.tzAbbreviation() });
     println("Wall time difference, local vs. NY: {}", .{try now_ny.diffWall(now_local)});
     println("", .{});
@@ -53,7 +53,7 @@ pub fn main() !void {
         .year = 2023,
         .month = 8,
         .day = 9,
-        .tz = &tz_ny,
+        .tz_options = .{ .tz = &tz_ny },
     });
     println("New York, summer : {s} ({s})", .{ ny_summer_2023, ny_summer_2023.tzAbbreviation() });
     println("New York has DST in summer? : {}", .{ny_summer_2023.isDST()});
@@ -61,17 +61,47 @@ pub fn main() !void {
 
     // non-existing datetime: DST gap
     // always errors:
-    const err_ne = Datetime.fromFields(.{ .year = 2024, .month = 3, .day = 10, .hour = 2, .minute = 30, .tz = &tz_ny });
+    const err_ne = Datetime.fromFields(.{
+        .year = 2024,
+        .month = 3,
+        .day = 10,
+        .hour = 2,
+        .minute = 30,
+        .tz_options = .{ .tz = &tz_ny },
+    });
     println("Attempt to create non-existing datetime: {any}", .{err_ne});
 
     // ambiguous datetime: DST fold
     // errors if 'dst_fold' is undefined:
-    const err_amb = Datetime.fromFields(.{ .year = 2024, .month = 11, .day = 3, .hour = 1, .minute = 30, .tz = &tz_ny });
+    const err_amb = Datetime.fromFields(.{
+        .year = 2024,
+        .month = 11,
+        .day = 3,
+        .hour = 1,
+        .minute = 30,
+        .tz_options = .{ .tz = &tz_ny },
+    });
     println("Attempt to create ambiguous datetime: {any}", .{err_amb});
     // we can specify on which side of the fold the datetime should fall:
-    const amb_dt_early = try Datetime.fromFields(.{ .year = 2024, .month = 11, .day = 3, .hour = 1, .minute = 30, .dst_fold = 0, .tz = &tz_ny });
+    const amb_dt_early = try Datetime.fromFields(.{
+        .year = 2024,
+        .month = 11,
+        .day = 3,
+        .hour = 1,
+        .minute = 30,
+        .dst_fold = 0,
+        .tz_options = .{ .tz = &tz_ny },
+    });
     println("Ambiguous datetime, early side of fold: {s}", .{amb_dt_early});
-    const amb_dt_late = try Datetime.fromFields(.{ .year = 2024, .month = 11, .day = 3, .hour = 1, .minute = 30, .dst_fold = 1, .tz = &tz_ny });
+    const amb_dt_late = try Datetime.fromFields(.{
+        .year = 2024,
+        .month = 11,
+        .day = 3,
+        .hour = 1,
+        .minute = 30,
+        .dst_fold = 1,
+        .tz_options = .{ .tz = &tz_ny },
+    });
     println("Ambiguous datetime, late side of fold: {s}", .{amb_dt_late});
 }
 

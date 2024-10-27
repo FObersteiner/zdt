@@ -44,13 +44,13 @@ if s_c.count(":") < 4:
     s_c += ":00"
 content.append(
     f"""
-    var tz_a = try Tz.fromTzfile("{za}", std.testing.allocator);
-    var tz_b = try Tz.fromTzfile("{zb}", std.testing.allocator);
+    var tz_a = try Tz.fromTzdata("{za}", std.testing.allocator);
+    var tz_b = try Tz.fromTzdata("{zb}", std.testing.allocator);
 
-    var dt_a = try Datetime.fromUnix({ta}, Duration.Resolution.second, null, &tz_a);
-    var dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second, null, &tz_b);
-    var dt_c = try dt_a.tzConvert(&tz_b);
-    dt_b = try dt_b.tzConvert(&tz_a);
+    var dt_a = try Datetime.fromUnix({ta}, Duration.Resolution.second, .{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
+    var dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second,  .{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
+    var dt_c = try dt_a.tzConvert(.{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
+    dt_b = try dt_b.tzConvert(.{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
 
     var s_b = std.ArrayList(u8).init(testing.allocator);
     var s_c = std.ArrayList(u8).init(testing.allocator);
@@ -81,12 +81,12 @@ for _ in range(N):
         s_c += ":00"
     content.append(
         f"""
-    tz_a = try Tz.fromTzfile("{za}", std.testing.allocator);
-    tz_b = try Tz.fromTzfile("{zb}", std.testing.allocator);
-    dt_a = try Datetime.fromUnix({ta}, Duration.Resolution.second, null, &tz_a);
-    dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second, null, &tz_b);
-    dt_c = try dt_a.tzConvert(&tz_b);
-    dt_b = try dt_b.tzConvert(&tz_a);
+    tz_a = try Tz.fromTzdata("{za}", std.testing.allocator);
+    tz_b = try Tz.fromTzdata("{zb}", std.testing.allocator);
+    dt_a = try Datetime.fromUnix({ta}, Duration.Resolution.second, .{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
+    dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second,  .{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
+    dt_c = try dt_a.tzConvert(.{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
+    dt_b = try dt_b.tzConvert(.{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
     try testing.expectEqualStrings("{s_b}", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());

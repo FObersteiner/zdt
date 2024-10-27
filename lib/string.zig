@@ -296,9 +296,9 @@ fn parseIntoFields(
         'z' => { // UTC offset (+|-)hh[:mm[:ss]] or Z
             const utcoffset = try parseOffset(i32, string, idx_ptr, 9);
             if (string[idx_ptr.* - 1] == 'Z')
-                fields.utc_offset = UTCoffset.UTC
+                fields.tz_options = .{ .utc_offset = UTCoffset.UTC }
             else
-                fields.utc_offset = try UTCoffset.fromSeconds(utcoffset, "");
+                fields.tz_options = .{ .utc_offset = try UTCoffset.fromSeconds(utcoffset, "") };
         },
         // 'Z', - ambiguous!
         // 'i', - IANA identifer; would require allocator
@@ -668,9 +668,9 @@ pub fn parseISO8601(string: []const u8, idx_ptr: *usize) !Datetime.Fields {
 
     if (utcoffset) |offset| {
         if (string[idx_ptr.* - 1] == 'Z')
-            fields.utc_offset = UTCoffset.UTC
+            fields.tz_options = .{ .utc_offset = UTCoffset.UTC }
         else
-            fields.utc_offset = try UTCoffset.fromSeconds(offset, "");
+            fields.tz_options = .{ .utc_offset = try UTCoffset.fromSeconds(offset, "") };
     }
 
     return fields;

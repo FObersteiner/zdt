@@ -55,7 +55,7 @@ for us in random.sample(range(UNIX_us_MIN, UNIX_us_MAX + 1), 100):
     dt = datetime.fromtimestamp(us / 1e6, tz=timezone.utc)
     content.append(
         f"""\n  // {dt.isoformat()} :
-    dt_from_unix = try Datetime.fromUnix({us*1000+rnd}, Duration.Resolution.nanosecond, null, null);
+    dt_from_unix = try Datetime.fromUnix({us*1000+rnd}, Duration.Resolution.nanosecond, null);
     dt_from_fields = try Datetime.fromFields(.{OPEN_BRACE}.year={dt.year}, .month={dt.month}, .day={dt.day}, .hour={dt.hour}, .minute={dt.minute}, .second={dt.second}, .nanosecond={(us % 1_000_000) * 1000+rnd}{CLOSE_BRACE});
     try std.testing.expect(std.meta.eql(dt_from_unix, dt_from_fields));
     unix = dt_from_fields.toUnix(Duration.Resolution.nanosecond);

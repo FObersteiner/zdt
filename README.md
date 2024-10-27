@@ -60,7 +60,7 @@ std.debug.print(
 // Absolute time difference: PT00H00M00S
 ```
 
-More examples in the `./examples` directory. There's a build-step to build them all; EX:
+More examples in the `./examples` directory. There's a build-step to build them all;
 
 ```zig
 zig build examples && ./zig-out/bin/ex_datetime
@@ -76,7 +76,7 @@ See [changelog](https://github.com/FObersteiner/zdt/blob/master/change.log)
 
 ## Zig version
 
-This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2024-10-19, Zig-0.13 stable or higher should work.
+This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2024-10-27, Zig-0.13 stable or higher should work.
 
 ## IANA timezone database version
 

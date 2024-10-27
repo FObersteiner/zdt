@@ -23,14 +23,14 @@ pub fn main() !void {
 
     // ISO8601 parser on-board, accepts wide variety of compatible formats
     const a_datetime = try zdt.Datetime.fromISO8601("2022-03-07");
-    const this_time_LA = try a_datetime.tzLocalize(&tz_LA);
+    const this_time_LA = try a_datetime.tzLocalize(.{ .tz = &tz_LA });
 
     // string output also requires allocation...
     var buf = std.ArrayList(u8).init(allocator);
     defer buf.deinit();
     try this_time_LA.toString("%I %p, %Z", buf.writer());
 
-    const this_time_Paris = try this_time_LA.tzConvert(&tz_Paris);
+    const this_time_Paris = try this_time_LA.tzConvert(.{ .tz = &tz_Paris });
 
     // '{s}' directive gives ISO8601 format by default;
     std.debug.print(
