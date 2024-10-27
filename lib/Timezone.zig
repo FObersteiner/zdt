@@ -65,7 +65,7 @@ pub fn name(tz: *const Timezone) []const u8 {
 pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
 
-    //    if (std.mem.eql(u8, identifier, "localtime")) return tzLocal(allocator);
+    if (std.mem.eql(u8, identifier, "localtime")) return tzLocal(allocator);
 
     if (tzdata.get(identifier)) |TZifBytes| {
         var in_stream = std.io.fixedBufferStream(TZifBytes);
@@ -84,7 +84,11 @@ pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!
     return TzError.TzUndefined;
 }
 
-/// Same as fromTzfile but for runtime-known tz identifiers.
+/// Make a time zone from a IANA tz database TZif file.
+/// This method allows the usage of a user-supplied tzdata; the path has to be specified.
+/// To use the system's tzdata, use 'zdt.Timezone.tzdb_prefix'.
+/// The caller must make sure to de-allocate memory used for storing the TZif file's content
+/// by calling the deinit method of the returned Timezone instance.
 pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     var path_buffer: [std.fs.max_path_bytes]u8 = undefined;

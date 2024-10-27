@@ -67,7 +67,8 @@ test "tz deinit is mem-safe" {
     try testing.expectEqualStrings("JST", dt.tzAbbreviation());
 
     // FIXME :
-    // // having tz be something else does not alter the datetime:
+    // declaring the tz as a var is a footgun;
+    // having tz be something else does alter the datetime:
     // tzinfo = try Tz.fromTzdata("Asia/Kolkata", testing.allocator);
     // defer tzinfo.deinit();
     // try testing.expectEqualStrings("JST", dt.tzAbbreviation());
@@ -91,7 +92,8 @@ test "local tz db, from specified or default prefix" {
     // NOTE : Windows does not use the IANA db, so we cannot test a 'local' prefix
     if (builtin.os.tag != .linux) return error.SkipZigTest;
 
-    const db = "/usr/share/zoneinfo";
+    const db = Tz.tzdb_prefix;
+    // log.warn("system tzdb prefix: {s}", .{db});
     var tzinfo = try Tz.runtimeFromTzfile("Europe/Berlin", db, testing.allocator);
     defer tzinfo.deinit();
 
