@@ -32,7 +32,7 @@ pub const UTC = UTCoffset{
     .__designation_data = [6:0]u8{ 'U', 'T', 'C', 0, 0, 0 },
 };
 
-/// Designation / abbreviated time zone nmae such as "CET" for
+/// Designation / abbreviated time zone name such as "CET" for
 /// Central European Time in Europe/Berlin, winter.
 ///
 /// Note that multiple time zones can share the same abbreviated name and are
@@ -41,6 +41,7 @@ pub fn designation(offset: *const UTCoffset) []const u8 {
     return std.mem.sliceTo(&offset.__designation_data, 0);
 }
 
+/// Make a UTC offset from a given number of seconds East of Greenwich.
 pub fn fromSeconds(offset_sec_East: i32, name: []const u8) TzError!UTCoffset {
     if (offset_sec_East < offset_range[0] or offset_sec_East > offset_range[1]) {
         return TzError.InvalidOffset;
