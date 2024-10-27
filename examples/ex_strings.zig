@@ -32,7 +32,7 @@ pub fn main() !void {
     const leap_datetime = "2016-12-31T23:59:60Z";
     parsed = try Datetime.fromISO8601(leap_datetime);
     assert(parsed.second == 60);
-    assert(std.meta.eql(parsed.tzinfo.?, Timezone.UTC));
+    assert(std.meta.eql(parsed.tz.?.*, Timezone.UTC));
     println("parsed '{s}'\n  to {s}", .{ leap_datetime, parsed });
 
     // The format might be less-standard, so we need to provide parsing directives à la strptime

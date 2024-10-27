@@ -25,24 +25,47 @@ assert idx > 0
 content = content[: idx + 1]
 content.append("\n")
 
-random.seed(314)
+random.seed(9311)
 
 allzones = tuple(zoneinfo.available_timezones())
 unixrange = range(-2145920400, 2145913200)
 
+content.append('test "conversion between random time zones" {')
+
+za, zb = random.sample(allzones, 2)
+ta, tb = random.sample(unixrange, 2)
+dta = datetime.fromtimestamp(ta, tz=ZoneInfo(za))
+dtb = datetime.fromtimestamp(tb, tz=ZoneInfo(zb))
+s_b = dtb.astimezone(ZoneInfo(za)).isoformat(timespec="seconds")
+if s_b.count(":") < 4:
+    s_b += ":00"
+s_c = dta.astimezone(ZoneInfo(zb)).isoformat(timespec="seconds")
+if s_c.count(":") < 4:
+    s_c += ":00"
 content.append(
-    """test "conversion between random time zones" {
-    var tz_a = Tz{};
-    var tz_b = Tz{};
-    defer tz_a.deinit();
-    defer tz_b.deinit();
-    var dt_a = Datetime{};
-    var dt_b = Datetime{};
-    var dt_c = Datetime{};
+    f"""
+    var tz_a = try Tz.fromTzdata("{za}", std.testing.allocator);
+    var tz_b = try Tz.fromTzdata("{zb}", std.testing.allocator);
+
+    var dt_a = try Datetime.fromUnix({ta}, Duration.Resolution.second, .{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
+    var dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second,  .{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
+    var dt_c = try dt_a.tzConvert(.{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
+    dt_b = try dt_b.tzConvert(.{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
+
     var s_b = std.ArrayList(u8).init(testing.allocator);
     var s_c = std.ArrayList(u8).init(testing.allocator);
     defer s_b.deinit();
-    defer s_c.deinit();\n"""
+    defer s_c.deinit();
+
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
+    try testing.expectEqualStrings("{s_b}", s_b.items);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
+    try testing.expectEqualStrings("{s_c}", s_c.items);
+
+    tz_a.deinit();
+    tz_b.deinit();
+    s_b.clearAndFree();
+    s_c.clearAndFree();\n"""
 )
 
 for _ in range(N):
@@ -58,12 +81,12 @@ for _ in range(N):
         s_c += ":00"
     content.append(
         f"""
-    tz_a = try Tz.fromTzfile("{za}", std.testing.allocator);
-    tz_b = try Tz.fromTzfile("{zb}", std.testing.allocator);
-    dt_a = try Datetime.fromUnix({ta}, Duration.Resolution.second, tz_a);
-    dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second, tz_b);
-    dt_c = try dt_a.tzConvert(tz_b);
-    dt_b = try dt_b.tzConvert(tz_a);
+    tz_a = try Tz.fromTzdata("{za}", std.testing.allocator);
+    tz_b = try Tz.fromTzdata("{zb}", std.testing.allocator);
+    dt_a = try Datetime.fromUnix({ta}, Duration.Resolution.second, .{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
+    dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second,  .{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
+    dt_c = try dt_a.tzConvert(.{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
+    dt_b = try dt_b.tzConvert(.{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
     try testing.expectEqualStrings("{s_b}", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());

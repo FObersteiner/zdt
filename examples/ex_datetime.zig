@@ -21,9 +21,9 @@ pub fn main() !void {
     println("---> (usage) Unix epoch: datetime from timestamp", .{});
     const unix_epoch_naive = try Datetime.fromUnix(0, Duration.Resolution.second, null);
     println("'Unix epoch', naive datetime : {s}", .{unix_epoch_naive});
-    var unix_epoch_correct = try Datetime.fromUnix(0, Duration.Resolution.second, Tz.UTC);
+    var unix_epoch_correct = try Datetime.fromUnix(0, Duration.Resolution.second, .{ .tz = &Tz.UTC });
     println("'Unix epoch', aware datetime : {s}", .{unix_epoch_correct});
-    println("'Unix epoch', tz name : {s}", .{unix_epoch_correct.tzinfo.?.name()});
+    println("'Unix epoch', tz name : {s}", .{unix_epoch_correct.tzName()});
 
     println("", .{});
     println("---> (usage) Now: datetime from system time", .{});

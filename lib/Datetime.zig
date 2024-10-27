@@ -10,10 +10,25 @@ const tzif = @import("./tzif.zig");
 
 const Duration = @import("./Duration.zig");
 const Timezone = @import("./Timezone.zig");
+const UTCoffset = @import("./UTCoffset.zig");
 
 const RangeError = @import("./errors.zig").RangeError;
 const TzError = @import("./errors.zig").TzError;
 const ZdtError = @import("./errors.zig").ZdtError;
+
+pub const min_year: u16 = 1; // r.d.; 0001-01-01
+pub const max_year: u16 = 9999;
+pub const unix_s_min: i64 = -62135596800;
+pub const unix_s_max: i64 = 253402300799;
+pub const epoch = Datetime{ .year = 1970, .unix_sec = 0, .utc_offset = UTCoffset.UTC };
+pub const century: u16 = 2000;
+
+const s_per_minute: u8 = 60;
+const s_per_hour: u16 = 3600;
+const s_per_day: u32 = 86400;
+const ms_per_s: u16 = 1_000;
+const us_per_s: u32 = 1_000_000;
+const ns_per_s: u32 = 1_000_000_000;
 
 const Datetime = @This();
 
@@ -42,28 +57,19 @@ nanosecond: u32 = 0, // [0, 999999999]
 /// Always refers to 1970-01-01T00:00:00Z, not counting leap seconds.
 /// Do not modify directly.
 unix_sec: i64 = unix_s_min, // [unix_s_min, unix_s_max]
-//
-/// Optional time zone of a datetime.
-/// Do not modify directly.
-tzinfo: ?Timezone = null,
 
-/// DST fold position; 0 = early side, 1 = late side
+/// Offset from UTC. Is calculated whenever a Timezone is defined for a datetime
+/// or if the Timezone of a datetime is changed.
 /// Do not modify directly.
+utc_offset: ?UTCoffset = null,
+
+/// Optional pointer to time zone rule set. Do not modify directly.
+tz: ?*const Timezone = null,
+
+/// intended DST fold position; 0 = early side, 1 = late side
 dst_fold: ?u1 = null,
 
-pub const min_year: u16 = 1; // r.d.; 0001-01-01
-pub const max_year: u16 = 9999;
-pub const unix_s_min: i64 = -62135596800;
-pub const unix_s_max: i64 = 253402300799;
-pub const epoch = Datetime{ .year = 1970, .unix_sec = 0, .tzinfo = Timezone.UTC };
-pub const century: u16 = 2000;
-
-const s_per_minute: u8 = 60;
-const s_per_hour: u16 = 3600;
-const s_per_day: u32 = 86400;
-const ms_per_s: u16 = 1_000;
-const us_per_s: u32 = 1_000_000;
-const ns_per_s: u32 = 1_000_000_000;
+// ----------------------------------------------------------------------------
 
 /// Enum-representation of a weekday, with Sunday being 0.
 /// Mainly used to get locale-independent English names.
@@ -184,6 +190,17 @@ pub const ISOCalendar = struct {
     }
 };
 
+const tzOpts = enum {
+    tz,
+    utc_offset,
+};
+
+// helper to specify either a time zone or a UTC offset
+const tz_options = union(tzOpts) {
+    tz: *const Timezone,
+    utc_offset: UTCoffset,
+};
+
 /// The fields of a datetime instance.
 pub const Fields = struct {
     year: u16 = 1, // [1, 9999]
@@ -193,8 +210,11 @@ pub const Fields = struct {
     minute: u8 = 0, // [0, 59]
     second: u8 = 0, // [0, 60]
     nanosecond: u32 = 0, // [0, 999999999]
-    tzinfo: ?Timezone = null,
-    dst_fold: ?u1 = null, // DST fold position; 0 = early side, 1 = late side
+    dst_fold: ?u1 = null,
+    tz_options: ?tz_options = null,
+
+    // utc_offset: ?UTCoffset = null,
+    // tz: ?*const Timezone = null,
 
     pub fn validate(fields: Fields) ZdtError!void {
         if (fields.year > max_year or fields.year < min_year) return ZdtError.YearOutOfRange;
@@ -205,21 +225,10 @@ pub const Fields = struct {
         if (fields.minute > 59) return ZdtError.MinuteOutOfRange;
         if (fields.second > 60) return ZdtError.SecondOutOfRange;
         if (fields.nanosecond > 999999999) return ZdtError.NanosecondOutOfRange;
-
-        // if a tz is provided, it must allow offset calculation, which requires
-        // one of the types to be not-null:
-        if (fields.tzinfo) |tzinfo| {
-            if (tzinfo.tzFile == null and
-                // and tzinfo.tzPosix == null
-                tzinfo.tzOffset == null)
-            {
-                return ZdtError.AllTZRulesUndefined;
-            }
-        }
     }
 };
 
-/// Datetime fields without timezone and dst fold identifier. All fields optional and undefined by default.
+/// Datetime fields without timezone and UTC offset. All fields optional and undefined by default.
 /// Helper for Datetime.replace().
 pub const OptFields = struct {
     year: ?u16 = null,
@@ -234,7 +243,7 @@ pub const OptFields = struct {
 /// Make a valid datetime from fields.
 pub fn fromFields(fields: Fields) ZdtError!Datetime {
 
-    // TODO : should this only be called on demand or only in debug builds ?
+    // NOTE : should this only be called on demand or only in debug builds ?
     _ = try fields.validate();
 
     const d = cal.dateToRD([_]u16{ fields.year, fields.month, fields.day });
@@ -248,8 +257,8 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         .minute = @truncate(fields.minute),
         .second = @truncate(fields.second),
         .nanosecond = fields.nanosecond,
-        .tzinfo = fields.tzinfo,
-        .dst_fold = fields.dst_fold,
+        // .utc_offset = fields.utc_offset,
+        // .tz = fields.tz,
         .unix_sec = ( //
             @as(i40, d) * s_per_day +
             @as(u17, fields.hour) * s_per_hour +
@@ -257,28 +266,45 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         ),
     };
 
-    // Shortcut #1: if tzinfo is null, make and return naive datetime
-    if (fields.tzinfo == null) {
-        return dt;
-    }
+    if (fields.tz_options) |opts| {
+        switch (opts) {
+            .utc_offset => {
+                dt.utc_offset = fields.tz_options.?.utc_offset;
+                // if the offset represents UTC, also set the tz pointer
+                // for consistency:
+                if (std.meta.eql(dt.utc_offset.?, UTCoffset.UTC)) dt.tz = &Timezone.UTC;
+                // Shortcut #2: the tz pointer is not set here; we have a fixed offset,
+                // can calculate Unix time easily and return.
+                dt.unix_sec -= dt.utc_offset.?.seconds_east;
+                return dt;
+            },
+            .tz => {
+                dt.tz = fields.tz_options.?.tz;
+                // if tz points to the UTC constant, we need to set the offset here
+                // and again can return immediately:
+                if (std.meta.eql(dt.tz.?.*, Timezone.UTC)) {
+                    dt.utc_offset = UTCoffset.UTC;
+                    return dt;
+                }
+            },
+        }
+    } else return dt; // no tz_options, so we're done here
 
-    // Shortcut #2: if we have a fixed offset tz, we can calculate Unix time easily
-    if (fields.tzinfo.?.tzOffset != null and fields.tzinfo.?.tzFile == null) {
-        dt.unix_sec -= fields.tzinfo.?.tzOffset.?.seconds_east;
-        return dt;
-    }
-
-    // A "real" time zone is more complicated. We have already calculated a
-    // 'localized' Unix time, as dt.unix_sec.
+    // Now we're left with a 'real' time zone, which is more complicated.
+    // We have already calculated a 'localized' Unix time, as dt.unix_sec.
     // For that, We can obtain a UTC offset, subtract it and see if we get the same datetime.
-    const local_tz = try fields.tzinfo.?.atUnixtime(dt.unix_sec);
-    const unix_guess_1 = dt.unix_sec - local_tz.seconds_east;
-    var dt_guess_1 = try Datetime.fromUnix(unix_guess_1, Duration.Resolution.second, fields.tzinfo);
-    dt_guess_1.nanosecond = fields.nanosecond;
+    const local_offset = try UTCoffset.atUnixtime(dt.tz.?, dt.unix_sec);
+    const unix_guess_1 = dt.unix_sec - local_offset.seconds_east;
+    var dt_guess_1 = try Datetime.fromUnix(
+        unix_guess_1,
+        Duration.Resolution.second,
+        .{ .tz = dt.tz.? },
+    );
+    dt_guess_1.nanosecond = dt.nanosecond;
 
     // However, we could still have an ambiguous datetime or a datetime in a gap of
     // a DST transition. To exclude that, we need the surrounding timetypes of the current one.
-    const sts = getSurroundingTimetypes(local_tz.__transition_index, &fields.tzinfo.?.tzFile.?);
+    const sts = try getSurroundingTimetypes(local_offset.__transition_index, dt.tz.?);
 
     // #1 - if there are no surrounding timetypes, we can only use the first guessed datetime
     // to compare to.
@@ -295,8 +321,12 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
     //        share the same UTC offset.
     const tt_guess = if (sts[0] != null) sts[0] else sts[2];
     const unix_guess_2 = dt.unix_sec - @as(i64, @intCast(tt_guess.?.offset));
-    var dt_guess_2 = try Datetime.fromUnix(unix_guess_2, Duration.Resolution.second, fields.tzinfo);
-    dt_guess_2.nanosecond = fields.nanosecond;
+    var dt_guess_2 = try Datetime.fromUnix(
+        unix_guess_2,
+        Duration.Resolution.second,
+        .{ .tz = dt.tz.? },
+    );
+    dt_guess_2.nanosecond = dt.nanosecond;
 
     // Now we have
     // - dt         : the original fields
@@ -316,10 +346,10 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         const fold = fields.dst_fold orelse return ZdtError.AmbiguousDatetime;
         switch (fold) {
             0 => { // we want the DST active / 'early' side
-                if (dt_guess_1.tzinfo.?.tzOffset.?.is_dst) return dt_guess_1 else return dt_guess_2;
+                if (dt_guess_1.utc_offset.?.is_dst) return dt_guess_1 else return dt_guess_2;
             },
             1 => { // we want the DST inactive / 'late' side
-                if (dt_guess_1.tzinfo.?.tzOffset.?.is_dst) return dt_guess_2 else return dt_guess_1;
+                if (dt_guess_1.utc_offset.?.is_dst) return dt_guess_2 else return dt_guess_1;
             },
         }
     }
@@ -334,6 +364,10 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
 
 /// Make a fields struct from a datetime.
 pub fn toFields(dt: *const Datetime) Fields {
+    var opts: ?tz_options = if (dt.tz) |tz_ptr| .{ .tz = tz_ptr } else null;
+    // if we don't have a tz, we might still have an offset:
+    if (opts == null) opts = if (dt.utc_offset) |off| .{ .utc_offset = off } else null;
+
     return .{
         .year = dt.year,
         .month = dt.month,
@@ -342,8 +376,8 @@ pub fn toFields(dt: *const Datetime) Fields {
         .minute = dt.minute,
         .second = dt.second,
         .nanosecond = dt.nanosecond,
-        .tzinfo = dt.tzinfo,
         .dst_fold = dt.dst_fold,
+        .tz_options = opts,
     };
 }
 
@@ -373,14 +407,23 @@ fn __equalFields(this: Datetime, other: Datetime) bool {
     );
 }
 
-/// Construct a datetime from Unix time with a specific precision (time unit)
-pub fn fromUnix(quantity: i128, resolution: Duration.Resolution, tzinfo: ?Timezone) ZdtError!Datetime {
+/// Construct a datetime from Unix time with a specific precision (time unit).
+/// tz_opts allows to optionally specify a UTC offset or a time zone.
+pub fn fromUnix(
+    quantity: i128,
+    resolution: Duration.Resolution,
+    tz_opts: ?tz_options,
+) ZdtError!Datetime {
     if (quantity > @as(i128, unix_s_max) * @intFromEnum(resolution) or
         quantity < @as(i128, unix_s_min) * @intFromEnum(resolution))
-    {
         return ZdtError.UnixOutOfRange;
-    }
-    var _dt = Datetime{ .tzinfo = tzinfo };
+
+    var _dt = Datetime{};
+    if (tz_opts) |opts| switch (opts) {
+        .utc_offset => _dt.utc_offset = opts.utc_offset,
+        .tz => _dt.tz = opts.tz,
+    };
+
     switch (resolution) {
         .second => {
             _dt.unix_sec = @intCast(quantity);
@@ -406,12 +449,20 @@ pub fn fromUnix(quantity: i128, resolution: Duration.Resolution, tzinfo: ?Timezo
 /// A helper to update datetime fields so that they agree with the unix_sec internal
 /// representation. Expects a "local" unix time, to be corrected by the
 /// UTC offset of the time zone (if such is supplied).
+///
+/// Modifies input in-place.
 fn __normalize(dt: *Datetime) TzError!void {
-    var fake_unix = dt.unix_sec; // "local" Unix time to get the fields right
-    if (dt.tzinfo) |*tzinfo| {
-        tzinfo.tzOffset = try tzinfo.atUnixtime(dt.unix_sec);
-        fake_unix += tzinfo.tzOffset.?.seconds_east;
+    // "local" Unix time to get the fields right:
+    var fake_unix = dt.unix_sec;
+    // if a time zone is defined, this takes precedence.
+    // TODO : tz might be UTC
+    if (dt.tz) |tz_ptr| {
+        dt.utc_offset = try UTCoffset.atUnixtime(tz_ptr, dt.unix_sec);
+        fake_unix += dt.utc_offset.?.seconds_east;
+    } else if (dt.utc_offset) |off| {
+        fake_unix += off.seconds_east;
     }
+
     const s_after_midnight: i32 = @intCast(@mod(fake_unix, s_per_day));
     const days: i32 = @intCast(@divFloor(fake_unix, s_per_day));
     const ymd: [3]u16 = cal.rdToDate(days);
@@ -424,7 +475,7 @@ fn __normalize(dt: *Datetime) TzError!void {
 }
 
 /// Return Unix time for given datetime struct
-pub fn toUnix(dt: Datetime, resolution: Duration.Resolution) i128 {
+pub fn toUnix(dt: *const Datetime, resolution: Duration.Resolution) i128 {
     switch (resolution) {
         .second => return @as(i128, dt.unix_sec),
         .millisecond => return @as(i128, dt.unix_sec) * ms_per_s + @divFloor(dt.nanosecond, us_per_s),
@@ -433,25 +484,25 @@ pub fn toUnix(dt: Datetime, resolution: Duration.Resolution) i128 {
     }
 }
 
-/// true if a timezone has been set
-pub fn isAware(dt: Datetime) bool {
-    return dt.tzinfo != null;
+/// true if datetime is aware of its offset from UTC
+pub fn isAware(dt: *const Datetime) bool {
+    return dt.utc_offset != null;
 }
 
-/// alias for isAware
-pub fn isZoned(dt: Datetime) bool {
-    return dt.isAware();
-}
-
-/// true if no timezone is set
-pub fn isNaive(dt: Datetime) bool {
+/// true if no offset from UTC is defined
+pub fn isNaive(dt: *const Datetime) bool {
     return !dt.isAware();
+}
+
+/// returns true if a datetime is located in daylight saving time.
+pub fn isDST(dt: *const Datetime) bool {
+    return if (dt.utc_offset) |offset| offset.is_dst else false;
 }
 
 /// Make a datetime local to a given time zone.
 ///
 /// 'null' can be supplied to make an aware datetime naive.
-pub fn tzLocalize(dt: Datetime, tzinfo: ?Timezone) ZdtError!Datetime {
+pub fn tzLocalize(dt: Datetime, opts: ?tz_options) ZdtError!Datetime {
     return Datetime.fromFields(.{
         .year = dt.year,
         .month = dt.month,
@@ -460,31 +511,28 @@ pub fn tzLocalize(dt: Datetime, tzinfo: ?Timezone) ZdtError!Datetime {
         .minute = dt.minute,
         .second = dt.second,
         .nanosecond = dt.nanosecond,
-        .tzinfo = tzinfo,
+        .tz_options = opts,
     });
 }
 
 /// Convert datetime to another time zone. The datetime must be aware;
 /// can only convert to another time zone if initial time zone is defined
-pub fn tzConvert(dt: Datetime, new_tz: Timezone) ZdtError!Datetime {
+pub fn tzConvert(dt: *const Datetime, opts: tz_options) ZdtError!Datetime {
     if (dt.isNaive()) return ZdtError.TzUndefined;
     return Datetime.fromUnix(
         @as(i128, dt.unix_sec) * ns_per_s + dt.nanosecond,
         Duration.Resolution.nanosecond,
-        new_tz,
+        opts,
     );
 }
 
 /// Floor a datetime to a certain timespan. Creates a new datetime instance.
-pub fn floorTo(dt: Datetime, timespan: Duration.Timespan) !Datetime {
+pub fn floorTo(dt: *const Datetime, timespan: Duration.Timespan) !Datetime {
     // any other timespan than second can lead to ambiguous or non-existent
     // datetime - therefore we need to make a new datetime
-    var fields = Fields{ .tzinfo = dt.tzinfo };
-    if (dt.isAware() and dt.tzinfo.?.tzFile != null) {
-        // tzOffset must be resetted so that fromFields method
-        // re-calculates the offset for the new Unix time:
-        fields.tzinfo.?.tzOffset = null;
-    }
+    var fields = Fields{
+        .tz_options = if (dt.tz) |tz_ptr| .{ .tz = tz_ptr } else null,
+    };
     switch (timespan) {
         .second => {
             fields.year = dt.year;
@@ -519,15 +567,19 @@ pub fn floorTo(dt: Datetime, timespan: Duration.Timespan) !Datetime {
 
 /// The current time with nanosecond resolution.
 /// If 'null' is supplied as tzinfo, naive datetime resembling UTC is returned.
-pub fn now(tzinfo: ?Timezone) ZdtError!Datetime {
+pub fn now(opts: ?tz_options) ZdtError!Datetime {
     const t = std.time.nanoTimestamp();
-    return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, tzinfo);
+    return try Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, opts);
 }
 
 /// Current UTC time is fail-safe since it contains a pre-defined time zone.
 pub fn nowUTC() Datetime {
     const t = std.time.nanoTimestamp();
-    return Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, Timezone.UTC) catch unreachable;
+    return Datetime.fromUnix(
+        @intCast(t),
+        Duration.Resolution.nanosecond,
+        .{ .utc_offset = UTCoffset.UTC },
+    ) catch unreachable;
 }
 
 /// Compare two instances with respect to their Unix time.
@@ -557,7 +609,8 @@ pub fn add(dt: Datetime, td: Duration) ZdtError!Datetime {
         td.__sec * ns_per_s + //
         td.__nsec //
     );
-    return try Datetime.fromUnix(ns, Duration.Resolution.nanosecond, dt.tzinfo);
+    const opts: ?tz_options = if (dt.tz) |tz_ptr| .{ .tz = tz_ptr } else null;
+    return try Datetime.fromUnix(ns, Duration.Resolution.nanosecond, opts);
 }
 
 /// Subtract a duration from a datetime. Makes a new datetime.
@@ -586,10 +639,10 @@ pub fn diff(this: Datetime, other: Datetime) Duration {
 /// Result is ('this' wall time - 'other' wall time) as a Duration.
 pub fn diffWall(this: Datetime, other: Datetime) !Duration {
     if (this.isNaive() or other.isNaive()) return error.TzUndefined;
-    if (this.tzinfo.?.tzOffset == null or other.tzinfo.?.tzOffset == null) return error.TzUndefined;
+    if (this.utc_offset == null or other.utc_offset == null) return error.TzUndefined;
 
     var s: i64 = ((this.unix_sec - other.unix_sec) +
-        (this.tzinfo.?.tzOffset.?.seconds_east - other.tzinfo.?.tzOffset.?.seconds_east));
+        (this.utc_offset.?.seconds_east - other.utc_offset.?.seconds_east));
 
     var ns: i32 = @as(i32, @intCast(this.nanosecond)) - @as(i32, @intCast(other.nanosecond));
     if (ns < 0) {
@@ -609,6 +662,8 @@ pub fn validateLeap(this: *const Datetime) !void {
 /// Difference in leap seconds between two datetimes.
 /// To get the absolute time difference between two datetimes including leap seconds,
 /// add the result of diffleap() to that of diff().
+///
+/// UTC is assumed for naive datetime.
 ///
 /// Result is (leap seconds of 'this' - leap seconds of 'other') as a Duration.
 pub fn diffLeap(this: Datetime, other: Datetime) Duration {
@@ -749,11 +804,21 @@ pub fn toString(dt: Datetime, directives: []const u8, writer: anytype) !void {
     return try str.tokenizeAndPrint(&dt, directives, writer);
 }
 
+/// IANA identifier or POSIX string, empty string if undefined
 pub fn tzName(dt: *const Datetime) []const u8 {
-    return dt.tzinfo.?.name();
+    if (dt.tz) |tz_ptr| return tz_ptr.name();
+    if (dt.utc_offset) |*off| {
+        if (std.meta.eql(off.*, UTCoffset.UTC)) return off.designation();
+    }
+    return "";
 }
+
+/// Time zone abbreviation, such as 'CET' for Europe/Berlin zone in winter
 pub fn tzAbbreviation(dt: *const Datetime) []const u8 {
-    return dt.tzinfo.?.abbreviation();
+    if (dt.utc_offset) |*off| {
+        return if (std.mem.eql(u8, off.designation(), "UTC")) "Z" else off.designation();
+    }
+    return "";
 }
 
 /// Formatted printing for UTC offset
@@ -762,32 +827,7 @@ pub fn formatOffset(
     options: std.fmt.FormatOptions,
     writer: anytype,
 ) !void {
-    // if the tzinfo or tzOffset is null, we cannot do anything:
-    if (dt.isNaive()) return;
-    if (dt.tzinfo.?.tzOffset == null) return;
-
-    // If the tzinfo is defined for a specific datetime, it should contain
-    // a fixed offset (calculated from tzfile etc.). It should not be necessary to
-    // make the calculation here:
-    const off = dt.tzinfo.?.tzOffset.?.seconds_east;
-    const absoff: u32 = if (off < 0) @intCast(off * -1) else @intCast(off);
-    const sign = if (off < 0) "-" else "+";
-    const hours = absoff / 3600;
-    const minutes = (absoff % 3600) / 60;
-    const seconds = (absoff % 3600) % 60;
-
-    // precision: 0 - hours, 1 - hours:minutes, 2 - hours:minutes:seconds
-    const precision = if (options.precision) |p| p else 1;
-
-    if (options.fill != 0) {
-        try writer.print("{s}{d:0>2}", .{ sign, hours });
-        if (precision > 0)
-            try writer.print("{u}{d:0>2}", .{ options.fill, minutes });
-        if (precision > 1)
-            try writer.print("{u}{d:0>2}", .{ options.fill, seconds });
-    } else {
-        try writer.print("{s}{d:0>2}{d:0>2}", .{ sign, hours, minutes });
-    }
+    return if (dt.isAware()) dt.utc_offset.?.format("", options, writer);
 }
 
 /// Formatted printing for Datetime. Defaults to ISO8601 / RFC3339nano.
@@ -812,21 +852,27 @@ pub fn format(
         else => if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond}),
     } else if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond});
 
-    if (dt.tzinfo != null) try dt.formatOffset(.{ .fill = ':', .precision = 1 }, writer);
+    if (dt.utc_offset) |off| try off.format("", .{ .fill = ':', .precision = 1 }, writer);
 }
 
 /// Surrounding timetypes at a given transition index. This index might be
 /// negative to indicate out-of-range values.
-pub fn getSurroundingTimetypes(idx: i32, _tz: *const tzif.Tz) [3]?*tzif.Timetype {
-    var surrounding = [3]?*tzif.Timetype{ null, null, null };
-    if (idx > 0) {
-        surrounding[1] = _tz.transitions[@as(u64, @intCast(idx))].timetype;
+pub fn getSurroundingTimetypes(idx: i32, _tz: *const Timezone) ![3]?*tzif.Timetype {
+    switch (_tz.rules) {
+        .tzif => {
+            var surrounding = [3]?*tzif.Timetype{ null, null, null };
+            if (idx > 0) {
+                surrounding[1] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx))].timetype;
+            }
+            if (idx >= 1) {
+                surrounding[0] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx - 1))].timetype;
+            }
+            if (idx > 0 and idx < _tz.rules.tzif.transitions.len - 1) {
+                surrounding[2] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx + 1))].timetype;
+            }
+            return surrounding;
+        },
+        .utc => return TzError.NotImplemented,
+        .posixtz => return TzError.NotImplemented,
     }
-    if (idx >= 1) {
-        surrounding[0] = _tz.transitions[@as(u64, @intCast(idx - 1))].timetype;
-    }
-    if (idx > 0 and idx < _tz.transitions.len - 1) {
-        surrounding[2] = _tz.transitions[@as(u64, @intCast(idx + 1))].timetype;
-    }
-    return surrounding;
 }
