@@ -1073,11 +1073,13 @@ test "load a lot of zones" {
         try testing.expectEqualStrings(zone, dt_a.tzName());
         tz_a.deinit();
 
-        const tz_b = try Tz.runtimeFromTzfile(zone, Tz.tzdb_prefix, testing.allocator);
-        const dt_b = try Datetime.fromUnix(1, Duration.Resolution.second, .{ .tz = &tz_b });
-        try testing.expect(dt_b.utc_offset != null);
-        try testing.expectEqualStrings(zone, dt_b.tzName());
-        tz_b.deinit();
+        if (builtin.os.tag != .windows) {
+            const tz_b = try Tz.runtimeFromTzfile(zone, Tz.tzdb_prefix, testing.allocator);
+            const dt_b = try Datetime.fromUnix(1, Duration.Resolution.second, .{ .tz = &tz_b });
+            try testing.expect(dt_b.utc_offset != null);
+            try testing.expectEqualStrings(zone, dt_b.tzName());
+            tz_b.deinit();
+        }
     }
 }
 
