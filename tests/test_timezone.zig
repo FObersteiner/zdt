@@ -59,8 +59,9 @@ test "mem error" {
 }
 
 test "tz deinit is mem-safe" {
+    // using a var to assign a Timezone can create a footgun...
     var tzinfo = try Tz.fromTzdata("Asia/Tokyo", testing.allocator);
-    const dt = try Datetime.fromFields(.{ .year = 2027, .tz_options = .{ .tz = &tzinfo } });
+    var dt = try Datetime.fromFields(.{ .year = 2027, .tz_options = .{ .tz = &tzinfo } });
     tzinfo.deinit();
 
     try testing.expectEqualStrings("", dt.tzName());
@@ -73,6 +74,11 @@ test "tz deinit is mem-safe" {
     // defer tzinfo.deinit();
     // try testing.expectEqualStrings("JST", dt.tzAbbreviation());
     // try testing.expectEqualStrings("", dt.tzName());
+
+    // to be save: remove the tz:
+    dt = try dt.tzLocalize(null);
+    try testing.expectEqualStrings("", dt.tzAbbreviation());
+    try testing.expectEqualStrings("", dt.tzName());
 }
 
 test "tzfile tz manifests in Unix time" {
