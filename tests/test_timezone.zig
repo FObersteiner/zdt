@@ -69,6 +69,7 @@ test "tz deinit is mem-safe" {
     tzinfo.deinit();
 
     try testing.expect(std.meta.eql(off, dt.utc_offset.?));
+    try testing.expectEqual(off.seconds_east, dt.utc_offset.?.seconds_east);
     try testing.expectEqualStrings("", dt.tzName());
     try testing.expectEqualStrings("JST", dt.tzAbbreviation());
 
