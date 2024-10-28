@@ -62,8 +62,10 @@ test "tz deinit is mem-safe" {
     // using a var to assign a Timezone can create a footgun...
     var tzinfo = try Tz.fromTzdata("Asia/Tokyo", testing.allocator);
     var dt = try Datetime.fromFields(.{ .year = 2027, .tz_options = .{ .tz = &tzinfo } });
+    const off = dt.utc_offset.?;
     tzinfo.deinit();
 
+    try testing.expect(std.meta.eql(off, dt.utc_offset.?));
     try testing.expectEqualStrings("", dt.tzName());
     try testing.expectEqualStrings("JST", dt.tzAbbreviation());
 
