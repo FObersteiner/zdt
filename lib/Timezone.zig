@@ -133,14 +133,12 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
 }
 
 /// Clear a TZ instance and free potentially used memory
-pub fn deinit(tz: *const Timezone) void {
-    // must remove const qualifier to clear present time zone rules
-    const _tz_ptr = @constCast(tz);
-    _tz_ptr.__name_data = std.mem.zeroes([cap_name_data]u8);
-    _tz_ptr.__name_data_len = 0;
+pub fn deinit(tz: *Timezone) void {
+    tz.__name_data = std.mem.zeroes([cap_name_data]u8);
+    tz.__name_data_len = 0;
 
     switch (tz.rules) {
-        .tzif => _tz_ptr.rules.tzif.deinit(),
+        .tzif => |*_tzif| _tzif.deinit(),
         .posixtz => return,
         .utc => return,
     }

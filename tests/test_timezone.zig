@@ -91,7 +91,7 @@ test "tz deinit is mem-safe" {
 }
 
 test "tzfile tz manifests in Unix time" {
-    const tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
     defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 1970, .nanosecond = 1, .tz_options = .{ .tz = &tzinfo } });
@@ -109,7 +109,7 @@ test "local tz db, from specified or default prefix" {
 
     const db = Tz.tzdb_prefix;
     // log.warn("system tzdb prefix: {s}", .{db});
-    const tzinfo = try Tz.runtimeFromTzfile("Europe/Berlin", db, testing.allocator);
+    var tzinfo = try Tz.runtimeFromTzfile("Europe/Berlin", db, testing.allocator);
     defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 1970, .nanosecond = 1, .tz_options = .{ .tz = &tzinfo } });
@@ -122,7 +122,7 @@ test "local tz db, from specified or default prefix" {
 }
 
 test "embedded tzdata" {
-    const tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
     defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 1970, .nanosecond = 1, .tz_options = .{ .tz = &tzinfo } });
@@ -153,7 +153,7 @@ test "local tz" {
     try testing.expect(now.tz == null);
     try testing.expect(now.utc_offset == null);
 
-    const tzinfo = try Tz.tzLocal(testing.allocator);
+    var tzinfo = try Tz.tzLocal(testing.allocator);
     defer tzinfo.deinit();
     now = try Datetime.now(.{ .tz = &tzinfo });
 
@@ -163,8 +163,8 @@ test "local tz" {
 }
 
 test "DST transitions" {
-    const tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
-    defer _ = tzinfo.deinit();
+    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tzinfo.deinit();
 
     // DST off --> DST on (missing datetime), 2023-03-26
     var dt_std = try Datetime.fromUnix(1679792399, Duration.Resolution.second, .{ .tz = &tzinfo });
@@ -198,8 +198,8 @@ test "DST transitions" {
 }
 
 test "wall diff vs. abs diff" {
-    const tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
-    defer _ = tzinfo.deinit();
+    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tzinfo.deinit();
 
     // DST off --> DST on (missing datetime), 2023-03-26
     const dt_std = try Datetime.fromUnix(
@@ -228,8 +228,8 @@ test "wall diff vs. abs diff" {
 }
 
 test "tz has name and abbreviation" {
-    const tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
-    defer _ = tzinfo.deinit();
+    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 2023, .month = 2, .tz_options = .{ .tz = &tzinfo } });
     try testing.expectEqualStrings("Europe/Berlin", dt.tzName());
@@ -249,15 +249,15 @@ test "tz has name and abbreviation" {
 }
 
 test "longest tz name" {
-    const tzinfo = try Tz.fromTzdata("America/Argentina/ComodRivadavia", testing.allocator);
-    defer _ = tzinfo.deinit();
+    var tzinfo = try Tz.fromTzdata("America/Argentina/ComodRivadavia", testing.allocator);
+    defer tzinfo.deinit();
     var dt = try Datetime.fromFields(.{ .year = 2023, .month = 2, .tz_options = .{ .tz = &tzinfo } });
     try testing.expectEqualStrings("America/Argentina/ComodRivadavia", dt.tzName());
 }
 
 test "early LMT, late CET" {
-    const tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
-    defer _ = tzinfo.deinit();
+    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 1880, .tz_options = .{ .tz = &tzinfo } });
     try testing.expectEqualStrings("LMT", dt.tzAbbreviation());
@@ -268,8 +268,8 @@ test "early LMT, late CET" {
 }
 
 test "tz name and abbr correct after localize" {
-    const tz_ny = try Tz.fromTzdata("America/New_York", testing.allocator);
-    defer _ = tz_ny.deinit();
+    var tz_ny = try Tz.fromTzdata("America/New_York", testing.allocator);
+    defer tz_ny.deinit();
 
     var now_local: Datetime = try Datetime.now(.{ .tz = &tz_ny });
     try testing.expectEqualStrings("America/New_York", now_local.tzName());
@@ -303,10 +303,10 @@ test "tz name and abbr correct after localize" {
 }
 
 test "tz name and abbr correct after conversion" {
-    const tz_berlin = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
-    defer _ = tz_berlin.deinit();
-    const tz_denver = try Tz.fromTzdata("America/Denver", testing.allocator);
-    defer _ = tz_denver.deinit();
+    var tz_berlin = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tz_berlin.deinit();
+    var tz_denver = try Tz.fromTzdata("America/Denver", testing.allocator);
+    defer tz_denver.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 2023, .tz_options = .{ .tz = &tz_berlin } });
     var converted: Datetime = try dt.tzConvert(.{ .tz = &tz_denver });
@@ -324,34 +324,34 @@ test "tz name and abbr correct after conversion" {
 }
 
 test "non-existent datetime" {
-    const tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
     defer tzinfo.deinit();
 
     var dt = Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 26, .hour = 2, .tz_options = .{ .tz = &tzinfo } });
     try testing.expectError(ZdtError.NonexistentDatetime, dt);
 
-    const tzinfo_ = try Tz.fromTzdata("America/Denver", testing.allocator);
+    var tzinfo_ = try Tz.fromTzdata("America/Denver", testing.allocator);
     defer tzinfo_.deinit();
     dt = Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 12, .hour = 2, .minute = 59, .second = 59, .tz_options = .{ .tz = &tzinfo_ } });
     try testing.expectError(ZdtError.NonexistentDatetime, dt);
 }
 
 test "ambiguous datetime" {
-    const tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
     defer tzinfo.deinit();
 
     var dt = Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 2, .tz_options = .{ .tz = &tzinfo } });
     try testing.expectError(ZdtError.AmbiguousDatetime, dt);
 
-    const tzinfo_ = try Tz.fromTzdata("America/Denver", testing.allocator);
+    var tzinfo_ = try Tz.fromTzdata("America/Denver", testing.allocator);
     defer tzinfo_.deinit();
     dt = Datetime.fromFields(.{ .year = 2023, .month = 11, .day = 5, .hour = 1, .minute = 59, .second = 59, .tz_options = .{ .tz = &tzinfo_ } });
     try testing.expectError(ZdtError.AmbiguousDatetime, dt);
 }
 
 test "ambiguous datetime / DST fold" {
-    const tz_berlin = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
-    defer _ = tz_berlin.deinit();
+    var tz_berlin = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tz_berlin.deinit();
 
     // DST on, offset 7200 s
     var dt_early = try Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 2, .dst_fold = 0, .tz_options = .{ .tz = &tz_berlin } });
@@ -360,7 +360,7 @@ test "ambiguous datetime / DST fold" {
     try testing.expectEqual(7200, dt_early.utc_offset.?.seconds_east);
     try testing.expectEqual(3600, dt_late.utc_offset.?.seconds_east);
 
-    const tz_mountain = try Tz.fromTzdata("America/Denver", testing.allocator);
+    var tz_mountain = try Tz.fromTzdata("America/Denver", testing.allocator);
     defer tz_mountain.deinit();
     dt_early = try Datetime.fromFields(.{ .year = 2023, .month = 11, .day = 5, .hour = 1, .minute = 59, .second = 59, .dst_fold = 0, .tz_options = .{ .tz = &tz_mountain } });
     dt_late = try Datetime.fromFields(.{ .year = 2023, .month = 11, .day = 5, .hour = 1, .minute = 59, .second = 59, .dst_fold = 1, .tz_options = .{ .tz = &tz_mountain } });
@@ -369,8 +369,8 @@ test "ambiguous datetime / DST fold" {
 }
 
 test "tz without transitions at UTC+9" {
-    const tzinfo = try Tz.fromTzdata("Asia/Tokyo", testing.allocator);
-    defer _ = tzinfo.deinit();
+    var tzinfo = try Tz.fromTzdata("Asia/Tokyo", testing.allocator);
+    defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 26, .hour = 2, .tz_options = .{ .tz = &tzinfo } });
     try testing.expectEqual(@as(i32, 9 * 3600), dt.utc_offset.?.seconds_east);
@@ -383,8 +383,8 @@ test "tz without transitions at UTC+9" {
 }
 
 test "make datetime aware" {
-    const tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
-    defer _ = tzinfo.deinit();
+    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tzinfo.deinit();
 
     const dt_naive = try Datetime.fromUnix(0, Duration.Resolution.second, null);
     try testing.expect(dt_naive.utc_offset == null);
@@ -403,8 +403,8 @@ test "make datetime aware" {
 }
 
 test "replace tz in aware datetime" {
-    const tz_Berlin = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
-    defer _ = tz_Berlin.deinit();
+    var tz_Berlin = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tz_Berlin.deinit();
 
     const dt_utc = Datetime.epoch;
     const dt_berlin = try dt_utc.tzLocalize(.{ .tz = &tz_Berlin });
@@ -418,8 +418,8 @@ test "replace tz in aware datetime" {
 }
 
 test "replace tz fails for non-existent datetime in target tz" {
-    const tz_Berlin = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
-    defer _ = tz_Berlin.deinit();
+    var tz_Berlin = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tz_Berlin.deinit();
 
     const dt_utc = try Datetime.fromFields(.{ .year = 2023, .month = 3, .day = 26, .hour = 2, .tz_options = .{ .utc_offset = UTCoffset.UTC } });
     const err = dt_utc.tzLocalize(.{ .tz = &tz_Berlin });
@@ -428,7 +428,7 @@ test "replace tz fails for non-existent datetime in target tz" {
 }
 
 test "convert time zone" {
-    const tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
     defer tzinfo.deinit();
 
     const dt_naive = try Datetime.fromUnix(42, Duration.Resolution.nanosecond, null);
@@ -437,7 +437,7 @@ test "convert time zone" {
 
     const dt_Berlin = try Datetime.fromUnix(42, Duration.Resolution.nanosecond, .{ .tz = &tzinfo });
 
-    const tzinfo_ = try Tz.fromTzdata("America/New_York", testing.allocator);
+    var tzinfo_ = try Tz.fromTzdata("America/New_York", testing.allocator);
     defer tzinfo_.deinit();
     const dt_NY = try dt_Berlin.tzConvert(.{ .tz = &tzinfo_ });
 
@@ -447,8 +447,8 @@ test "convert time zone" {
 }
 
 test "floor to date changes UTC offset" {
-    const tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
-    defer _ = tzinfo.deinit();
+    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 5, .tz_options = .{ .tz = &tzinfo } });
     var dt_floored = try dt.floorTo(Duration.Timespan.day);
@@ -1069,14 +1069,14 @@ test "load a lot of zones" {
     };
 
     inline for (zones) |zone| {
-        const tz_a = try Tz.fromTzdata(zone, testing.allocator);
+        var tz_a = try Tz.fromTzdata(zone, testing.allocator);
         const dt_a = try Datetime.fromUnix(1, Duration.Resolution.second, .{ .tz = &tz_a });
         try testing.expect(dt_a.utc_offset != null);
         try testing.expectEqualStrings(zone, dt_a.tzName());
         tz_a.deinit();
 
         if (builtin.os.tag != .windows) {
-            const tz_b = try Tz.runtimeFromTzfile(zone, Tz.tzdb_prefix, testing.allocator);
+            var tz_b = try Tz.runtimeFromTzfile(zone, Tz.tzdb_prefix, testing.allocator);
             const dt_b = try Datetime.fromUnix(1, Duration.Resolution.second, .{ .tz = &tz_b });
             try testing.expect(dt_b.utc_offset != null);
             try testing.expectEqualStrings(zone, dt_b.tzName());
