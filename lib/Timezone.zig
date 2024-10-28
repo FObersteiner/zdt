@@ -91,7 +91,7 @@ pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!
 /// To use the system's tzdata, use 'zdt.Timezone.tzdb_prefix'.
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned Timezone instance.
-pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
+pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&path_buffer);
@@ -158,7 +158,7 @@ pub fn tzLocal(allocator: std.mem.Allocator) TzError!Timezone {
             var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
             const path = std.fs.realpath(default_path, &path_buffer) catch
                 return TzError.TZifUnreadable;
-            return try Timezone.runtimeFromTzfile(path, "", allocator);
+            return try Timezone.fromSystemTzdata(path, "", allocator);
         },
         .windows => {
             const win_name = tzwin.getTzName() catch

@@ -112,7 +112,7 @@ test "local tz db, from specified or default prefix" {
 
     const db = Tz.tzdb_prefix;
     // log.warn("system tzdb prefix: {s}", .{db});
-    var tzinfo = try Tz.runtimeFromTzfile("Europe/Berlin", db, testing.allocator);
+    var tzinfo = try Tz.fromSystemTzdata("Europe/Berlin", db, testing.allocator);
     defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 1970, .nanosecond = 1, .tz_options = .{ .tz = &tzinfo } });
@@ -143,11 +143,11 @@ test "embedded tzdata" {
 test "invalid tzfile name" {
     const db = Tz.tzdb_prefix;
     // log.warn("tz db: {s}", .{db});
-    var err = Tz.runtimeFromTzfile("this is not a tzname", db, testing.allocator);
+    var err = Tz.fromSystemTzdata("this is not a tzname", db, testing.allocator);
     try testing.expectError(ZdtError.InvalidIdentifier, err);
-    err = Tz.runtimeFromTzfile("../test", db, testing.allocator);
+    err = Tz.fromSystemTzdata("../test", db, testing.allocator);
     try testing.expectError(ZdtError.InvalidIdentifier, err);
-    err = Tz.runtimeFromTzfile("*=!?:.", db, testing.allocator);
+    err = Tz.fromSystemTzdata("*=!?:.", db, testing.allocator);
     try testing.expectError(ZdtError.InvalidIdentifier, err);
 }
 
@@ -1079,7 +1079,7 @@ test "load a lot of zones" {
         tz_a.deinit();
 
         if (builtin.os.tag != .windows) {
-            var tz_b = try Tz.runtimeFromTzfile(zone, Tz.tzdb_prefix, testing.allocator);
+            var tz_b = try Tz.fromSystemTzdata(zone, Tz.tzdb_prefix, testing.allocator);
             const dt_b = try Datetime.fromUnix(1, Duration.Resolution.second, .{ .tz = &tz_b });
             try testing.expect(dt_b.utc_offset != null);
             try testing.expectEqualStrings(zone, dt_b.tzName());
