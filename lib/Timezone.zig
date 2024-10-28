@@ -34,13 +34,15 @@ const ruleTypes = enum {
     utc,
 };
 
-/// rules for a time zone
+/// rule sources for a time zone
 rules: union(ruleTypes) {
-    /// IANA tz-db/tzdata TZif file
+    /// IANA tz-db/tzdata TZif file;
+    /// use Timezone.fromTzdata or Timezone.fromSystemTzdata to set as time zone of a datetime.
     tzif: tzif.Tz,
-    /// POSIX TZ string
+    /// Not implemented! - POSIX TZ string
     posixtz: posix.Tz,
-    // UTC placeholder; constant offset of zero
+    /// UTC placeholder;
+    /// use Timezone.UTC constant to set UTC as time zone of a datetime.
     utc: struct {},
 },
 
@@ -89,7 +91,7 @@ pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!
 /// To use the system's tzdata, use 'zdt.Timezone.tzdb_prefix'.
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned Timezone instance.
-pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
+pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&path_buffer);
@@ -133,14 +135,12 @@ pub fn runtimeFromTzfile(identifier: []const u8, db_path: []const u8, allocator:
 }
 
 /// Clear a TZ instance and free potentially used memory
-pub fn deinit(tz: *const Timezone) void {
-    // must remove const qualifier to clear present time zone rules
-    const _tz_ptr = @constCast(tz);
-    _tz_ptr.__name_data = std.mem.zeroes([cap_name_data]u8);
-    _tz_ptr.__name_data_len = 0;
+pub fn deinit(tz: *Timezone) void {
+    tz.__name_data = std.mem.zeroes([cap_name_data]u8);
+    tz.__name_data_len = 0;
 
     switch (tz.rules) {
-        .tzif => _tz_ptr.rules.tzif.deinit(),
+        .tzif => |*_tzif| _tzif.deinit(),
         .posixtz => return,
         .utc => return,
     }
@@ -158,7 +158,7 @@ pub fn tzLocal(allocator: std.mem.Allocator) TzError!Timezone {
             var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
             const path = std.fs.realpath(default_path, &path_buffer) catch
                 return TzError.TZifUnreadable;
-            return try Timezone.runtimeFromTzfile(path, "", allocator);
+            return try Timezone.fromSystemTzdata(path, "", allocator);
         },
         .windows => {
             const win_name = tzwin.getTzName() catch

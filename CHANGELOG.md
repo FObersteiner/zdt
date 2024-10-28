@@ -13,6 +13,22 @@ Types of changes
 
 ## Unreleased
 
+## 2024-10-28, v0.4.1
+
+### Added
+
+- test UTC Timezone can be deinitialized safely
+- test UTC offset of a datetime stays untouched if its Timezone gets deinitialized
+
+### Changed
+
+- make Timezone.deinit take a pointer to a Timezone instead of a *const (Timezones must be declared as 'var') - by @Ratakor
+- (breaking) renamed: 'Timezone.runtimeFromTzfile' to 'Timezone.fromSystemTzdata'
+
+### Fixed
+
+- Timezone.UTC can be deinitialized safely now (see Timezone.deinit change) - by @Ratakor
+
 ## 2024-10-27, v0.4.0
 
 ### Added
