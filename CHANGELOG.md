@@ -25,6 +25,10 @@ Types of changes
 - make Timezone.deinit take a pointer to a Timezone instead of a *const (Timezones must be declared as 'var') - by @Ratakor
 - (breaking) renamed: 'Timezone.runtimeFromTzfile' to 'Timezone.fromSystemTzdata'
 
+### Fixed
+
+- Timezone.UTC can be deinitialized safely now (see Timezone.deinit change) - by @Ratakor
+
 ## 2024-10-27, v0.4.0
 
 ### Added
