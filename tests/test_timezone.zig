@@ -59,7 +59,10 @@ test "mem error" {
 }
 
 test "tz deinit is mem-safe" {
-    // using a var to assign a Timezone can create a footgun...
+    // special case: UTC - actually has nothing to de-init; just the name data needs to be cleared
+    var tz_utc = Tz.UTC;
+    tz_utc.deinit();
+
     var tzinfo = try Tz.fromTzdata("Asia/Tokyo", testing.allocator);
     var dt = try Datetime.fromFields(.{ .year = 2027, .tz_options = .{ .tz = &tzinfo } });
     const off = dt.utc_offset.?;
