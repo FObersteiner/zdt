@@ -34,13 +34,15 @@ const ruleTypes = enum {
     utc,
 };
 
-/// rules for a time zone
+/// rule sources for a time zone
 rules: union(ruleTypes) {
-    /// IANA tz-db/tzdata TZif file
+    /// IANA tz-db/tzdata TZif file;
+    /// use Timezone.fromTzdata or Timezone.fromSystemTzdata to set as time zone of a datetime.
     tzif: tzif.Tz,
-    /// POSIX TZ string
+    /// Not implemented! - POSIX TZ string
     posixtz: posix.Tz,
-    // UTC placeholder; constant offset of zero
+    /// UTC placeholder;
+    /// use Timezone.UTC constant to set UTC as time zone of a datetime.
     utc: struct {},
 },
 

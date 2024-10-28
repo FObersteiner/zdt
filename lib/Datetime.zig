@@ -449,12 +449,11 @@ pub fn fromUnix(
 fn __normalize(dt: *Datetime) TzError!void {
     // "local" Unix time to get the fields right:
     var fake_unix = dt.unix_sec;
-    // if a time zone is defined, this takes precedence.
-    // TODO : tz might be UTC
+    // if a time zone is defined, this takes precedence and overwrites the UTC offset if one is specified.
     if (dt.tz) |tz_ptr| {
         dt.utc_offset = try UTCoffset.atUnixtime(tz_ptr, dt.unix_sec);
         fake_unix += dt.utc_offset.?.seconds_east;
-    } else if (dt.utc_offset) |off| {
+    } else if (dt.utc_offset) |off| { // having only a UTC offset (no tz) is also fine.
         fake_unix += off.seconds_east;
     }
 
@@ -867,7 +866,7 @@ pub fn getSurroundingTimetypes(idx: i32, _tz: *const Timezone) ![3]?*tzif.Timety
             }
             return surrounding;
         },
-        .utc => return TzError.NotImplemented,
         .posixtz => return TzError.NotImplemented,
+        .utc => return TzError.NotImplemented,
     }
 }
