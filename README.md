@@ -26,7 +26,7 @@ defer tz_LA.deinit();
 // this will very likely not work on Windows, so we use the embedded version here as well.
 var tz_Paris = switch (builtin.os.tag) {
     .windows => try zdt.Timezone.fromTzdata("Europe/Paris", allocator),
-    else => try zdt.Timezone.runtimeFromTzfile("Europe/Paris", zdt.Timezone.tzdb_prefix, allocator),
+    else => try zdt.Timezone.fromSystemTzdata("Europe/Paris", zdt.Timezone.tzdb_prefix, allocator),
 };
 defer tz_Paris.deinit();
 
