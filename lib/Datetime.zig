@@ -627,8 +627,8 @@ pub fn diff(this: Datetime, other: Datetime) Duration {
     return .{ .__sec = s, .__nsec = @intCast(ns) };
 }
 
-/// Calculate wall time difference between two timezone-aware datetimes.
-/// If one of the datetimes is naive (no tz specified), this is considered an error.
+/// Calculate wall time difference between two aware datetimes.
+/// If one of the datetimes is naive (no time zone specified), this is considered an error.
 ///
 /// Result is ('this' wall time - 'other' wall time) as a Duration.
 pub fn diffWall(this: Datetime, other: Datetime) !Duration {
@@ -780,9 +780,9 @@ pub fn fromString(string: []const u8, directives: []const u8) !Datetime {
     return try str.tokenizeAndParse(string, directives);
 }
 
-/// Make a datetime from a string with an ISO8601-compatibel format.
+/// Make a datetime from a string with an ISO8601-compatible format.
 pub fn fromISO8601(string: []const u8) !Datetime {
-    // 9 digits of fractional seconds and hh:mm:ss UTC offset: 38 characters
+    // 9 digits of fractional seconds and ±hh:mm:ss UTC offset: 38 characters
     if (string.len > 38)
         return error.InvalidFormat;
     // last character must be Z (UTC) or a digit
