@@ -195,8 +195,8 @@ const tzOpts = enum {
     utc_offset,
 };
 
-// helper to specify either a time zone or a UTC offset
-const tz_options = union(tzOpts) {
+/// helper to specify either a time zone or a UTC offset:
+pub const tz_options = union(tzOpts) {
     tz: *const Timezone,
     utc_offset: UTCoffset,
 };
@@ -349,12 +349,13 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         }
     }
 
-    // If both guesses did not succeed, we have a non-existent datetime.
-    // this should give an error.
-    if (!dt_eq_guess_1 and !dt_eq_guess_2) return ZdtError.NonexistentDatetime;
+    // If we came here, either guess 1 or guess 2 is correct; guess 1 takes precedence.
+    if (dt_eq_guess_1) return dt_guess_1;
+    if (dt_eq_guess_2) return dt_guess_2;
 
-    // If we came here, either guess 1 or guess 2 is correct.
-    if (dt_eq_guess_1) return dt_guess_1 else return dt_guess_2;
+    // If both guesses did NOT succeed, we have a non-existent datetime.
+    // this should give an error.
+    return ZdtError.NonexistentDatetime;
 }
 
 /// Make a fields struct from a datetime.
@@ -485,7 +486,7 @@ pub fn isAware(dt: *const Datetime) bool {
 
 /// true if no offset from UTC is defined
 pub fn isNaive(dt: *const Datetime) bool {
-    return !dt.isAware();
+    return dt.utc_offset == null;
 }
 
 /// returns true if a datetime is located in daylight saving time.
@@ -647,10 +648,11 @@ pub fn diffWall(this: Datetime, other: Datetime) !Duration {
 }
 
 /// Validate a datetime in terms of leap seconds;
-/// checks if the datetime could be a leap second if .second is == 60.
+/// Returns an error if the datetime has seconds == 60 but is NOT a leap second datetime.
 pub fn validateLeap(this: *const Datetime) !void {
     if (this.second != 60) return;
-    if (!cal.mightBeLeap(this.unix_sec)) return error.SecondOutOfRange;
+    if (cal.mightBeLeap(this.unix_sec)) return;
+    return error.SecondOutOfRange;
 }
 
 /// Difference in leap seconds between two datetimes.
@@ -785,12 +787,12 @@ pub fn fromISO8601(string: []const u8) !Datetime {
     // 9 digits of fractional seconds and ±hh:mm:ss UTC offset: 38 characters
     if (string.len > 38)
         return error.InvalidFormat;
-    // last character must be Z (UTC) or a digit
-    if (string[string.len - 1] != 'Z' and !std.ascii.isDigit(string[string.len - 1])) {
-        return error.InvalidFormat;
+    // last character must be Z (UTC) or a digit, otherwise the input is not ISO8601-compatible
+    if (string[string.len - 1] == 'Z' or std.ascii.isDigit(string[string.len - 1])) {
+        var idx: usize = 0; // assume datetime starts at beginning of string
+        return try Datetime.fromFields(try str.parseISO8601(string, &idx));
     }
-    var idx: usize = 0; // assume datetime starts at beginning of string
-    return try Datetime.fromFields(try str.parseISO8601(string, &idx));
+    return error.InvalidFormat;
 }
 
 /// Format a datetime into a string
