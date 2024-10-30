@@ -450,15 +450,17 @@ fn printIntoWriter(
 
 fn parseDigits(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits: usize) !T {
     const start_idx = idx_ptr.*;
-    if (!std.ascii.isDigit(string[start_idx])) return error.InvalidFormat;
+    // must start with a digit... otherwise format is invalid.
+    if (std.ascii.isDigit(string[start_idx])) {
+        idx_ptr.* += 1;
+        while (idx_ptr.* < string.len and // check first if string depleted
+            idx_ptr.* < start_idx + maxDigits and
+            std.ascii.isDigit(string[idx_ptr.*])) : (idx_ptr.* += 1)
+        {}
 
-    idx_ptr.* += 1;
-    while (idx_ptr.* < string.len and // check first if string depleted
-        idx_ptr.* < start_idx + maxDigits and
-        std.ascii.isDigit(string[idx_ptr.*])) : (idx_ptr.* += 1)
-    {}
-
-    return try std.fmt.parseInt(T, string[start_idx..idx_ptr.*], 10);
+        return try std.fmt.parseInt(T, string[start_idx..idx_ptr.*], 10);
+    }
+    return error.InvalidFormat;
 }
 
 // AM or PM string, no matter if upper or lower case.
