@@ -225,6 +225,14 @@ test "iso duration parser, full valid input" {
 test "iso duration to Duration type round-trip" {
     const cases = [_]TestCaseISODur{
         .{
+            .string = "PT0S",
+            .duration = .{},
+        },
+        .{
+            .string = "-PT0H46M59.789S",
+            .duration = .{ .__sec = -(46 * 60 + 59), .__nsec = 789000000 },
+        },
+        .{
             .string = "PT4H5M6.789S",
             .duration = .{ .__sec = 4 * 3600 + 5 * 60 + 6, .__nsec = 789000000 },
         },

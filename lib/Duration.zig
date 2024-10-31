@@ -99,6 +99,9 @@ pub fn format(
 ) !void {
     _ = options;
     _ = fmt;
+
+    if (duration.__sec == 0 and duration.__nsec == 0) return try writer.print("PT0S", .{});
+
     const is_negative = duration.__sec < 0;
     const s: u64 = if (is_negative) @intCast(duration.__sec * -1) else @intCast(duration.__sec);
     var frac = duration.__nsec;
