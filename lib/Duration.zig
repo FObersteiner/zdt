@@ -199,13 +199,14 @@ pub fn parseIsoDur(string: []const u8) !RelativeDeltaFields {
         stop += 1;
     }
 
-    //log.info("invert: {any}", .{invert});
-
     // must start with P (ignore sign)
     if (string[stop] != 'P') return error.InvalidFormat;
     stop += 1;
 
     if (string[stop] == 'T') stop += 1;
+
+    // 'P' or 'T' must be followed by a digit or minus sign
+    if (!(std.ascii.isDigit(string[stop]) or string[stop] == '-')) return error.InvalidFormat;
 
     var idx: usize = string.len - 1;
 
@@ -221,12 +222,10 @@ pub fn parseIsoDur(string: []const u8) !RelativeDeltaFields {
             'S' => {
                 // seconds come last, so no other quantity must have been parsed yet
                 if (flags > 0) return error.InvalidFormat;
-                // log.info("parse seconds!", .{});
                 idx -= 1;
                 flags |= 0b1;
                 _ = try parseAndAdvanceS(string, &idx, &result.seconds, &result.nanoseconds);
                 if (invert) result.seconds *= -1;
-                // log.info("seconds: {d}", .{quantity});
             },
             'M' => {
                 // 'M' may appear twice; its either minutes or months;
@@ -234,66 +233,54 @@ pub fn parseIsoDur(string: []const u8) !RelativeDeltaFields {
                 // minutes if (flags & 0b1000 == 0), otherwise months
                 if (flags & 0b1000 == 0) {
                     // minutes come second to last, so only seconds may have been parsed yet
-                    // log.info("parse minutes!", .{});
                     if (flags > 1) return error.InvalidFormat;
                     idx -= 1;
                     flags |= 0b10;
                     var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
                     if (invert) quantity *= -1;
                     result.minutes = quantity;
-                    // log.info("minutes: {d}", .{quantity});
                 } else {
-                    // log.info("parse months!", .{});
                     if (flags > 0b11111) return error.InvalidFormat;
                     idx -= 1;
                     flags |= 0b100000;
                     var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
                     if (invert) quantity *= -1;
                     result.months = quantity;
-                    // log.info("months: {d}", .{quantity});
                 }
             },
             'H' => { // hours are the third-to-last component,
                 // so only seconds and minutes may have been parsed yet
                 if (flags > 0b11) return error.InvalidFormat;
-                // log.info("parse hours!", .{});
                 idx -= 1;
                 flags |= 0b100;
                 var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
                 if (invert) quantity *= -1;
                 result.hours = quantity;
-                // log.info("hours: {d}", .{quantity});
             },
             'T' => { // date/time separator must only appear once
                 if (flags > 0b111) return error.InvalidFormat;
-                // log.info("date/time sep!", .{});
                 idx -= 1;
                 flags |= 0b1000;
             },
             'D' => {
                 if (flags > 0b1111) return error.InvalidFormat;
-                // log.info("parse days!", .{});
                 idx -= 1;
                 flags |= 0b10000;
                 var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
                 if (invert) quantity *= -1;
                 result.days = quantity;
-                // log.info("days: {d}", .{quantity});
             },
             'Y' => {
                 if (flags > 0b111111) return error.InvalidFormat;
-                // log.info("parse years!", .{});
                 idx -= 1;
                 flags |= 0b1000000;
                 var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
                 if (invert) quantity *= -1;
                 result.years = quantity;
-                // log.info("years: {d}", .{quantity});
             },
             else => return error.InvalidFormat,
         }
     }
-    //    log.info("done. idx: {d}", .{idx});
     return result;
 }
 
@@ -314,29 +301,28 @@ fn parseAndAdvanceS(string: []const u8, idx_ptr: *usize, sec: *i32, nsec: *u32) 
         if (string[idx_ptr.*] == '.') have_fraction = true;
     }
 
-    // short cut: there is no fraction
-    if (!have_fraction) {
+    if (have_fraction) {
+        // fractional seconds are specified. need to convert them to nanoseconds,
+        // and truncate anything behind the nineth digit.
+        const substr = string[idx_ptr.* + 1 .. end_idx + 1];
+        const idx_dot = std.mem.indexOfScalar(u8, substr, '.');
+        if (idx_dot == null) return error.InvalidFormat;
+
+        sec.* = try std.fmt.parseInt(i32, substr[0..idx_dot.?], 10);
+
+        var substr_nanos = substr[idx_dot.? + 1 ..];
+        if (substr_nanos.len > 9) substr_nanos = substr_nanos[0..9];
+        const nanos = try std.fmt.parseInt(u32, substr_nanos, 10);
+
+        // nanos might actually be another unit; if there is e.g. 3 digits of fractional
+        // seconds, we have milliseconds (1/10^3 s) and need to multiply by 10^(9-3) to get ns.
+        const missing = 9 - substr_nanos.len;
+        const f: u32 = try std.math.powi(u32, 10, @as(u32, @intCast(missing)));
+        nsec.* = nanos * f;
+    } else { // short cut: there is no fraction
         sec.* = try std.fmt.parseInt(i32, string[idx_ptr.* + 1 .. end_idx + 1], 10);
         return;
     }
-
-    // fractional seconds are specified. need to convert them to nanoseconds,
-    // and truncate anything behind the nineth digit.
-    const substr = string[idx_ptr.* + 1 .. end_idx + 1];
-    const idx_dot = std.mem.indexOfScalar(u8, substr, '.');
-    if (idx_dot == null) return error.InvalidFormat;
-
-    sec.* = try std.fmt.parseInt(i32, substr[0..idx_dot.?], 10);
-
-    var substr_nanos = substr[idx_dot.? + 1 ..];
-    if (substr_nanos.len > 9) substr_nanos = substr_nanos[0..9];
-    const nanos = try std.fmt.parseInt(u32, substr_nanos, 10);
-
-    // nanos might actually be another unit; if there is e.g. 3 digits of fractional
-    // seconds, we have milliseconds (1/10^3 s) and need to multiply by 10^(9-3) to get ns.
-    const missing = 9 - substr_nanos.len;
-    const f: u32 = try std.math.powi(u32, 10, @as(u32, @intCast(missing)));
-    nsec.* = nanos * f;
 }
 
 /// backwards-looking parse chars from 'string' to int (base 10),

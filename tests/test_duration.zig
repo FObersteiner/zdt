@@ -249,3 +249,25 @@ test "iso duration to Duration type round-trip" {
         buf.clearAndFree();
     }
 }
+
+test "iso duration fail cases" {
+    const cases = [_][]const u8{
+        "-PT;0H46M59.789S",
+        "yPT0H46M59.789S",
+        "-P--T0H46M59.789S",
+        "p1y2m3dt4k5m6.789s",
+        "px2y3m4dt5h6m7.89s",
+        "p999y0m0d 0h0m0.123s",
+        "p+999y0m0dt0h0m0.123s",
+        "p3y4m5dt6h7m8.9>",
+        "p-+5y6m7dt8h9m10.111000001s",
+        "p7y8m9dt10h11m12;123s",
+        "p-8y9m10xt11h12m13.145s",
+        "-p9y10m11dt12h13m14.156s",
+    };
+
+    for (cases) |case| {
+        const err = Duration.parseIsoDur(case) catch error.InvalidFormat;
+        try testing.expectError(error.InvalidFormat, err);
+    }
+}
