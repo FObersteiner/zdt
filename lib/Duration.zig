@@ -103,9 +103,12 @@ pub fn format(
 
     // account for fraction always being positive:
     if (is_negative and duration.__nsec > 0) s -= 1;
-    const ns = if (is_negative) 1_000_000_000 - duration.__nsec else duration.__nsec;
 
-    // TODO : truncate zeros from ns
+    var frac = if (is_negative) 1_000_000_000 - duration.__nsec else duration.__nsec;
+    // truncate zeros from fractional part
+    if (frac > 0) {
+        while (frac % 10 == 0) : (frac /= 10) {}
+    }
 
     const hours = @divFloor(s, 3600);
     const remainder = @rem(s, 3600);
@@ -117,7 +120,7 @@ pub fn format(
     try writer.print("PT{d}H{d}M{d}", .{ hours, minutes, seconds });
 
     if (duration.__nsec > 0) {
-        try writer.print(".{d}S", .{ns});
+        try writer.print(".{d}S", .{frac});
     } else {
         try writer.print("S", .{});
     }
