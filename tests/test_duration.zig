@@ -228,6 +228,14 @@ test "iso duration to Duration type round-trip" {
             .string = "PT4H5M6.789S",
             .duration = .{ .__sec = 4 * 3600 + 5 * 60 + 6, .__nsec = 789000000 },
         },
+        .{
+            .string = "PT37H0M12.789000001S", // default formatter prints components that are zero
+            .duration = .{ .__sec = 37 * 3600 + 12, .__nsec = 789000001 },
+        },
+        .{
+            .string = "-PT0H46M59.789S",
+            .duration = .{ .__sec = -(46 * 60 + 59), .__nsec = 789000000 },
+        },
     };
 
     for (cases) |case| {

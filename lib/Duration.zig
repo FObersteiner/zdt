@@ -88,8 +88,9 @@ pub fn asNanoseconds(duration: Duration) i128 {
     return duration.__sec * 1_000_000_000 + duration.__nsec;
 }
 
-// Formatted printing for Duration type. Defaults to ISO8601 duration format,
-// years/months/days excluded due to the ambiguity of months and years.
+// Formatted printing for Duration type. Defaults to 'ISO8601 duration'-like
+// format, with years/months/days excluded due to the ambiguity of months and years.
+// If a component is zero (e.g. hours = 0), this is also reported ("0H").
 pub fn format(
     duration: Duration,
     comptime fmt: []const u8,
@@ -99,12 +100,8 @@ pub fn format(
     _ = options;
     _ = fmt;
     const is_negative = duration.__sec < 0;
-    var s: u64 = if (is_negative) @intCast(duration.__sec * -1) else @intCast(duration.__sec);
-
-    // account for fraction always being positive:
-    if (is_negative and duration.__nsec > 0) s -= 1;
-
-    var frac = if (is_negative) 1_000_000_000 - duration.__nsec else duration.__nsec;
+    const s: u64 = if (is_negative) @intCast(duration.__sec * -1) else @intCast(duration.__sec);
+    var frac = duration.__nsec;
     // truncate zeros from fractional part
     if (frac > 0) {
         while (frac % 10 == 0) : (frac /= 10) {}
@@ -119,7 +116,7 @@ pub fn format(
 
     try writer.print("PT{d}H{d}M{d}", .{ hours, minutes, seconds });
 
-    if (duration.__nsec > 0) {
+    if (frac > 0) {
         try writer.print(".{d}S", .{frac});
     } else {
         try writer.print("S", .{});
