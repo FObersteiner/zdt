@@ -60,8 +60,6 @@ pub fn weeksPerYear(y: u16) u8 {
 
 /// Mapping of Unix time [s] to number of leap seconds n_leap; n_leap = array-index + 11;
 /// UTC = TAI - n_leap
-///
-/// see also <https://hpiers.obspm.fr/iers/bul/bulc/ntp/leap-seconds.list>
 pub const leaps = [_]u64{
     // default to 10 leap seconds before 1972-07-01
     78796800, // 1972-07-01: now 11 leap seconds
