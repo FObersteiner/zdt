@@ -13,13 +13,14 @@ const log = std.log.scoped(.zdt_build);
 const zdt_version = std.SemanticVersion{ .major = 0, .minor = 4, .patch = 2 };
 
 const example_files = [_][]const u8{
-    "ex_demo",
+    "demo",
     "ex_datetime",
     "ex_duration",
     "ex_locale",
     "ex_offsetTz",
     "ex_strings",
     "ex_timezones",
+    "ex_zdt-types",
 };
 
 const test_files = [_][]const u8{
@@ -90,7 +91,7 @@ pub fn build(b: *std.Build) !void {
     );
     var gen_tzdb_prefix = b.addExecutable(.{
         .name = "gen_tzdb_prefix",
-        .root_source_file = b.path("util/gen_tzdb_prefix.zig"),
+        .root_source_file = b.path("scripts/gen_tzdb_prefix.zig"),
         .target = b.host,
     });
     const run_gen_prefix = b.addRunArtifact(gen_tzdb_prefix);
@@ -122,7 +123,7 @@ pub fn build(b: *std.Build) !void {
     {
         var gen_tzdb = b.addExecutable(.{
             .name = "gen_tzdb",
-            .root_source_file = b.path("util/gen_tzdb.zig"),
+            .root_source_file = b.path("scripts/gen_tzdb.zig"),
             .target = b.host,
         });
 

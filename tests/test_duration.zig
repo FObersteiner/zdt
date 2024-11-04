@@ -229,7 +229,7 @@ test "iso duration to Duration type round-trip" {
             .duration = .{},
         },
         .{
-            .string = "-PT0H46M59.789S",
+            .string = "-PT46M59.789S",
             .duration = .{ .__sec = -(46 * 60 + 59), .__nsec = 789000000 },
         },
         .{
@@ -237,11 +237,11 @@ test "iso duration to Duration type round-trip" {
             .duration = .{ .__sec = 4 * 3600 + 5 * 60 + 6, .__nsec = 789000000 },
         },
         .{
-            .string = "PT37H0M12.789000001S", // default formatter prints components that are zero
+            .string = "PT37H12.789000001S",
             .duration = .{ .__sec = 37 * 3600 + 12, .__nsec = 789000001 },
         },
         .{
-            .string = "-PT0H46M59.789S", // default formatter normalizes, e.g. seconds >= 59
+            .string = "-PT46M59.789S", // default formatter normalizes, e.g. seconds >= 59
             .duration = .{ .__sec = -(46 * 60 + 59), .__nsec = 789000000 },
         },
     };
@@ -279,7 +279,10 @@ test "iso duration fail cases" {
     };
 
     for (cases) |case| {
-        const err = Duration.parseIsoDur(case) catch error.InvalidFormat;
-        try testing.expectError(error.InvalidFormat, err);
+        if (Duration.parseIsoDur(case)) |_| unreachable else |err| switch (err) {
+            error.InvalidFormat => {}, // ok
+            error.InvalidCharacter => {}, // ok
+            else => log.err("incorrect error: {any}", .{err}),
+        }
     }
 }

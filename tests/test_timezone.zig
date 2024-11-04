@@ -73,8 +73,7 @@ test "tz deinit is mem-safe" {
     try testing.expectEqualStrings("", dt.tzName());
     try testing.expectEqualStrings("JST", dt.tzAbbreviation());
 
-    // FIXME :
-    // declaring the tz as a var is a footgun;
+    // FIXME : declaring the tz as a var carries a footgun;
     // having tz be something else does alter the datetime:
     // tzinfo = try Tz.fromTzdata("Asia/Kolkata", testing.allocator);
     // defer tzinfo.deinit();
@@ -341,15 +340,29 @@ test "non-existent datetime" {
 }
 
 test "ambiguous datetime" {
-    var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
-    defer tzinfo.deinit();
+    var tz_berlin = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tz_berlin.deinit();
 
-    var dt = Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 2, .tz_options = .{ .tz = &tzinfo } });
+    var dt = Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 2, .tz_options = .{ .tz = &tz_berlin } });
     try testing.expectError(ZdtError.AmbiguousDatetime, dt);
 
-    var tzinfo_ = try Tz.fromTzdata("America/Denver", testing.allocator);
-    defer tzinfo_.deinit();
-    dt = Datetime.fromFields(.{ .year = 2023, .month = 11, .day = 5, .hour = 1, .minute = 59, .second = 59, .tz_options = .{ .tz = &tzinfo_ } });
+    var tz_denver = try Tz.fromTzdata("America/Denver", testing.allocator);
+    defer tz_denver.deinit();
+    dt = Datetime.fromFields(.{ .year = 2023, .month = 11, .day = 5, .hour = 1, .minute = 59, .second = 59, .tz_options = .{ .tz = &tz_denver } });
+    try testing.expectError(ZdtError.AmbiguousDatetime, dt);
+
+    // Nuuk tz transitions at 12 am:
+    var tz_nuuk = try Tz.fromTzdata("America/Nuuk", testing.allocator);
+    defer tz_nuuk.deinit();
+    dt = Datetime.fromFields(.{ .year = 2024, .month = 10, .day = 26, .hour = 23, .minute = 30, .tz_options = .{ .tz = &tz_nuuk } });
+    try testing.expectError(ZdtError.AmbiguousDatetime, dt);
+
+    // Troll tz has a 2-hour DST transition:
+    var tz_troll = try Tz.fromTzdata("Antarctica/Troll", testing.allocator);
+    defer tz_troll.deinit();
+    dt = Datetime.fromFields(.{ .year = 2024, .month = 10, .day = 27, .hour = 1, .minute = 30, .tz_options = .{ .tz = &tz_troll } });
+    try testing.expectError(ZdtError.AmbiguousDatetime, dt);
+    dt = Datetime.fromFields(.{ .year = 2024, .month = 10, .day = 27, .hour = 2, .minute = 30, .tz_options = .{ .tz = &tz_troll } });
     try testing.expectError(ZdtError.AmbiguousDatetime, dt);
 }
 

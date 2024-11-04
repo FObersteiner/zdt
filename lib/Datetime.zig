@@ -239,8 +239,6 @@ pub const OptFields = struct {
 
 /// Make a valid datetime from fields.
 pub fn fromFields(fields: Fields) ZdtError!Datetime {
-
-    // NOTE : should this only be called on demand or only in debug builds ?
     _ = try fields.validate();
 
     const d = cal.dateToRD([_]u16{ fields.year, fields.month, fields.day });
@@ -248,11 +246,11 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
     const s = if (fields.second == 60) 59 else fields.second;
     var dt = Datetime{
         .year = fields.year,
-        .month = @truncate(fields.month),
-        .day = @truncate(fields.day),
-        .hour = @truncate(fields.hour),
-        .minute = @truncate(fields.minute),
-        .second = @truncate(fields.second),
+        .month = fields.month,
+        .day = fields.day,
+        .hour = fields.hour,
+        .minute = fields.minute,
+        .second = fields.second,
         .nanosecond = fields.nanosecond,
         .unix_sec = ( //
             @as(i40, d) * s_per_day +
@@ -260,6 +258,9 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
             @as(u12, fields.minute) * s_per_minute + s //
         ),
     };
+
+    // verify that provided leap second datetime is valid
+    if (dt.second == 60) _ = try dt.validateLeap();
 
     if (fields.tz_options) |opts| {
         switch (opts) {
@@ -649,6 +650,8 @@ pub fn diffWall(this: Datetime, other: Datetime) !Duration {
 
 /// Validate a datetime in terms of leap seconds;
 /// Returns an error if the datetime has seconds == 60 but is NOT a leap second datetime.
+//
+// TODO : might be private
 pub fn validateLeap(this: *const Datetime) !void {
     if (this.second != 60) return;
     if (cal.mightBeLeap(this.unix_sec)) return;

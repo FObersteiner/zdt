@@ -13,13 +13,20 @@ Types of changes
 
 ## Unreleased
 
+## 2024-11-04, v0.4.2
+
 ### Added
 
 - ISO8601 duration parser
 
+### Changed
+
+- revised examples; type infos now in a separate file 'ex_zdt-types.zig'
+
 ### Fixed
 
-- default formatter of the Duration type to 'ISO8601 duration'-like string
+- default formatter of the Duration type to 'ISO8601 duration'-like string, correct output
+- datetime parsing / from fields: leap seconds are now validated, i.e. a random datetime cannot have seconds == 60 anymore
 
 ## 2024-10-28, v0.4.1
 

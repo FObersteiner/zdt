@@ -93,11 +93,11 @@ test "Datetime Unix epoch roundtrip" {
 }
 
 test "Fields can represent leap second, Unix cannot" {
-    const dt_from_fields = try Datetime.fromFields(.{ .year = 1970, .second = 60 });
+    const dt_from_fields = try Datetime.fromFields(.{ .year = 1990, .month = 12, .day = 31, .hour = 23, .minute = 59, .second = 60 });
     try testing.expectEqual(@as(u8, 60), dt_from_fields.second);
-    try testing.expectError(ZdtError.SecondOutOfRange, dt_from_fields.validateLeap());
+
     const unix_s = dt_from_fields.toUnix(Duration.Resolution.second);
-    try testing.expectEqual(@as(i128, 59), unix_s);
+    try testing.expectEqual(@as(i128, 662687999), unix_s);
     const normal_dt = try Datetime.fromFields(.{ .year = 1985, .month = 6, .day = 30, .hour = 23, .minute = 59, .second = 59 });
     _ = try normal_dt.validateLeap();
     const leap_dt = try Datetime.fromFields(.{ .year = 1985, .month = 6, .day = 30, .hour = 23, .minute = 59, .second = 60 });
@@ -499,11 +499,10 @@ test "replace fields" {
     new_dt = try dt.replace(.{ .nanosecond = 1 });
     try testing.expectEqual(1, new_dt.nanosecond);
 
-    // TODO : fields validation should report incorrect leap second
-    new_dt = try dt.replace(.{ .second = 60 });
-    try testing.expectEqual(60, new_dt.second);
+    var err = dt.replace(.{ .second = 60 }); // not a leap second!
+    try testing.expectError(error.SecondOutOfRange, err);
 
-    const err = dt.replace(.{ .month = 13 }); // ensure is checked
+    err = dt.replace(.{ .month = 13 }); // ensure is checked
     try testing.expectError(error.MonthOutOfRange, err);
 }
 

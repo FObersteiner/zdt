@@ -88,9 +88,11 @@ pub fn asNanoseconds(duration: Duration) i128 {
     return duration.__sec * 1_000_000_000 + duration.__nsec;
 }
 
-// Formatted printing for Duration type. Defaults to 'ISO8601 duration'-like
-// format, with years/months/days excluded due to the ambiguity of months and years.
-// If a component is zero (e.g. hours = 0), this is also reported ("0H").
+/// Formatted printing for Duration type. Defaults to 'ISO8601 duration'-style
+/// format, with years/months/days excluded due to the ambiguity of months and years.
+//
+// TODO : revise this method when RelativeDelta is introduced;
+// it might be simpler to convert Duration to RelativeDelta, then print.
 pub fn format(
     duration: Duration,
     comptime fmt: []const u8,
@@ -104,25 +106,29 @@ pub fn format(
 
     const is_negative = duration.__sec < 0;
     const s: u64 = if (is_negative) @intCast(duration.__sec * -1) else @intCast(duration.__sec);
+
     var frac = duration.__nsec;
     // truncate zeros from fractional part
     if (frac > 0) {
         while (frac % 10 == 0) : (frac /= 10) {}
     }
 
+    if (is_negative) try writer.print("-PT", .{}) else try writer.print("PT", .{});
+
     const hours = @divFloor(s, 3600);
+    if (hours > 0) try writer.print("{d}H", .{hours});
+
     const remainder = @rem(s, 3600);
     const minutes = @divFloor(remainder, 60);
+    if (minutes > 0) try writer.print("{d}M", .{minutes});
+
     const seconds = @rem(remainder, 60);
-
-    if (is_negative) try writer.print("-", .{});
-
-    try writer.print("PT{d}H{d}M{d}", .{ hours, minutes, seconds });
+    if (seconds == 0 and frac == 0) return;
 
     if (frac > 0) {
-        try writer.print(".{d}S", .{frac});
+        try writer.print("{d}.{d}S", .{ seconds, frac });
     } else {
-        try writer.print("S", .{});
+        try writer.print("{d}S", .{seconds});
     }
 }
 
@@ -147,22 +153,6 @@ pub const Timespan = enum(u64) {
     week = 1_000_000_000 * 60 * 60 * 24 * 7,
 };
 
-// pub fn fromString(string: []const u8, directives: []const u8) !Duration {
-//
-// };
-
-// pub fn fromISO8601(string: []const u8) !Duration {
-//
-// };
-
-// pub fn toString(duration: Duration, directives: []const u8, writer: anytype) !void {
-//
-// };
-
-// pub fn toISO8601(duration: Duration, writer: anytype) void {
-//
-// };
-
 /// Fields of a duration that is relative to a datetime.
 pub const RelativeDeltaFields = struct {
     years: i32 = 0,
@@ -173,15 +163,7 @@ pub const RelativeDeltaFields = struct {
     seconds: i32 = 0,
     nanoseconds: u32 = 0,
 
-    // /// TODO : to Duration (absoulte) - truncate months and years
-    // pub fn toDurationTruncate(fields: RelativeDeltaFields) Duration {
-    //
-    // }
-    //
-    // /// TODO : to Duration (absoulte) - return error if years or months are != 0
-    // pub fn toDuration(fields: RelativeDeltaFields) !Duration {
-    //
-    // }
+    // TODO : normalize() -- max. 59 seconds, 59 minutes etc.
 };
 
 /// convert ISO8601 duration from string to RelativeDeltaFields.
@@ -214,7 +196,7 @@ pub fn parseIsoDur(string: []const u8) !RelativeDeltaFields {
     var idx: usize = string.len - 1;
 
     // need flags to keep track of what has been parsed already,
-    // and in which order:
+    // and in which order.
     // quantity:   Y m d T H M S
     // bit/order:  - - 4 3 2 1 0
     var flags: u8 = 0;
@@ -317,7 +299,7 @@ fn parseAndAdvanceS(string: []const u8, idx_ptr: *usize, sec: *i32, nsec: *u32) 
         if (substr_nanos.len > 9) substr_nanos = substr_nanos[0..9];
         const nanos = try std.fmt.parseInt(u32, substr_nanos, 10);
 
-        // nanos might actually be another unit; if there is e.g. 3 digits of fractional
+        // nanos might actually be another unit; if there are e.g. 3 digits of fractional
         // seconds, we have milliseconds (1/10^3 s) and need to multiply by 10^(9-3) to get ns.
         const missing = 9 - substr_nanos.len;
         const f: u32 = try std.math.powi(u32, 10, @as(u32, @intCast(missing)));

@@ -8,17 +8,8 @@ const Tz = zdt.Timezone;
 
 pub fn main() !void {
     println("---> datetime example", .{});
-    println("OS / architecture: {s} / {s}", .{ @tagName(builtin.os.tag), @tagName(builtin.cpu.arch) });
-    println("Zig version: {s}\n", .{builtin.zig_version_string});
 
-    println("datetime type info:", .{});
-    println("size of {s}: {}", .{ @typeName(Datetime), @sizeOf(Datetime) });
-    inline for (std.meta.fields(Datetime)) |field| {
-        println("  field {s} byte offset: {}", .{ field.name, @offsetOf(Datetime, field.name) });
-    }
-    println("", .{});
-
-    println("---> (usage) Unix epoch: datetime from timestamp", .{});
+    println("---> Unix epoch: datetime from timestamp", .{});
     const unix_epoch_naive = try Datetime.fromUnix(0, Duration.Resolution.second, null);
     println("'Unix epoch', naive datetime : {s}", .{unix_epoch_naive});
     var unix_epoch_correct = try Datetime.fromUnix(0, Duration.Resolution.second, .{ .tz = &Tz.UTC });
@@ -26,7 +17,7 @@ pub fn main() !void {
     println("'Unix epoch', tz name : {s}", .{unix_epoch_correct.tzName()});
 
     println("", .{});
-    println("---> (usage) Now: datetime from system time", .{});
+    println("---> Now: datetime from system time", .{});
     const now = Datetime.nowUTC();
     println("'now', UTC      : {s}", .{now});
     println("'now', UTC      : {s:.3} (only ms shown)", .{now});

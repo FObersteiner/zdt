@@ -4,9 +4,8 @@
     .paths = .{
         "zdt.zig",
         "lib", // anything from lib
-        "util/gen_tzdb_prefix.zig",
-        "util/gen_tzdb_version.zig",
-        "README.md",
+        "scripts/gen_tzdb_prefix.zig",
+        "scripts/gen_tzdb_version.zig",
         "LICENSE",
         "build.zig",
         "build.zig.zon",

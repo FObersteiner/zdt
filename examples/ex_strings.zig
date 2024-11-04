@@ -4,13 +4,10 @@ const assert = std.debug.assert;
 
 const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
-const Duration = zdt.Duration;
 const Timezone = zdt.Timezone;
 
 pub fn main() !void {
-    println("---> datetime example", .{});
-    println("OS / architecture: {s} / {s}", .{ @tagName(builtin.os.tag), @tagName(builtin.cpu.arch) });
-    println("Zig version: {s}", .{builtin.zig_version_string});
+    println("---> datetime strings example", .{});
 
     // the easiest input format is probably ISO8601. This can directly
     // be parsed; schema is infered at runtime.

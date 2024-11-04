@@ -7,8 +7,6 @@ const Datetime = zdt.Datetime;
 
 pub fn main() !void {
     println("---> locale example", .{});
-    println("OS / architecture: {s} / {s}", .{ @tagName(builtin.os.tag), @tagName(builtin.cpu.arch) });
-    println("Zig version: {s}", .{builtin.zig_version_string});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();

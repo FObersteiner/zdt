@@ -40,7 +40,6 @@ pub fn main() !void {
         log.info("submodule update stdout: {s}", .{proc_update.stdout});
     } else {
         log.info("submodule update: no updates available", .{});
-        // TODO : consider 'force' flag (issue #4): exit here if tz db update should not be forced
     }
     allocator.free(proc_update.stdout);
     allocator.free(proc_update.stderr);
@@ -152,7 +151,7 @@ pub fn main() !void {
         .allocator = allocator,
         .argv = &[_][]const u8{
             "python",
-            "../util/gen_wintz_mapping.py",
+            "../scripts/gen_wintz_mapping.py",
         },
     });
     if (proc_wintzmapping.stdout.len > 0) {
@@ -169,7 +168,7 @@ pub fn main() !void {
         .allocator = allocator,
         .argv = &[_][]const u8{
             "python",
-            "../util/gen_tzdb_embedding.py",
+            "../scripts/gen_tzdb_embedding.py",
             tzdbtag.?,
         },
     });

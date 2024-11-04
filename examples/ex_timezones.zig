@@ -3,28 +3,19 @@ const builtin = @import("builtin");
 
 const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
-const Tz = zdt.Timezone;
+const Timezone = zdt.Timezone;
 
 pub fn main() !void {
     println("---> time zones example", .{});
-    println("OS / architecture: {s} / {s}", .{ @tagName(builtin.os.tag), @tagName(builtin.cpu.arch) });
-    println("Zig version: {s}\n", .{builtin.zig_version_string});
-
-    println("TZ type info:", .{});
-    println("size of {s}: {}", .{ @typeName(Tz), @sizeOf(Tz) });
-    inline for (std.meta.fields(Tz)) |field| {
-        println("  field {s} byte offset: {}", .{ field.name, @offsetOf(Tz, field.name) });
-    }
-    println("", .{});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    println("time zone database version: {s}", .{Tz.tzdb_version});
-    println("path to local tz database: {s}\n", .{Tz.tzdb_prefix});
+    println("IANA time zone database version: {s}", .{Timezone.tzdb_version});
+    println("path to local tz database: {s}\n", .{Timezone.tzdb_prefix});
 
-    var tz_berlin: Tz = try Tz.fromTzdata("Europe/Berlin", allocator);
+    var tz_berlin: Timezone = try Timezone.fromTzdata("Europe/Berlin", allocator);
     defer tz_berlin.deinit();
     var now_berlin: Datetime = try Datetime.now(.{ .tz = &tz_berlin });
     const now_utc: Datetime = Datetime.nowUTC();
@@ -32,7 +23,7 @@ pub fn main() !void {
     println("Now, Berlin time : {s} ({s})", .{ now_berlin, now_berlin.tzAbbreviation() });
     println("Datetimes have UTC offset / time zone? : {}, {}\n", .{ now_utc.isAware(), now_berlin.isAware() });
 
-    var my_tz: Tz = try Tz.tzLocal(allocator);
+    var my_tz: Timezone = try Timezone.tzLocal(allocator);
     defer my_tz.deinit();
     var now_local = try now_berlin.tzConvert(.{ .tz = &my_tz });
     println("My time zone : {s}", .{my_tz.name()});
@@ -40,7 +31,7 @@ pub fn main() !void {
     println("Now, my time zone : {s} ({s})", .{ now_local, now_local.tzAbbreviation() });
     println("", .{});
 
-    var tz_ny = try Tz.fromTzdata("America/New_York", allocator);
+    var tz_ny = try Timezone.fromTzdata("America/New_York", allocator);
     defer tz_ny.deinit();
     var now_ny: Datetime = try now_local.tzConvert(.{ .tz = &tz_ny });
     println("Now in New York : {s} ({s})", .{ now_ny, now_ny.tzAbbreviation() });

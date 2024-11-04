@@ -6,9 +6,7 @@ const Datetime = zdt.Datetime;
 const UTCoffset = zdt.UTCoffset;
 
 pub fn main() !void {
-    println("---> UTC offset time zone example", .{});
-    println("OS / architecture: {s} / {s}", .{ @tagName(builtin.os.tag), @tagName(builtin.cpu.arch) });
-    println("Zig version: {s}\n", .{builtin.zig_version_string});
+    println("---> UTC offset example", .{});
 
     const offset = try UTCoffset.fromSeconds(3600, "UTC+1");
     var a_date = try Datetime.fromFields(.{ .year = 1970, .tz_options = .{ .utc_offset = offset } });
