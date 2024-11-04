@@ -13,6 +13,14 @@ Types of changes
 
 ## Unreleased
 
+## Added
+
+- ISO duration parser / relative delta type can handle weeks
+
+## Fixed
+
+- ISO duration format validation for incorrect order of quantities and position of 'T'
+
 ## 2024-11-04, v0.4.2
 
 ### Added
