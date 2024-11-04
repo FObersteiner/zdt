@@ -216,7 +216,7 @@ pub fn parseIsoDur(string: []const u8) !RelativeDelta {
     // and in which order.
     // quantity:   Y m W d T H M S
     // bit/order:  7 6 5 4 3 2 1 0
-    var flags: u16 = 0;
+    var flags: u8 = 0;
 
     while (idx >= stop) {
         switch (string[idx]) {
@@ -224,33 +224,29 @@ pub fn parseIsoDur(string: []const u8) !RelativeDelta {
                 // seconds come last, so no other quantity must have been parsed yet
                 if (flags > 0) return error.InvalidFormat;
                 idx -= 1;
-                flags |= 0b1;
+                flags |= 1;
                 _ = try parseAndAdvanceS(string, &idx, &result.seconds, &result.nanoseconds);
                 if (invert) result.seconds *= -1;
             },
             'M' => {
-                // 'M' may appear twice; its either minutes or months;
+                // 'M' may appear twice; it's either minutes or months;
                 // depending on if the 'T' has been seen =>
                 // minutes if (flags & 0b1000 == 0), otherwise months
                 if (flags & 0b1000 == 0) {
                     // minutes come second to last, so only seconds may have been parsed yet
                     if (flags > 1) return error.InvalidFormat;
                     idx -= 1;
-                    flags |= 0b10;
-                    var quantity = try parseAndAdvanceYmWDHM(i32, string, &idx);
+                    flags |= 1 << 1;
+                    var quantity = try parseAndAdvanceYmWdHM(i32, string, &idx);
                     if (invert) quantity *= -1;
                     result.minutes = quantity;
                 } else {
                     if (flags > 0b111111) return error.InvalidFormat;
                     // if no 'T' was parsed before, flags 0, 1 and 2 must be 0:
-                    if (flags & 0b1000 == 0) {
-                        if (flags & 0b100 != 0 or flags & 0b10 != 0 or flags & 0b1 != 0) {
-                            return error.InvalidFormat;
-                        }
-                    }
+                    if (flags & 0b1000 == 0 and flags & 0b111 != 0) return error.InvalidFormat;
                     idx -= 1;
-                    flags |= 0b1000000;
-                    var quantity = try parseAndAdvanceYmWDHM(i32, string, &idx);
+                    flags |= 1 << 6;
+                    var quantity = try parseAndAdvanceYmWdHM(i32, string, &idx);
                     if (invert) quantity *= -1;
                     result.months = quantity;
                 }
@@ -259,52 +255,40 @@ pub fn parseIsoDur(string: []const u8) !RelativeDelta {
                 // so only seconds and minutes may have been parsed yet
                 if (flags > 0b11) return error.InvalidFormat;
                 idx -= 1;
-                flags |= 0b100;
-                var quantity = try parseAndAdvanceYmWDHM(i32, string, &idx);
+                flags |= 1 << 2;
+                var quantity = try parseAndAdvanceYmWdHM(i32, string, &idx);
                 if (invert) quantity *= -1;
                 result.hours = quantity;
             },
             'T' => { // date/time separator must only appear once
                 if (flags > 0b111) return error.InvalidFormat;
                 idx -= 1;
-                flags |= 0b1000;
+                flags |= 1 << 3; // 0b1000;
             },
             'D' => {
                 if (flags > 0b1111) return error.InvalidFormat;
-                if (flags & 0b1000 == 0) {
-                    if (flags & 0b100 != 0 or flags & 0b10 != 0 or flags & 0b1 != 0) {
-                        return error.InvalidFormat;
-                    }
-                }
+                if (flags & 0b1000 == 0 and flags & 0b111 != 0) return error.InvalidFormat;
                 idx -= 1;
-                flags |= 0b10000;
-                var quantity = try parseAndAdvanceYmWDHM(i32, string, &idx);
+                flags |= 1 << 4;
+                var quantity = try parseAndAdvanceYmWdHM(i32, string, &idx);
                 if (invert) quantity *= -1;
                 result.days = quantity;
             },
             'W' => {
                 if (flags > 0b11111) return error.InvalidFormat;
-                if (flags & 0b1000 == 0) {
-                    if (flags & 0b100 != 0 or flags & 0b10 != 0 or flags & 0b1 != 0) {
-                        return error.InvalidFormat;
-                    }
-                }
+                if (flags & 0b1000 == 0 and flags & 0b111 != 0) return error.InvalidFormat;
                 idx -= 1;
-                flags |= 0b100000;
-                var quantity = try parseAndAdvanceYmWDHM(i32, string, &idx);
+                flags |= 1 << 5;
+                var quantity = try parseAndAdvanceYmWdHM(i32, string, &idx);
                 if (invert) quantity *= -1;
                 result.weeks = quantity;
             },
             'Y' => {
-                if (flags > 0b11111111) return error.InvalidFormat;
-                if (flags & 0b1000 == 0) {
-                    if (flags & 0b100 != 0 or flags & 0b10 != 0 or flags & 0b1 != 0) {
-                        return error.InvalidFormat;
-                    }
-                }
+                if (flags & 1 << 7 != 0) return error.InvalidFormat;
+                if (flags & 0b1000 == 0 and flags & 0b111 != 0) return error.InvalidFormat;
                 idx -= 1;
-                flags |= 0b100000000;
-                var quantity = try parseAndAdvanceYmWDHM(i32, string, &idx);
+                flags |= 1 << 7;
+                var quantity = try parseAndAdvanceYmWdHM(i32, string, &idx);
                 if (invert) quantity *= -1;
                 result.years = quantity;
             },
@@ -359,7 +343,7 @@ fn parseAndAdvanceS(string: []const u8, idx_ptr: *usize, sec: *i32, nsec: *u32) 
 /// backwards-looking parse chars from 'string' to int (base 10),
 /// end index is the value of 'idx_ptr' when the function is called.
 /// start index is determined automatically.
-fn parseAndAdvanceYmWDHM(comptime T: type, string: []const u8, idx_ptr: *usize) !T {
+fn parseAndAdvanceYmWdHM(comptime T: type, string: []const u8, idx_ptr: *usize) !T {
     const end_idx = idx_ptr.*;
     while (idx_ptr.* > 0 and
         end_idx - idx_ptr.* < maxDigits and
