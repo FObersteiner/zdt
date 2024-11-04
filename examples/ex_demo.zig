@@ -47,6 +47,6 @@ pub fn main() !void {
         "Wall clock time difference: {s}\nAbsolute time difference: {s}\n",
         .{ wall_diff, abs_diff },
     );
-    // Wall clock time difference: PT09H00M00S
-    // Absolute time difference: PT00H00M00S
+    // Wall clock time difference: PT9H0M0S
+    // Absolute time difference: PT0H0M0S
 }

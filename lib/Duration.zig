@@ -4,6 +4,9 @@ const std = @import("std");
 
 const Duration = @This();
 
+// max. digits per quantity in an ISO8601 duration string
+const maxDigits: usize = 99;
+
 /// Any duration represented in seconds.
 /// Do not modify directly.
 __sec: i64 = 0,
@@ -18,6 +21,23 @@ pub fn fromTimespanMultiple(n: i128, timespan: Timespan) Duration {
     return .{
         .__sec = @intCast(@divFloor(ns, 1_000_000_000)),
         .__nsec = @intCast(@mod(ns, 1_000_000_000)),
+    };
+}
+
+/// Create a duration from an ISO8601 duration string.
+///
+/// Since the Duration type represents and absolute difference in time,
+/// 'years' and 'months' fields of the duration string must be zero,
+/// if not, this is considered an error due to the ambiguity of months and years.
+pub fn fromISO8601Duration(string: []const u8) !Duration {
+    const fields: RelativeDeltaFields = try parseIsoDur(string);
+    if (fields.years != 0 or fields.months != 0) return error.InvalidFormat;
+    return .{
+        .__sec = @as(i64, fields.days) * 86400 + //
+            @as(i64, fields.hours) * 3600 + //
+            @as(i64, fields.minutes) * 60 + //
+            @as(i64, fields.seconds),
+        .__nsec = fields.nanoseconds,
     };
 }
 
@@ -68,7 +88,9 @@ pub fn asNanoseconds(duration: Duration) i128 {
     return duration.__sec * 1_000_000_000 + duration.__nsec;
 }
 
-// Formatted printing for Duration type. Defaults to ISO8601 duration format.
+// Formatted printing for Duration type. Defaults to 'ISO8601 duration'-like
+// format, with years/months/days excluded due to the ambiguity of months and years.
+// If a component is zero (e.g. hours = 0), this is also reported ("0H").
 pub fn format(
     duration: Duration,
     comptime fmt: []const u8,
@@ -77,12 +99,16 @@ pub fn format(
 ) !void {
     _ = options;
     _ = fmt;
-    const is_negative = duration.__sec < 0;
-    var s: u64 = if (is_negative) @intCast(duration.__sec * -1) else @intCast(duration.__sec);
 
-    // account for fraction always being positive:
-    if (is_negative and duration.__nsec > 0) s -= 1;
-    const ns = if (is_negative) 1_000_000_000 - duration.__nsec else duration.__nsec;
+    if (duration.__sec == 0 and duration.__nsec == 0) return try writer.print("PT0S", .{});
+
+    const is_negative = duration.__sec < 0;
+    const s: u64 = if (is_negative) @intCast(duration.__sec * -1) else @intCast(duration.__sec);
+    var frac = duration.__nsec;
+    // truncate zeros from fractional part
+    if (frac > 0) {
+        while (frac % 10 == 0) : (frac /= 10) {}
+    }
 
     const hours = @divFloor(s, 3600);
     const remainder = @rem(s, 3600);
@@ -90,10 +116,11 @@ pub fn format(
     const seconds = @rem(remainder, 60);
 
     if (is_negative) try writer.print("-", .{});
-    try writer.print("PT{d:0>2}H{d:0>2}M{d:0>2}", .{ hours, minutes, seconds });
 
-    if (duration.__nsec > 0) {
-        try writer.print(".{d:0>9}S", .{ns});
+    try writer.print("PT{d}H{d}M{d}", .{ hours, minutes, seconds });
+
+    if (frac > 0) {
+        try writer.print(".{d}S", .{frac});
     } else {
         try writer.print("S", .{});
     }
@@ -135,3 +162,180 @@ pub const Timespan = enum(u64) {
 // pub fn toISO8601(duration: Duration, writer: anytype) void {
 //
 // };
+
+/// Fields of a duration that is relative to a datetime.
+pub const RelativeDeltaFields = struct {
+    years: i32 = 0,
+    months: i32 = 0,
+    days: i32 = 0,
+    hours: i32 = 0,
+    minutes: i32 = 0,
+    seconds: i32 = 0,
+    nanoseconds: u32 = 0,
+
+    // /// TODO : to Duration (absoulte) - truncate months and years
+    // pub fn toDurationTruncate(fields: RelativeDeltaFields) Duration {
+    //
+    // }
+    //
+    // /// TODO : to Duration (absoulte) - return error if years or months are != 0
+    // pub fn toDuration(fields: RelativeDeltaFields) !Duration {
+    //
+    // }
+};
+
+/// convert ISO8601 duration from string to RelativeDeltaFields.
+pub fn parseIsoDur(string: []const u8) !RelativeDeltaFields {
+    var result: RelativeDeltaFields = .{};
+
+    // at least 3 characters, e.g. P0D
+    if (string.len < 3) return error.InvalidFormat;
+
+    // must end with a character
+    if (!std.ascii.isAlphabetic(string[string.len - 1])) return error.InvalidFormat;
+
+    var stop: usize = 0;
+    var invert: bool = false;
+
+    if (string[stop] == '-') {
+        invert = true;
+        stop += 1;
+    }
+
+    // must start with P (ignore sign)
+    if (string[stop] != 'P') return error.InvalidFormat;
+    stop += 1;
+
+    if (string[stop] == 'T') stop += 1;
+
+    // 'P' or 'T' must be followed by a digit or minus sign
+    if (!(std.ascii.isDigit(string[stop]) or string[stop] == '-')) return error.InvalidFormat;
+
+    var idx: usize = string.len - 1;
+
+    // need flags to keep track of what has been parsed already,
+    // and in which order:
+    // quantity:   Y m d T H M S
+    // bit/order:  - - 4 3 2 1 0
+    var flags: u8 = 0;
+
+    while (idx > stop) {
+        //log.info("flags: {b}", .{flags});
+        switch (string[idx]) {
+            'S' => {
+                // seconds come last, so no other quantity must have been parsed yet
+                if (flags > 0) return error.InvalidFormat;
+                idx -= 1;
+                flags |= 0b1;
+                _ = try parseAndAdvanceS(string, &idx, &result.seconds, &result.nanoseconds);
+                if (invert) result.seconds *= -1;
+            },
+            'M' => {
+                // 'M' may appear twice; its either minutes or months;
+                // depending on if the 'T' has been seen =>
+                // minutes if (flags & 0b1000 == 0), otherwise months
+                if (flags & 0b1000 == 0) {
+                    // minutes come second to last, so only seconds may have been parsed yet
+                    if (flags > 1) return error.InvalidFormat;
+                    idx -= 1;
+                    flags |= 0b10;
+                    var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
+                    if (invert) quantity *= -1;
+                    result.minutes = quantity;
+                } else {
+                    if (flags > 0b11111) return error.InvalidFormat;
+                    idx -= 1;
+                    flags |= 0b100000;
+                    var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
+                    if (invert) quantity *= -1;
+                    result.months = quantity;
+                }
+            },
+            'H' => { // hours are the third-to-last component,
+                // so only seconds and minutes may have been parsed yet
+                if (flags > 0b11) return error.InvalidFormat;
+                idx -= 1;
+                flags |= 0b100;
+                var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
+                if (invert) quantity *= -1;
+                result.hours = quantity;
+            },
+            'T' => { // date/time separator must only appear once
+                if (flags > 0b111) return error.InvalidFormat;
+                idx -= 1;
+                flags |= 0b1000;
+            },
+            'D' => {
+                if (flags > 0b1111) return error.InvalidFormat;
+                idx -= 1;
+                flags |= 0b10000;
+                var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
+                if (invert) quantity *= -1;
+                result.days = quantity;
+            },
+            'Y' => {
+                if (flags > 0b111111) return error.InvalidFormat;
+                idx -= 1;
+                flags |= 0b1000000;
+                var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
+                if (invert) quantity *= -1;
+                result.years = quantity;
+            },
+            else => return error.InvalidFormat,
+        }
+    }
+    return result;
+}
+
+/// Backwards-looking parse chars from 'string' seconds and nanoseconds (sum),
+/// end index is the value of 'idx_ptr' when the function is called.
+/// start index is determined automatically.
+///
+/// This is a procedure; it modifies input pointer 'sec' and 'nsec' values in-place.
+/// This way, we can work around the fact that there are no multiple-return functions
+/// and save arithmetic operations (compared to using a single return value).
+fn parseAndAdvanceS(string: []const u8, idx_ptr: *usize, sec: *i32, nsec: *u32) !void {
+    const end_idx = idx_ptr.*;
+    var have_fraction: bool = false;
+    while (idx_ptr.* > 0 and
+        end_idx - idx_ptr.* < maxDigits and
+        !std.ascii.isAlphabetic(string[idx_ptr.*])) : (idx_ptr.* -= 1)
+    {
+        if (string[idx_ptr.*] == '.') have_fraction = true;
+    }
+
+    if (have_fraction) {
+        // fractional seconds are specified. need to convert them to nanoseconds,
+        // and truncate anything behind the nineth digit.
+        const substr = string[idx_ptr.* + 1 .. end_idx + 1];
+        const idx_dot = std.mem.indexOfScalar(u8, substr, '.');
+        if (idx_dot == null) return error.InvalidFormat;
+
+        sec.* = try std.fmt.parseInt(i32, substr[0..idx_dot.?], 10);
+
+        var substr_nanos = substr[idx_dot.? + 1 ..];
+        if (substr_nanos.len > 9) substr_nanos = substr_nanos[0..9];
+        const nanos = try std.fmt.parseInt(u32, substr_nanos, 10);
+
+        // nanos might actually be another unit; if there is e.g. 3 digits of fractional
+        // seconds, we have milliseconds (1/10^3 s) and need to multiply by 10^(9-3) to get ns.
+        const missing = 9 - substr_nanos.len;
+        const f: u32 = try std.math.powi(u32, 10, @as(u32, @intCast(missing)));
+        nsec.* = nanos * f;
+    } else { // short cut: there is no fraction
+        sec.* = try std.fmt.parseInt(i32, string[idx_ptr.* + 1 .. end_idx + 1], 10);
+        return;
+    }
+}
+
+/// backwards-looking parse chars from 'string' to int (base 10),
+/// end index is the value of 'idx_ptr' when the function is called.
+/// start index is determined automatically.
+fn parseAndAdvanceYMDHM(comptime T: type, string: []const u8, idx_ptr: *usize) !T {
+    const end_idx = idx_ptr.*;
+    while (idx_ptr.* > 0 and
+        end_idx - idx_ptr.* < maxDigits and
+        !std.ascii.isAlphabetic(string[idx_ptr.*])) : (idx_ptr.* -= 1)
+    {}
+    return try std.fmt.parseInt(T, string[idx_ptr.* + 1 .. end_idx + 1], 10);
+}

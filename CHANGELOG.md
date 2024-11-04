@@ -13,6 +13,14 @@ Types of changes
 
 ## Unreleased
 
+### Added
+
+- ISO8601 duration parser
+
+### Fixed
+
+- default formatter of the Duration type to 'ISO8601 duration'-like string
+
 ## 2024-10-28, v0.4.1
 
 ### Added

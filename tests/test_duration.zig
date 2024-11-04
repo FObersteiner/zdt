@@ -9,6 +9,12 @@ const Duration = zdt.Duration;
 
 const log = std.log.scoped(.test_duration);
 
+const TestCaseISODur = struct {
+    string: []const u8 = "",
+    fields: Duration.RelativeDeltaFields = .{},
+    duration: Duration = .{},
+};
+
 test "from timespan" {
     var td = Duration.fromTimespanMultiple(5, Duration.Timespan.nanosecond);
     try testing.expectEqual(@as(i128, 5), td.asNanoseconds());
@@ -168,4 +174,112 @@ test "leap second difference" {
     diff = a.diff(b).add(leaps);
     try testing.expectEqual(@as(i64, -86400), diff.__sec);
     try testing.expectEqual(@as(u32, 0), diff.__nsec);
+}
+
+test "iso duration parser, full valid input" {
+    const cases = [_]TestCaseISODur{
+        .{
+            .string = "P1Y2M3DT4H5M6.789S",
+            .fields = .{ .years = 1, .months = 2, .days = 3, .hours = 4, .minutes = 5, .seconds = 6, .nanoseconds = 789000000 },
+        },
+        .{
+            .string = "P-2Y3M4DT5H6M7.89S",
+            .fields = .{ .years = -2, .months = 3, .days = 4, .hours = 5, .minutes = 6, .seconds = 7, .nanoseconds = 890000000 },
+        },
+        .{
+            .string = "P999Y0M0DT0H0M0.123S",
+            .fields = .{ .years = 999, .months = 0, .days = 0, .hours = 0, .minutes = 0, .seconds = 0, .nanoseconds = 123000000 },
+        },
+        .{
+            .string = "P3Y4M5DT6H7M8.9S",
+            .fields = .{ .years = 3, .months = 4, .days = 5, .hours = 6, .minutes = 7, .seconds = 8, .nanoseconds = 900000000 },
+        },
+        .{
+            .string = "P-5Y6M7DT8H9M10.111000001S",
+            .fields = .{ .years = -5, .months = 6, .days = 7, .hours = 8, .minutes = 9, .seconds = 10, .nanoseconds = 111000001 },
+        },
+        .{
+            .string = "P7Y8M9DT10H11M12.123S",
+            .fields = .{ .years = 7, .months = 8, .days = 9, .hours = 10, .minutes = 11, .seconds = 12, .nanoseconds = 123000000 },
+        },
+        .{
+            .string = "P-8Y9M10DT11H12M13.145S",
+            .fields = .{ .years = -8, .months = 9, .days = 10, .hours = 11, .minutes = 12, .seconds = 13, .nanoseconds = 145000000 },
+        },
+        .{
+            .string = "-P9Y10M11DT12H13M14.156S",
+            .fields = .{ .years = -9, .months = -10, .days = -11, .hours = -12, .minutes = -13, .seconds = -14, .nanoseconds = 156000000 },
+        },
+    };
+
+    for (cases) |case| {
+        const fields = try Duration.parseIsoDur(case.string);
+        try testing.expectEqual(case.fields, fields);
+
+        // all test cases have year or month != 0, so conversion to duration fails:
+        const err = Duration.fromISO8601Duration(case.string);
+        try testing.expectError(error.InvalidFormat, err);
+    }
+}
+
+test "iso duration to Duration type round-trip" {
+    const cases = [_]TestCaseISODur{
+        .{
+            .string = "PT0S",
+            .duration = .{},
+        },
+        .{
+            .string = "-PT0H46M59.789S",
+            .duration = .{ .__sec = -(46 * 60 + 59), .__nsec = 789000000 },
+        },
+        .{
+            .string = "PT4H5M6.789S",
+            .duration = .{ .__sec = 4 * 3600 + 5 * 60 + 6, .__nsec = 789000000 },
+        },
+        .{
+            .string = "PT37H0M12.789000001S", // default formatter prints components that are zero
+            .duration = .{ .__sec = 37 * 3600 + 12, .__nsec = 789000001 },
+        },
+        .{
+            .string = "-PT0H46M59.789S", // default formatter normalizes, e.g. seconds >= 59
+            .duration = .{ .__sec = -(46 * 60 + 59), .__nsec = 789000000 },
+        },
+    };
+
+    for (cases) |case| {
+        const dur = try Duration.fromISO8601Duration(case.string);
+        try testing.expectEqual(case.duration, dur);
+
+        var buf = std.ArrayList(u8).init(testing.allocator);
+        defer buf.deinit();
+        try dur.format("{s}", .{}, buf.writer());
+        try testing.expectEqualStrings(case.string, buf.items);
+        buf.clearAndFree();
+    }
+}
+
+test "iso duration fail cases" {
+    const cases = [_][]const u8{
+        "-PT;0H46M59.789S",
+        "yPT0H46M59.789S",
+        "-P--T0H46M59.789S",
+        "P1Y2M3DT4K5M6.789S",
+        "PX2Y3M4DT5H6M7.89S",
+        "P999Y0M0D 0H0M0.123S",
+        "P+999Y0M0DT0H0M0.123S",
+        "P3Y4M5DT6H7M8.9>",
+        "P-+5Y6M7DT8H9M10.111000001S",
+        "P7Y8M9DT10H11M12;123S",
+        "P-8Y9M10XT11H12M13.145S",
+        "-P9Y10M11DT12H13M14.156s",
+        "UwKMxofSAIQSil8gW",
+        "gikNDeWiEh4yRt01haAPWqxQWOUSG2hC3EWSiAn3BNnt",
+        "0",
+        "",
+    };
+
+    for (cases) |case| {
+        const err = Duration.parseIsoDur(case) catch error.InvalidFormat;
+        try testing.expectError(error.InvalidFormat, err);
+    }
 }
