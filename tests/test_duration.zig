@@ -11,7 +11,7 @@ const log = std.log.scoped(.test_duration);
 
 const TestCaseISODur = struct {
     string: []const u8 = "",
-    fields: Duration.RelativeDeltaFields = .{},
+    fields: Duration.RelativeDelta = .{},
     duration: Duration = .{},
 };
 
@@ -210,9 +210,18 @@ test "iso duration parser, full valid input" {
             .string = "-P9Y10M11DT12H13M14.156S",
             .fields = .{ .years = -9, .months = -10, .days = -11, .hours = -12, .minutes = -13, .seconds = -14, .nanoseconds = 156000000 },
         },
+        .{
+            .string = "-P9Y10M41W11DT12H13M14.156S",
+            .fields = .{ .years = -9, .months = -10, .weeks = -41, .days = -11, .hours = -12, .minutes = -13, .seconds = -14, .nanoseconds = 156000000 },
+        },
+        .{
+            .string = "P1M7WT7M",
+            .fields = .{ .months = 1, .weeks = 7, .minutes = 7 },
+        },
     };
 
     for (cases) |case| {
+        // log.warn("str: {s}", .{case.string});
         const fields = try Duration.parseIsoDur(case.string);
         try testing.expectEqual(case.fields, fields);
 
@@ -247,6 +256,7 @@ test "iso duration to Duration type round-trip" {
     };
 
     for (cases) |case| {
+        //log.warn("str: {s}", .{case.string});
         const dur = try Duration.fromISO8601Duration(case.string);
         try testing.expectEqual(case.duration, dur);
 
@@ -260,6 +270,14 @@ test "iso duration to Duration type round-trip" {
 
 test "iso duration fail cases" {
     const cases = [_][]const u8{
+        "",
+        "0",
+        "P0", // insufficient; must at least be P0D
+        "PT7HT7S", // 'T' must only appear once
+        "PT7D", // 'T' must appear before D, W, M (months) and 'Y'
+        "P7HT7S", // 'H' must appear before 'T'
+        "P7S7M", // 'S' must appear before 'M'
+        "P7W7M", // 'W' must appear before 'M'
         "-PT;0H46M59.789S",
         "yPT0H46M59.789S",
         "-P--T0H46M59.789S",
@@ -274,12 +292,14 @@ test "iso duration fail cases" {
         "-P9Y10M11DT12H13M14.156s",
         "UwKMxofSAIQSil8gW",
         "gikNDeWiEh4yRt01haAPWqxQWOUSG2hC3EWSiAn3BNnt",
-        "0",
-        "",
     };
 
     for (cases) |case| {
-        if (Duration.parseIsoDur(case)) |_| unreachable else |err| switch (err) {
+        //log.warn("str: {s}", .{case});
+        if (Duration.parseIsoDur(case)) |_| {
+            log.err("did not error: {s}", .{case});
+            @panic("FAIL");
+        } else |err| switch (err) {
             error.InvalidFormat => {}, // ok
             error.InvalidCharacter => {}, // ok
             else => log.err("incorrect error: {any}", .{err}),

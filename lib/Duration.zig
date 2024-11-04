@@ -1,6 +1,7 @@
 //! a period in time
 
 const std = @import("std");
+const log = std.log.scoped(.zdt__Duration);
 
 const Duration = @This();
 
@@ -24,16 +25,18 @@ pub fn fromTimespanMultiple(n: i128, timespan: Timespan) Duration {
     };
 }
 
-/// Create a duration from an ISO8601 duration string.
+/// Create a duration from an 'ISO8601 duration' style string.
 ///
-/// Since the Duration type represents and absolute difference in time,
-/// 'years' and 'months' fields of the duration string must be zero,
-/// if not, this is considered an error due to the ambiguity of months and years.
+/// Restrictions:
+/// - Since the Duration type represents an absolute difference in time,
+///   'years' and 'months' fields of the string ('Y', 'M') must be zero,
+/// - a fractional value is only allowed for seconds ('S')
 pub fn fromISO8601Duration(string: []const u8) !Duration {
-    const fields: RelativeDeltaFields = try parseIsoDur(string);
+    const fields: RelativeDelta = try parseIsoDur(string);
     if (fields.years != 0 or fields.months != 0) return error.InvalidFormat;
     return .{
-        .__sec = @as(i64, fields.days) * 86400 + //
+        .__sec = @as(i64, fields.weeks) * 7 * 86400 + //
+            @as(i64, fields.days) * 86400 + //
             @as(i64, fields.hours) * 3600 + //
             @as(i64, fields.minutes) * 60 + //
             @as(i64, fields.seconds),
@@ -153,22 +156,31 @@ pub const Timespan = enum(u64) {
     week = 1_000_000_000 * 60 * 60 * 24 * 7,
 };
 
-/// Fields of a duration that is relative to a datetime.
-pub const RelativeDeltaFields = struct {
+/// Relative difference in time;
+/// might contain ambiguous quantities months and years.
+pub const RelativeDelta = struct {
     years: i32 = 0,
     months: i32 = 0,
+    weeks: i32 = 0,
     days: i32 = 0,
     hours: i32 = 0,
     minutes: i32 = 0,
     seconds: i32 = 0,
     nanoseconds: u32 = 0,
+    sign: u1 = 0,
 
-    // TODO : normalize() -- max. 59 seconds, 59 minutes etc.
+    /// normalize fields to their 'normal' modulo, e.g. hours 0-23 etc.
+    pub fn normalize(this: *const RelativeDelta) RelativeDelta {
+        // TODO : everything to seconds, then redistribute?
+        var result: RelativeDelta = .{};
+        result.seconds = this.seconds;
+        return result;
+    }
 };
 
-/// convert ISO8601 duration from string to RelativeDeltaFields.
-pub fn parseIsoDur(string: []const u8) !RelativeDeltaFields {
-    var result: RelativeDeltaFields = .{};
+/// convert ISO8601 duration from string to a RelativeDelta.
+pub fn parseIsoDur(string: []const u8) !RelativeDelta {
+    var result: RelativeDelta = .{};
 
     // at least 3 characters, e.g. P0D
     if (string.len < 3) return error.InvalidFormat;
@@ -179,7 +191,7 @@ pub fn parseIsoDur(string: []const u8) !RelativeDeltaFields {
     var stop: usize = 0;
     var invert: bool = false;
 
-    if (string[stop] == '-') {
+    if (string[stop] == '-') { // minus prefix
         invert = true;
         stop += 1;
     }
@@ -188,21 +200,25 @@ pub fn parseIsoDur(string: []const u8) !RelativeDeltaFields {
     if (string[stop] != 'P') return error.InvalidFormat;
     stop += 1;
 
-    if (string[stop] == 'T') stop += 1;
-
-    // 'P' or 'T' must be followed by a digit or minus sign
-    if (!(std.ascii.isDigit(string[stop]) or string[stop] == '-')) return error.InvalidFormat;
+    // 'P' must be followed by either 'T', '-' or a digit;
+    // if 'P' is followed by a 'T', that must also be followed by a '-' or a digit
+    if (string[stop] == 'T') {
+        if (!(std.ascii.isDigit(string[stop + 1]) or string[stop + 1] == '-'))
+            return error.InvalidFormat;
+    } else {
+        if (!(std.ascii.isDigit(string[stop]) or string[stop] == '-'))
+            return error.InvalidFormat;
+    }
 
     var idx: usize = string.len - 1;
 
     // need flags to keep track of what has been parsed already,
     // and in which order.
-    // quantity:   Y m d T H M S
-    // bit/order:  - - 4 3 2 1 0
-    var flags: u8 = 0;
+    // quantity:   Y m W d T H M S
+    // bit/order:  7 6 5 4 3 2 1 0
+    var flags: u16 = 0;
 
-    while (idx > stop) {
-        //log.info("flags: {b}", .{flags});
+    while (idx >= stop) {
         switch (string[idx]) {
             'S' => {
                 // seconds come last, so no other quantity must have been parsed yet
@@ -221,14 +237,20 @@ pub fn parseIsoDur(string: []const u8) !RelativeDeltaFields {
                     if (flags > 1) return error.InvalidFormat;
                     idx -= 1;
                     flags |= 0b10;
-                    var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
+                    var quantity = try parseAndAdvanceYmWDHM(i32, string, &idx);
                     if (invert) quantity *= -1;
                     result.minutes = quantity;
                 } else {
-                    if (flags > 0b11111) return error.InvalidFormat;
+                    if (flags > 0b111111) return error.InvalidFormat;
+                    // if no 'T' was parsed before, flags 0, 1 and 2 must be 0:
+                    if (flags & 0b1000 == 0) {
+                        if (flags & 0b100 != 0 or flags & 0b10 != 0 or flags & 0b1 != 0) {
+                            return error.InvalidFormat;
+                        }
+                    }
                     idx -= 1;
-                    flags |= 0b100000;
-                    var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
+                    flags |= 0b1000000;
+                    var quantity = try parseAndAdvanceYmWDHM(i32, string, &idx);
                     if (invert) quantity *= -1;
                     result.months = quantity;
                 }
@@ -238,7 +260,7 @@ pub fn parseIsoDur(string: []const u8) !RelativeDeltaFields {
                 if (flags > 0b11) return error.InvalidFormat;
                 idx -= 1;
                 flags |= 0b100;
-                var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
+                var quantity = try parseAndAdvanceYmWDHM(i32, string, &idx);
                 if (invert) quantity *= -1;
                 result.hours = quantity;
             },
@@ -249,23 +271,47 @@ pub fn parseIsoDur(string: []const u8) !RelativeDeltaFields {
             },
             'D' => {
                 if (flags > 0b1111) return error.InvalidFormat;
+                if (flags & 0b1000 == 0) {
+                    if (flags & 0b100 != 0 or flags & 0b10 != 0 or flags & 0b1 != 0) {
+                        return error.InvalidFormat;
+                    }
+                }
                 idx -= 1;
                 flags |= 0b10000;
-                var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
+                var quantity = try parseAndAdvanceYmWDHM(i32, string, &idx);
                 if (invert) quantity *= -1;
                 result.days = quantity;
             },
-            'Y' => {
-                if (flags > 0b111111) return error.InvalidFormat;
+            'W' => {
+                if (flags > 0b11111) return error.InvalidFormat;
+                if (flags & 0b1000 == 0) {
+                    if (flags & 0b100 != 0 or flags & 0b10 != 0 or flags & 0b1 != 0) {
+                        return error.InvalidFormat;
+                    }
+                }
                 idx -= 1;
-                flags |= 0b1000000;
-                var quantity = try parseAndAdvanceYMDHM(i32, string, &idx);
+                flags |= 0b100000;
+                var quantity = try parseAndAdvanceYmWDHM(i32, string, &idx);
+                if (invert) quantity *= -1;
+                result.weeks = quantity;
+            },
+            'Y' => {
+                if (flags > 0b11111111) return error.InvalidFormat;
+                if (flags & 0b1000 == 0) {
+                    if (flags & 0b100 != 0 or flags & 0b10 != 0 or flags & 0b1 != 0) {
+                        return error.InvalidFormat;
+                    }
+                }
+                idx -= 1;
+                flags |= 0b100000000;
+                var quantity = try parseAndAdvanceYmWDHM(i32, string, &idx);
                 if (invert) quantity *= -1;
                 result.years = quantity;
             },
             else => return error.InvalidFormat,
         }
     }
+
     return result;
 }
 
@@ -313,7 +359,7 @@ fn parseAndAdvanceS(string: []const u8, idx_ptr: *usize, sec: *i32, nsec: *u32) 
 /// backwards-looking parse chars from 'string' to int (base 10),
 /// end index is the value of 'idx_ptr' when the function is called.
 /// start index is determined automatically.
-fn parseAndAdvanceYMDHM(comptime T: type, string: []const u8, idx_ptr: *usize) !T {
+fn parseAndAdvanceYmWDHM(comptime T: type, string: []const u8, idx_ptr: *usize) !T {
     const end_idx = idx_ptr.*;
     while (idx_ptr.* > 0 and
         end_idx - idx_ptr.* < maxDigits and
