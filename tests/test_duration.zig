@@ -241,7 +241,7 @@ test "iso duration to Duration type round-trip" {
             .duration = .{ .__sec = 37 * 3600 + 12, .__nsec = 789000001 },
         },
         .{
-            .string = "-PT0H46M59.789S",
+            .string = "-PT0H46M59.789S", // default formatter normalizes, e.g. seconds >= 59
             .duration = .{ .__sec = -(46 * 60 + 59), .__nsec = 789000000 },
         },
     };
@@ -272,6 +272,10 @@ test "iso duration fail cases" {
         "P7Y8M9DT10H11M12;123S",
         "P-8Y9M10XT11H12M13.145S",
         "-P9Y10M11DT12H13M14.156s",
+        "UwKMxofSAIQSil8gW",
+        "gikNDeWiEh4yRt01haAPWqxQWOUSG2hC3EWSiAn3BNnt",
+        "0",
+        "",
     };
 
     for (cases) |case| {
