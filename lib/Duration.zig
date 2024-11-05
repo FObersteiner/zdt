@@ -171,9 +171,21 @@ pub const RelativeDelta = struct {
 
     /// normalize fields to their 'normal' modulo, e.g. hours 0-23 etc.
     pub fn normalize(this: *const RelativeDelta) RelativeDelta {
+        var result: RelativeDelta = .{
+            .years = this.years,
+            .months = this.months,
+            .sign = this.sign,
+        };
+
         // TODO : everything to seconds, then redistribute?
-        var result: RelativeDelta = .{};
-        result.seconds = this.seconds;
+        const total_secs: i64 =
+            @as(i64, this.seconds) + //
+            @as(i64, this.minutes) * 60 + //
+            @as(i64, this.hours) * 3600 + //
+            @as(i64, this.days) * 86400 + @as(i64, this.weeks) * 7 * 86400; //
+
+        result.seconds = @intCast(@mod(total_secs, 60));
+
         return result;
     }
 };
@@ -214,8 +226,8 @@ pub fn parseIsoDur(string: []const u8) !RelativeDelta {
 
     // need flags to keep track of what has been parsed already,
     // and in which order.
-    // quantity:   Y m W d T H M S
-    // bit/order:  7 6 5 4 3 2 1 0
+    // quantity/token:  Y m W d T H M S
+    // bit/order:       7 6 5 4 3 2 1 0
     var flags: u8 = 0;
 
     while (idx >= stop) {

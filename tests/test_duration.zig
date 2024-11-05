@@ -306,3 +306,19 @@ test "iso duration fail cases" {
         }
     }
 }
+
+test "relative delta normalizer" {
+    const cases = [_]TestCaseISODur{
+        .{
+            .string = "P1Y2M3DT4H5M6.789S",
+            .fields = .{ .years = 1, .months = 2, .days = 3, .hours = 4, .minutes = 5, .seconds = 6, .nanoseconds = 789000000 },
+        },
+    };
+
+    for (cases) |case| {
+        log.warn("str: {s}", .{case.string});
+        const fields = try Duration.parseIsoDur(case.string);
+        const normalized = fields.normalize();
+        try testing.expectEqual(case.fields, normalized);
+    }
+}
