@@ -167,17 +167,19 @@ pub const RelativeDelta = struct {
     minutes: i32 = 0,
     seconds: i32 = 0,
     nanoseconds: u32 = 0,
-    sign: u1 = 0,
+    negative: bool = false,
 
     /// normalize fields to their 'normal' modulo, e.g. hours 0-23 etc.
     pub fn normalize(this: *const RelativeDelta) RelativeDelta {
         var result: RelativeDelta = .{
             .years = this.years,
             .months = this.months,
-            .sign = this.sign,
+            .nanoseconds = this.nanoseconds,
+            .negative = this.negative,
         };
 
-        // TODO : everything to seconds, then redistribute?
+        // TODO : everything to seconds, then redistribute ?
+        // TODO : how to handle sign / negative ?
         const total_secs: i64 =
             @as(i64, this.seconds) + //
             @as(i64, this.minutes) * 60 + //
@@ -201,10 +203,9 @@ pub fn parseIsoDur(string: []const u8) !RelativeDelta {
     if (!std.ascii.isAlphabetic(string[string.len - 1])) return error.InvalidFormat;
 
     var stop: usize = 0;
-    var invert: bool = false;
 
     if (string[stop] == '-') { // minus prefix
-        invert = true;
+        result.negative = true;
         stop += 1;
     }
 
@@ -238,7 +239,7 @@ pub fn parseIsoDur(string: []const u8) !RelativeDelta {
                 idx -= 1;
                 flags |= 1;
                 _ = try parseAndAdvanceS(string, &idx, &result.seconds, &result.nanoseconds);
-                if (invert) result.seconds *= -1;
+                if (result.negative) result.seconds *= -1;
             },
             'M' => {
                 // 'M' may appear twice; it's either minutes or months;
@@ -250,7 +251,7 @@ pub fn parseIsoDur(string: []const u8) !RelativeDelta {
                     idx -= 1;
                     flags |= 1 << 1;
                     var quantity = try parseAndAdvanceYmWdHM(i32, string, &idx);
-                    if (invert) quantity *= -1;
+                    if (result.negative) quantity *= -1;
                     result.minutes = quantity;
                 } else {
                     if (flags > 0b111111) return error.InvalidFormat;
@@ -259,7 +260,7 @@ pub fn parseIsoDur(string: []const u8) !RelativeDelta {
                     idx -= 1;
                     flags |= 1 << 6;
                     var quantity = try parseAndAdvanceYmWdHM(i32, string, &idx);
-                    if (invert) quantity *= -1;
+                    if (result.negative) quantity *= -1;
                     result.months = quantity;
                 }
             },
@@ -269,7 +270,7 @@ pub fn parseIsoDur(string: []const u8) !RelativeDelta {
                 idx -= 1;
                 flags |= 1 << 2;
                 var quantity = try parseAndAdvanceYmWdHM(i32, string, &idx);
-                if (invert) quantity *= -1;
+                if (result.negative) quantity *= -1;
                 result.hours = quantity;
             },
             'T' => { // date/time separator must only appear once
@@ -283,7 +284,7 @@ pub fn parseIsoDur(string: []const u8) !RelativeDelta {
                 idx -= 1;
                 flags |= 1 << 4;
                 var quantity = try parseAndAdvanceYmWdHM(i32, string, &idx);
-                if (invert) quantity *= -1;
+                if (result.negative) quantity *= -1;
                 result.days = quantity;
             },
             'W' => {
@@ -292,7 +293,7 @@ pub fn parseIsoDur(string: []const u8) !RelativeDelta {
                 idx -= 1;
                 flags |= 1 << 5;
                 var quantity = try parseAndAdvanceYmWdHM(i32, string, &idx);
-                if (invert) quantity *= -1;
+                if (result.negative) quantity *= -1;
                 result.weeks = quantity;
             },
             'Y' => {
@@ -301,7 +302,7 @@ pub fn parseIsoDur(string: []const u8) !RelativeDelta {
                 idx -= 1;
                 flags |= 1 << 7;
                 var quantity = try parseAndAdvanceYmWdHM(i32, string, &idx);
-                if (invert) quantity *= -1;
+                if (result.negative) quantity *= -1;
                 result.years = quantity;
             },
             else => return error.InvalidFormat,

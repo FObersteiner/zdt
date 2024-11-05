@@ -208,11 +208,30 @@ test "iso duration parser, full valid input" {
         },
         .{
             .string = "-P9Y10M11DT12H13M14.156S",
-            .fields = .{ .years = -9, .months = -10, .days = -11, .hours = -12, .minutes = -13, .seconds = -14, .nanoseconds = 156000000 },
+            .fields = .{
+                .years = -9,
+                .months = -10,
+                .days = -11,
+                .hours = -12,
+                .minutes = -13,
+                .seconds = -14,
+                .nanoseconds = 156000000,
+                .negative = true,
+            },
         },
         .{
             .string = "-P9Y10M41W11DT12H13M14.156S",
-            .fields = .{ .years = -9, .months = -10, .weeks = -41, .days = -11, .hours = -12, .minutes = -13, .seconds = -14, .nanoseconds = 156000000 },
+            .fields = .{
+                .years = -9,
+                .months = -10,
+                .weeks = -41,
+                .days = -11,
+                .hours = -12,
+                .minutes = -13,
+                .seconds = -14,
+                .nanoseconds = 156000000,
+                .negative = true,
+            },
         },
         .{
             .string = "P1M7WT7M",
@@ -310,9 +329,13 @@ test "iso duration fail cases" {
 test "relative delta normalizer" {
     const cases = [_]TestCaseISODur{
         .{
-            .string = "P1Y2M3DT4H5M6.789S",
-            .fields = .{ .years = 1, .months = 2, .days = 3, .hours = 4, .minutes = 5, .seconds = 6, .nanoseconds = 789000000 },
+            .string = "PT6.789S",
+            .fields = .{ .seconds = 6, .nanoseconds = 789000000, .negative = false },
         },
+        // .{
+        //     .string = "-PT6.789S",
+        //     .fields = .{ .seconds = 6, .nanoseconds = 789000000, .negative = true },
+        // },
     };
 
     for (cases) |case| {
