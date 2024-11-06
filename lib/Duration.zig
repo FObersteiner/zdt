@@ -35,16 +35,7 @@ pub fn fromTimespanMultiple(n: i128, timespan: Timespan) Duration {
 ///   Individual signed components are not allowed.
 pub fn fromISO8601Duration(string: []const u8) !Duration {
     const fields: RelativeDelta = try parseIsoDur(string);
-    if (fields.years != 0 or fields.months != 0) return error.InvalidFormat;
-    const total_secs: i64 = @as(i64, fields.weeks) * 7 * 86400 + //
-        @as(i64, fields.days) * 86400 + //
-        @as(i64, fields.hours) * 3600 + //
-        @as(i64, fields.minutes) * 60 + //
-        @as(i64, fields.seconds);
-    return .{
-        .__sec = if (fields.negative) total_secs * -1 else total_secs,
-        .__nsec = fields.nanoseconds,
-    };
+    return try RelativeDelta.toDuration(&fields);
 }
 
 /// Convert a Duration to the smallest multiple of the given timespan
@@ -203,19 +194,46 @@ pub const RelativeDelta = struct {
         return result;
     }
 
-    // TODO :
-    // /// Make a RelativeDelta from a Duration.
-    // pub fn fromDuration(duration: *const Duration) RelativeDelta {
-    //     var result: RelativeDelta = .{
-    //         .years = 0,
-    //         .months = 0,
-    //         .nanoseconds = duration.__nsec,
-    //         .negative = if (duration.__sec < 0) true else false,
-    //     };
-    //
-    //
-    //     return result;
-    // }
+    /// Make a RelativeDelta from a Duration.
+    pub fn fromDuration(duration: *const Duration) RelativeDelta {
+        var result: RelativeDelta = .{
+            .years = 0,
+            .months = 0,
+            .nanoseconds = duration.__nsec,
+            .negative = if (duration.__sec < 0) true else false,
+        };
+
+        var secs: u64 = @abs(duration.__sec);
+        result.weeks = @truncate(secs / (86400 * 7));
+        secs -|= @as(u64, result.weeks) * (86400 * 7);
+
+        result.days = @truncate(secs / 86400);
+        secs -|= @as(u64, result.days) * 86400;
+
+        result.hours = @truncate(secs / 3600);
+        secs -|= @as(u64, result.hours) * 3600;
+
+        result.minutes = @truncate(secs / 60);
+        secs -|= @as(u64, result.minutes) * 60;
+
+        result.seconds = @truncate(secs);
+
+        return result;
+    }
+
+    /// Make a Duration from a RelativeDelta
+    pub fn toDuration(reldelta: *const RelativeDelta) !Duration {
+        if (reldelta.years != 0 or reldelta.months != 0) return error.InvalidFormat;
+        const total_secs: i64 = @as(i64, reldelta.weeks) * 7 * 86400 + //
+            @as(i64, reldelta.days) * 86400 + //
+            @as(i64, reldelta.hours) * 3600 + //
+            @as(i64, reldelta.minutes) * 60 + //
+            @as(i64, reldelta.seconds);
+        return .{
+            .__sec = if (reldelta.negative) total_secs * -1 else total_secs,
+            .__nsec = reldelta.nanoseconds,
+        };
+    }
 };
 
 /// Convert ISO8601 duration from string to a RelativeDelta.

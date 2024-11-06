@@ -16,11 +16,12 @@ Types of changes
 ## Added
 
 - ISO duration parser / relative delta type can handle weeks
-- Normalizer for the fields of a RelativeDelta (set fields to their "natural" modulo; e.g. hours = [0..59]).
+- Normalizer for the fields of a RelativeDelta (set fields to their "natural" modulo; e.g. hours = [0..23]).
 
 ## Changed
 
 - ISO duration parser only accepts a "minus" prefix to indicate a negative duration. Individual quantities must not be signed.
+- Conversion from RelativeDelta to Duration type now a method of RelativeDelta
 
 ## Fixed
 

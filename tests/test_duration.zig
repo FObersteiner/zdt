@@ -366,8 +366,8 @@ test "relative delta normalizer" {
         // log.warn("fields norm.: {any}", .{normalized_fields});
         try testing.expectEqual(case.fields, normalized_fields);
 
-        // const from_dur = Duration.RelativeDelta.fromDuration(&case.duration);
+        const from_dur = Duration.RelativeDelta.fromDuration(&case.duration);
         // log.warn("from dura.: {any}", .{from_dur});
-        // try testing.expectEqual(normalized_fields, from_dur);
+        try testing.expectEqual(normalized_fields, from_dur);
     }
 }
