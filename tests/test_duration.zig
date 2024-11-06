@@ -183,8 +183,8 @@ test "iso duration parser, full valid input" {
             .fields = .{ .years = 1, .months = 2, .days = 3, .hours = 4, .minutes = 5, .seconds = 6, .nanoseconds = 789000000 },
         },
         .{
-            .string = "P-2Y3M4DT5H6M7.89S",
-            .fields = .{ .years = -2, .months = 3, .days = 4, .hours = 5, .minutes = 6, .seconds = 7, .nanoseconds = 890000000 },
+            .string = "P2Y3M4DT5H6M7.89S",
+            .fields = .{ .years = 2, .months = 3, .days = 4, .hours = 5, .minutes = 6, .seconds = 7, .nanoseconds = 890000000 },
         },
         .{
             .string = "P999Y0M0DT0H0M0.123S",
@@ -195,26 +195,26 @@ test "iso duration parser, full valid input" {
             .fields = .{ .years = 3, .months = 4, .days = 5, .hours = 6, .minutes = 7, .seconds = 8, .nanoseconds = 900000000 },
         },
         .{
-            .string = "P-5Y6M7DT8H9M10.111000001S",
-            .fields = .{ .years = -5, .months = 6, .days = 7, .hours = 8, .minutes = 9, .seconds = 10, .nanoseconds = 111000001 },
+            .string = "P5Y6M7DT8H9M10.111000001S",
+            .fields = .{ .years = 5, .months = 6, .days = 7, .hours = 8, .minutes = 9, .seconds = 10, .nanoseconds = 111000001 },
         },
         .{
             .string = "P7Y8M9DT10H11M12.123S",
             .fields = .{ .years = 7, .months = 8, .days = 9, .hours = 10, .minutes = 11, .seconds = 12, .nanoseconds = 123000000 },
         },
         .{
-            .string = "P-8Y9M10DT11H12M13.145S",
-            .fields = .{ .years = -8, .months = 9, .days = 10, .hours = 11, .minutes = 12, .seconds = 13, .nanoseconds = 145000000 },
+            .string = "P8Y9M10DT11H12M13.145S",
+            .fields = .{ .years = 8, .months = 9, .days = 10, .hours = 11, .minutes = 12, .seconds = 13, .nanoseconds = 145000000 },
         },
         .{
             .string = "-P9Y10M11DT12H13M14.156S",
             .fields = .{
-                .years = -9,
-                .months = -10,
-                .days = -11,
-                .hours = -12,
-                .minutes = -13,
-                .seconds = -14,
+                .years = 9,
+                .months = 10,
+                .days = 11,
+                .hours = 12,
+                .minutes = 13,
+                .seconds = 14,
                 .nanoseconds = 156000000,
                 .negative = true,
             },
@@ -222,13 +222,13 @@ test "iso duration parser, full valid input" {
         .{
             .string = "-P9Y10M41W11DT12H13M14.156S",
             .fields = .{
-                .years = -9,
-                .months = -10,
-                .weeks = -41,
-                .days = -11,
-                .hours = -12,
-                .minutes = -13,
-                .seconds = -14,
+                .years = 9,
+                .months = 10,
+                .weeks = 41,
+                .days = 11,
+                .hours = 12,
+                .minutes = 13,
+                .seconds = 14,
                 .nanoseconds = 156000000,
                 .negative = true,
             },
@@ -297,6 +297,9 @@ test "iso duration fail cases" {
         "P7HT7S", // 'H' must appear before 'T'
         "P7S7M", // 'S' must appear before 'M'
         "P7W7M", // 'W' must appear before 'M'
+        "P7.1W", // fraction only allowed for seconds
+        "P.1S", // fraction must have quantity before decimal sep
+        "P-7D", // individual components must not be signed
         "-PT;0H46M59.789S",
         "yPT0H46M59.789S",
         "-P--T0H46M59.789S",
@@ -314,13 +317,14 @@ test "iso duration fail cases" {
     };
 
     for (cases) |case| {
-        //log.warn("str: {s}", .{case});
+        // log.warn("str: {s}", .{case});
         if (Duration.parseIsoDur(case)) |_| {
             log.err("did not error: {s}", .{case});
             @panic("FAIL");
         } else |err| switch (err) {
             error.InvalidFormat => {}, // ok
             error.InvalidCharacter => {}, // ok
+            error.Overflow => {}, // ok
             else => log.err("incorrect error: {any}", .{err}),
         }
     }
@@ -331,17 +335,39 @@ test "relative delta normalizer" {
         .{
             .string = "PT6.789S",
             .fields = .{ .seconds = 6, .nanoseconds = 789000000, .negative = false },
+            .duration = .{ .__sec = 6, .__nsec = 789000000 },
         },
-        // .{
-        //     .string = "-PT6.789S",
-        //     .fields = .{ .seconds = 6, .nanoseconds = 789000000, .negative = true },
-        // },
+        .{
+            .string = "-PT6.789S",
+            .fields = .{ .seconds = 6, .nanoseconds = 789000000, .negative = true },
+            .duration = .{ .__sec = -6, .__nsec = 789000000 },
+        },
+        .{
+            .string = "PT61.789S",
+            .fields = .{ .minutes = 1, .seconds = 1, .nanoseconds = 789000000 },
+            .duration = .{ .__sec = 61, .__nsec = 789000000 },
+        },
+        .{
+            .string = "PT60M",
+            .fields = .{ .hours = 1 },
+            .duration = .{ .__sec = 3600 },
+        },
+        .{
+            .string = "-PT24H60M60S",
+            .fields = .{ .days = 1, .hours = 1, .minutes = 1, .negative = true },
+            .duration = .{ .__sec = -(86400 + 3600 + 60) },
+        },
     };
 
     for (cases) |case| {
-        log.warn("str: {s}", .{case.string});
+        // log.warn("str: {s}", .{case.string});
         const fields = try Duration.parseIsoDur(case.string);
-        const normalized = fields.normalize();
-        try testing.expectEqual(case.fields, normalized);
+        const normalized_fields = fields.normalize();
+        // log.warn("fields norm.: {any}", .{normalized_fields});
+        try testing.expectEqual(case.fields, normalized_fields);
+
+        // const from_dur = Duration.RelativeDelta.fromDuration(&case.duration);
+        // log.warn("from dura.: {any}", .{from_dur});
+        // try testing.expectEqual(normalized_fields, from_dur);
     }
 }
