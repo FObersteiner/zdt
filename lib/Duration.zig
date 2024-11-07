@@ -35,7 +35,7 @@ pub fn fromTimespanMultiple(n: i128, timespan: Timespan) Duration {
 ///   Individual signed components are not allowed.
 pub fn fromISO8601Duration(string: []const u8) !Duration {
     const fields: RelativeDelta = try parseIsoDur(string);
-    return try RelativeDelta.toDuration(&fields);
+    return try RelativeDelta.toDuration(fields);
 }
 
 /// Convert a Duration to the smallest multiple of the given timespan
@@ -222,7 +222,7 @@ pub const RelativeDelta = struct {
     }
 
     /// Make a Duration from a RelativeDelta
-    pub fn toDuration(reldelta: *const RelativeDelta) !Duration {
+    pub fn toDuration(reldelta: RelativeDelta) !Duration {
         if (reldelta.years != 0 or reldelta.months != 0) return error.InvalidFormat;
         const total_secs: i64 = @as(i64, reldelta.weeks) * 7 * 86400 + //
             @as(i64, reldelta.days) * 86400 + //

@@ -9,12 +9,6 @@ const Duration = zdt.Duration;
 
 const log = std.log.scoped(.test_duration);
 
-const TestCaseISODur = struct {
-    string: []const u8 = "",
-    fields: Duration.RelativeDelta = .{},
-    duration: Duration = .{},
-};
-
 test "from timespan" {
     var td = Duration.fromTimespanMultiple(5, Duration.Timespan.nanosecond);
     try testing.expectEqual(@as(i128, 5), td.asNanoseconds());
@@ -93,11 +87,15 @@ test "sub durations" {
 
 test "add duration to datetime" {
     var dt = try Datetime.fromFields(.{ .year = 1970, .second = 42 });
+    var dt_want = try Datetime.fromFields(.{ .year = 1970, .second = 43 });
     dt = try dt.add(Duration{ .__sec = 1, .__nsec = 0 });
     try testing.expectEqual(@as(i64, 43), dt.unix_sec);
+    try testing.expectEqual(dt_want, dt);
 
     dt = try dt.add(Duration{ .__sec = -1, .__nsec = 0 });
+    dt_want = try Datetime.fromFields(.{ .year = 1970, .second = 42 });
     try testing.expectEqual(@as(i64, 42), dt.unix_sec);
+    try testing.expectEqual(dt_want, dt);
 
     dt = try dt.add(Duration{ .__sec = -1, .__nsec = 1E9 });
     try testing.expectEqual(@as(i64, 42), dt.unix_sec);
@@ -175,6 +173,12 @@ test "leap second difference" {
     try testing.expectEqual(@as(i64, -86400), diff.__sec);
     try testing.expectEqual(@as(u32, 0), diff.__nsec);
 }
+
+const TestCaseISODur = struct {
+    string: []const u8 = "",
+    fields: Duration.RelativeDelta = .{},
+    duration: Duration = .{},
+};
 
 test "iso duration parser, full valid input" {
     const cases = [_]TestCaseISODur{
@@ -353,6 +357,11 @@ test "relative delta normalizer" {
             .duration = .{ .__sec = 3600 },
         },
         .{
+            .string = "-P1DT1H1M",
+            .fields = .{ .days = 1, .hours = 1, .minutes = 1, .negative = true },
+            .duration = .{ .__sec = -(86400 + 3600 + 60) },
+        },
+        .{
             .string = "-PT24H60M60S",
             .fields = .{ .days = 1, .hours = 1, .minutes = 1, .negative = true },
             .duration = .{ .__sec = -(86400 + 3600 + 60) },
@@ -369,5 +378,48 @@ test "relative delta normalizer" {
         const from_dur = Duration.RelativeDelta.fromDuration(&case.duration);
         // log.warn("from dura.: {any}", .{from_dur});
         try testing.expectEqual(normalized_fields, from_dur);
+    }
+}
+
+const TestCaseRelDelta = struct {
+    datetime_a: Datetime = .{},
+    datetime_b: Datetime = .{},
+    rel_delta: Duration.RelativeDelta = .{},
+};
+
+test "add relative delta to datetime" {
+    const cases = [_]TestCaseRelDelta{
+        .{
+            .datetime_a = .{ .year = 1970, .hour = 1, .unix_sec = 3600 },
+            .datetime_b = .{ .year = 1970, .hour = 2, .unix_sec = 7200 },
+            .rel_delta = .{ .hours = 1 },
+        },
+        .{
+            .datetime_a = .{ .year = 1970, .unix_sec = 0 },
+            .datetime_b = .{ .year = 1970, .day = 2, .unix_sec = 86400 },
+            .rel_delta = .{ .days = 1 },
+        },
+        .{
+            .datetime_a = .{ .year = 1970, .unix_sec = 0 },
+            .datetime_b = .{ .year = 1970, .unix_sec = 0, .nanosecond = 1 },
+            .rel_delta = .{ .nanoseconds = 1 },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1971 }),
+            .rel_delta = .{ .years = 1 },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1971, .month = 2 }),
+            .rel_delta = .{ .years = 1, .months = 1 },
+        },
+    };
+
+    for (cases) |case| {
+        const dt_new = try case.datetime_a.addRelative(case.rel_delta);
+        log.warn("old: {s}, want {s}", .{ case.datetime_a, case.datetime_b });
+        log.warn("new: {s}", .{dt_new});
+        try testing.expectEqual(case.datetime_b, dt_new);
     }
 }
