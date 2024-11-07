@@ -15,8 +15,9 @@ Types of changes
 
 ## Added
 
-- ISO duration parser / relative delta type can handle weeks
+- ISO duration parser 'W' directive / relative delta type can handle weeks
 - Normalizer for the fields of a RelativeDelta (set fields to their "natural" modulo; e.g. hours = [0..23]).
+- Datetime method 'addRelative' to add a RelativeDelta to a Datetime
 
 ## Changed
 
