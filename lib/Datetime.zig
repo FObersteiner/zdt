@@ -626,17 +626,20 @@ pub fn addRelative(dt: *const Datetime, rel_delta: Duration.RelativeDelta) !Date
     });
     var result: Datetime = try dt.add(abs_delta);
 
-    // TODO : account for negative rel_delta
-    const new_month: u8 = @truncate((rel_delta.months + @as(u32, dt.month)) % 12);
-    result.year += @truncate(rel_delta.years + (rel_delta.months + @as(u32, dt.month)) / 12);
-    result.month = new_month;
+    var m_off: i32 = @intCast(rel_delta.months + rel_delta.years * 12);
+    if (rel_delta.negative) m_off *= -1;
+    m_off += result.month;
+
+    result.year = @intCast(@as(i32, result.year) + @divFloor(m_off, 12));
+    const new_month: u8 = @intCast(@mod(m_off, 12));
+    if (new_month <= 0) {
+        result.month = new_month + 12;
+        result.year -= 1;
+    } else result.month = new_month;
 
     const days_in_month = cal.daysInMonth(result.month, cal.isLeapYear(result.year));
     if (result.day > days_in_month) result.day = days_in_month;
 
-    const opts: ?tz_options = if (dt.tz) |tz_ptr| .{ .tz = tz_ptr } else null;
-
-    // TODO : 'normalizeTOFields'
     return try Datetime.fromFields(.{
         .year = result.year,
         .month = result.month,
@@ -646,7 +649,7 @@ pub fn addRelative(dt: *const Datetime, rel_delta: Duration.RelativeDelta) !Date
         .second = result.second,
         .nanosecond = result.nanosecond,
         .dst_fold = result.dst_fold,
-        .tz_options = opts,
+        .tz_options = if (dt.tz) |tz_ptr| .{ .tz = tz_ptr } else null,
     });
 }
 

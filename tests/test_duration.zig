@@ -414,12 +414,30 @@ test "add relative delta to datetime" {
             .datetime_b = try Datetime.fromFields(.{ .year = 1971, .month = 2 }),
             .rel_delta = .{ .years = 1, .months = 1 },
         },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1969, .month = 11 }),
+            .rel_delta = .{ .months = 2, .negative = true },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970, .day = 31 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1970, .month = 2, .day = 28 }),
+            .rel_delta = .{ .months = 1 },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 31 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1968, .month = 12, .day = 31 }),
+            .rel_delta = .{ .months = 13, .negative = true },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 31 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1965, .month = 11, .day = 30 }),
+            .rel_delta = .{ .years = 3, .months = 14, .negative = true },
+        },
     };
 
     for (cases) |case| {
         const dt_new = try case.datetime_a.addRelative(case.rel_delta);
-        log.warn("old: {s}, want {s}", .{ case.datetime_a, case.datetime_b });
-        log.warn("new: {s}", .{dt_new});
         try testing.expectEqual(case.datetime_b, dt_new);
     }
 }
