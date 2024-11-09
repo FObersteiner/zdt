@@ -434,6 +434,11 @@ test "add relative delta to datetime" {
             .datetime_b = try Datetime.fromFields(.{ .year = 1965, .month = 11, .day = 30 }),
             .rel_delta = .{ .years = 3, .months = 14, .negative = true },
         },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 31 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 2970, .month = 1, .day = 31 }),
+            .rel_delta = .{ .years = 1000 },
+        },
     };
 
     for (cases) |case| {
