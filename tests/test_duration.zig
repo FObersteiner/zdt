@@ -9,12 +9,6 @@ const Duration = zdt.Duration;
 
 const log = std.log.scoped(.test_duration);
 
-const TestCaseISODur = struct {
-    string: []const u8 = "",
-    fields: Duration.RelativeDeltaFields = .{},
-    duration: Duration = .{},
-};
-
 test "from timespan" {
     var td = Duration.fromTimespanMultiple(5, Duration.Timespan.nanosecond);
     try testing.expectEqual(@as(i128, 5), td.asNanoseconds());
@@ -93,11 +87,15 @@ test "sub durations" {
 
 test "add duration to datetime" {
     var dt = try Datetime.fromFields(.{ .year = 1970, .second = 42 });
+    var dt_want = try Datetime.fromFields(.{ .year = 1970, .second = 43 });
     dt = try dt.add(Duration{ .__sec = 1, .__nsec = 0 });
     try testing.expectEqual(@as(i64, 43), dt.unix_sec);
+    try testing.expectEqual(dt_want, dt);
 
     dt = try dt.add(Duration{ .__sec = -1, .__nsec = 0 });
+    dt_want = try Datetime.fromFields(.{ .year = 1970, .second = 42 });
     try testing.expectEqual(@as(i64, 42), dt.unix_sec);
+    try testing.expectEqual(dt_want, dt);
 
     dt = try dt.add(Duration{ .__sec = -1, .__nsec = 1E9 });
     try testing.expectEqual(@as(i64, 42), dt.unix_sec);
@@ -176,6 +174,12 @@ test "leap second difference" {
     try testing.expectEqual(@as(u32, 0), diff.__nsec);
 }
 
+const TestCaseISODur = struct {
+    string: []const u8 = "",
+    fields: Duration.RelativeDelta = .{},
+    duration: Duration = .{},
+};
+
 test "iso duration parser, full valid input" {
     const cases = [_]TestCaseISODur{
         .{
@@ -183,8 +187,8 @@ test "iso duration parser, full valid input" {
             .fields = .{ .years = 1, .months = 2, .days = 3, .hours = 4, .minutes = 5, .seconds = 6, .nanoseconds = 789000000 },
         },
         .{
-            .string = "P-2Y3M4DT5H6M7.89S",
-            .fields = .{ .years = -2, .months = 3, .days = 4, .hours = 5, .minutes = 6, .seconds = 7, .nanoseconds = 890000000 },
+            .string = "P2Y3M4DT5H6M7.89S",
+            .fields = .{ .years = 2, .months = 3, .days = 4, .hours = 5, .minutes = 6, .seconds = 7, .nanoseconds = 890000000 },
         },
         .{
             .string = "P999Y0M0DT0H0M0.123S",
@@ -195,24 +199,52 @@ test "iso duration parser, full valid input" {
             .fields = .{ .years = 3, .months = 4, .days = 5, .hours = 6, .minutes = 7, .seconds = 8, .nanoseconds = 900000000 },
         },
         .{
-            .string = "P-5Y6M7DT8H9M10.111000001S",
-            .fields = .{ .years = -5, .months = 6, .days = 7, .hours = 8, .minutes = 9, .seconds = 10, .nanoseconds = 111000001 },
+            .string = "P5Y6M7DT8H9M10.111000001S",
+            .fields = .{ .years = 5, .months = 6, .days = 7, .hours = 8, .minutes = 9, .seconds = 10, .nanoseconds = 111000001 },
         },
         .{
             .string = "P7Y8M9DT10H11M12.123S",
             .fields = .{ .years = 7, .months = 8, .days = 9, .hours = 10, .minutes = 11, .seconds = 12, .nanoseconds = 123000000 },
         },
         .{
-            .string = "P-8Y9M10DT11H12M13.145S",
-            .fields = .{ .years = -8, .months = 9, .days = 10, .hours = 11, .minutes = 12, .seconds = 13, .nanoseconds = 145000000 },
+            .string = "P8Y9M10DT11H12M13.145S",
+            .fields = .{ .years = 8, .months = 9, .days = 10, .hours = 11, .minutes = 12, .seconds = 13, .nanoseconds = 145000000 },
         },
         .{
             .string = "-P9Y10M11DT12H13M14.156S",
-            .fields = .{ .years = -9, .months = -10, .days = -11, .hours = -12, .minutes = -13, .seconds = -14, .nanoseconds = 156000000 },
+            .fields = .{
+                .years = 9,
+                .months = 10,
+                .days = 11,
+                .hours = 12,
+                .minutes = 13,
+                .seconds = 14,
+                .nanoseconds = 156000000,
+                .negative = true,
+            },
+        },
+        .{
+            .string = "-P9Y10M41W11DT12H13M14.156S",
+            .fields = .{
+                .years = 9,
+                .months = 10,
+                .weeks = 41,
+                .days = 11,
+                .hours = 12,
+                .minutes = 13,
+                .seconds = 14,
+                .nanoseconds = 156000000,
+                .negative = true,
+            },
+        },
+        .{
+            .string = "P1M7WT7M",
+            .fields = .{ .months = 1, .weeks = 7, .minutes = 7 },
         },
     };
 
     for (cases) |case| {
+        // log.warn("str: {s}", .{case.string});
         const fields = try Duration.parseIsoDur(case.string);
         try testing.expectEqual(case.fields, fields);
 
@@ -247,6 +279,7 @@ test "iso duration to Duration type round-trip" {
     };
 
     for (cases) |case| {
+        //log.warn("str: {s}", .{case.string});
         const dur = try Duration.fromISO8601Duration(case.string);
         try testing.expectEqual(case.duration, dur);
 
@@ -260,6 +293,17 @@ test "iso duration to Duration type round-trip" {
 
 test "iso duration fail cases" {
     const cases = [_][]const u8{
+        "",
+        "0",
+        "P0", // insufficient; must at least be P0D
+        "PT7HT7S", // 'T' must only appear once
+        "PT7D", // 'T' must appear before D, W, M (months) and 'Y'
+        "P7HT7S", // 'H' must appear before 'T'
+        "P7S7M", // 'S' must appear before 'M'
+        "P7W7M", // 'W' must appear before 'M'
+        "P7.1W", // fraction only allowed for seconds
+        "P.1S", // fraction must have quantity before decimal sep
+        "P-7D", // individual components must not be signed
         "-PT;0H46M59.789S",
         "yPT0H46M59.789S",
         "-P--T0H46M59.789S",
@@ -274,15 +318,131 @@ test "iso duration fail cases" {
         "-P9Y10M11DT12H13M14.156s",
         "UwKMxofSAIQSil8gW",
         "gikNDeWiEh4yRt01haAPWqxQWOUSG2hC3EWSiAn3BNnt",
-        "0",
-        "",
     };
 
     for (cases) |case| {
-        if (Duration.parseIsoDur(case)) |_| unreachable else |err| switch (err) {
+        // log.warn("str: {s}", .{case});
+        if (Duration.parseIsoDur(case)) |_| {
+            log.err("did not error: {s}", .{case});
+            @panic("FAIL");
+        } else |err| switch (err) {
             error.InvalidFormat => {}, // ok
             error.InvalidCharacter => {}, // ok
+            error.Overflow => {}, // ok
             else => log.err("incorrect error: {any}", .{err}),
         }
+    }
+}
+
+test "relative delta normalizer" {
+    const cases = [_]TestCaseISODur{
+        .{
+            .string = "PT6.789S",
+            .fields = .{ .seconds = 6, .nanoseconds = 789000000, .negative = false },
+            .duration = .{ .__sec = 6, .__nsec = 789000000 },
+        },
+        .{
+            .string = "-PT6.789S",
+            .fields = .{ .seconds = 6, .nanoseconds = 789000000, .negative = true },
+            .duration = .{ .__sec = -6, .__nsec = 789000000 },
+        },
+        .{
+            .string = "PT61.789S",
+            .fields = .{ .minutes = 1, .seconds = 1, .nanoseconds = 789000000 },
+            .duration = .{ .__sec = 61, .__nsec = 789000000 },
+        },
+        .{
+            .string = "PT60M",
+            .fields = .{ .hours = 1 },
+            .duration = .{ .__sec = 3600 },
+        },
+        .{
+            .string = "-P1DT1H1M",
+            .fields = .{ .days = 1, .hours = 1, .minutes = 1, .negative = true },
+            .duration = .{ .__sec = -(86400 + 3600 + 60) },
+        },
+        .{
+            .string = "-PT24H60M60S",
+            .fields = .{ .days = 1, .hours = 1, .minutes = 1, .negative = true },
+            .duration = .{ .__sec = -(86400 + 3600 + 60) },
+        },
+    };
+
+    for (cases) |case| {
+        // log.warn("str: {s}", .{case.string});
+        const fields = try Duration.parseIsoDur(case.string);
+        const normalized_fields = fields.normalize();
+        // log.warn("fields norm.: {any}", .{normalized_fields});
+        try testing.expectEqual(case.fields, normalized_fields);
+
+        const from_dur = Duration.RelativeDelta.fromDuration(&case.duration);
+        // log.warn("from dura.: {any}", .{from_dur});
+        try testing.expectEqual(normalized_fields, from_dur);
+    }
+}
+
+const TestCaseRelDelta = struct {
+    datetime_a: Datetime = .{},
+    datetime_b: Datetime = .{},
+    rel_delta: Duration.RelativeDelta = .{},
+};
+
+test "add relative delta to datetime" {
+    const cases = [_]TestCaseRelDelta{
+        .{
+            .datetime_a = .{ .year = 1970, .hour = 1, .unix_sec = 3600 },
+            .datetime_b = .{ .year = 1970, .hour = 2, .unix_sec = 7200 },
+            .rel_delta = .{ .hours = 1 },
+        },
+        .{
+            .datetime_a = .{ .year = 1970, .unix_sec = 0 },
+            .datetime_b = .{ .year = 1970, .day = 2, .unix_sec = 86400 },
+            .rel_delta = .{ .days = 1 },
+        },
+        .{
+            .datetime_a = .{ .year = 1970, .unix_sec = 0 },
+            .datetime_b = .{ .year = 1970, .unix_sec = 0, .nanosecond = 1 },
+            .rel_delta = .{ .nanoseconds = 1 },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1971 }),
+            .rel_delta = .{ .years = 1 },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1971, .month = 2 }),
+            .rel_delta = .{ .years = 1, .months = 1 },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1969, .month = 11 }),
+            .rel_delta = .{ .months = 2, .negative = true },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970, .day = 31 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1970, .month = 2, .day = 28 }),
+            .rel_delta = .{ .months = 1 },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 31 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1968, .month = 12, .day = 31 }),
+            .rel_delta = .{ .months = 13, .negative = true },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 31 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1965, .month = 11, .day = 30 }),
+            .rel_delta = .{ .years = 3, .months = 14, .negative = true },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 31 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 2970, .month = 1, .day = 31 }),
+            .rel_delta = .{ .years = 1000 },
+        },
+    };
+
+    for (cases) |case| {
+        const dt_new = try case.datetime_a.addRelative(case.rel_delta);
+        try testing.expectEqual(case.datetime_b, dt_new);
     }
 }

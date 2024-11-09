@@ -1,5 +1,6 @@
-//! taken from Zig standard library, 0.12.0-dev.2059+42389cb9c,
-//! modified.
+//! Parser for RFC 9636 TZif files, <https://www.rfc-editor.org/rfc/rfc9636>.
+//!
+//! taken from Zig standard library, 0.12.0-dev.2059+42389cb9c, modified.
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -92,11 +93,11 @@ pub const Tz = struct {
     }
 
     fn parseBlock(allocator: std.mem.Allocator, reader: anytype, header: Header, legacy: bool) !Tz {
-        if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt) return error.Malformed; // rfc8536: isstdcnt [...] MUST either be zero or equal to "typecnt"
-        if (header.counts.isutcnt != 0 and header.counts.isutcnt != header.counts.typecnt) return error.Malformed; // rfc8536: isutcnt [...] MUST either be zero or equal to "typecnt"
-        if (header.counts.typecnt == 0) return error.Malformed; // rfc8536: typecnt [...] MUST NOT be zero
-        if (header.counts.charcnt == 0) return error.Malformed; // rfc8536: charcnt [...] MUST NOT be zero
-        if (header.counts.charcnt > 256 + 6) return error.Malformed; // Not explicitly banned by rfc8536 but nonsensical
+        if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt) return error.Malformed; // RFC 9636: isstdcnt [...] MUST either be zero or equal to "typecnt"
+        if (header.counts.isutcnt != 0 and header.counts.isutcnt != header.counts.typecnt) return error.Malformed; // RFC 9636: isutcnt [...] MUST either be zero or equal to "typecnt"
+        if (header.counts.typecnt == 0) return error.Malformed; // RFC 9636: typecnt [...] MUST NOT be zero
+        if (header.counts.charcnt == 0) return error.Malformed; // RFC 9636: charcnt [...] MUST NOT be zero
+        if (header.counts.charcnt > 256 + 6) return error.Malformed; // Not explicitly banned by RFC 9636 but nonsensical
 
         var leapseconds = try allocator.alloc(Leapsecond, header.counts.leapcnt);
         errdefer allocator.free(leapseconds);
@@ -114,7 +115,7 @@ pub const Tz = struct {
         i = 0;
         while (i < header.counts.timecnt) : (i += 1) {
             const tt = try reader.readByte();
-            if (tt >= timetypes.len) return error.Malformed; // rfc8536: Each type index MUST be in the range [0, "typecnt" - 1]
+            if (tt >= timetypes.len) return error.Malformed; // RFC 9636: Each type index MUST be in the range [0, "typecnt" - 1]
             transitions[i].timetype = &timetypes[tt];
         }
 
@@ -122,11 +123,11 @@ pub const Tz = struct {
         i = 0;
         while (i < header.counts.typecnt) : (i += 1) {
             const offset = try reader.readInt(i32, .big);
-            if (offset < -2147483648) return error.Malformed; // rfc8536: utoff [...] MUST NOT be -2**31
+            if (offset < -2147483648) return error.Malformed; // RFC 9636: utoff [...] MUST NOT be -2**31
             const dst = try reader.readByte();
-            if (dst != 0 and dst != 1) return error.Malformed; // rfc8536: (is)dst [...] The value MUST be 0 or 1.
+            if (dst != 0 and dst != 1) return error.Malformed; // RFC 9636: (is)dst [...] The value MUST be 0 or 1.
             const idx = try reader.readByte();
-            if (idx > header.counts.charcnt - 1) return error.Malformed; // rfc8536: (desig)idx [...] Each index MUST be in the range [0, "charcnt" - 1]
+            if (idx > header.counts.charcnt - 1) return error.Malformed; // RFC 9636: (desig)idx [...] Each index MUST be in the range [0, "charcnt" - 1]
             timetypes[i] = .{
                 .offset = offset,
                 .flags = dst,
@@ -140,13 +141,13 @@ pub const Tz = struct {
         var designators_data: [256 + 6]u8 = undefined;
         try reader.readNoEof(designators_data[0..header.counts.charcnt]);
         const designators = designators_data[0..header.counts.charcnt];
-        if (designators[designators.len - 1] != 0) return error.Malformed; // rfc8536: charcnt [...] includes the trailing NUL (0x00) octet
+        if (designators[designators.len - 1] != 0) return error.Malformed; // RFC 9636: charcnt [...] includes the trailing NUL (0x00) octet
 
         // Iterate through the timetypes again, setting the designator names
         for (timetypes) |*tt| {
             const name = std.mem.sliceTo(designators[tt.name_data[0]..], 0);
             // We are mandating the "SHOULD" 6-character limit so we can pack the struct better, and to conform to POSIX.
-            if (name.len > 6) return error.Malformed; // rfc8536: Time zone designations SHOULD consist of at least three (3) and no more than six (6) ASCII characters.
+            if (name.len > 6) return error.Malformed; // RFC 9636: Time zone designations SHOULD consist of at least three (3) and no more than six (6) ASCII characters.
             @memcpy(tt.name_data[0..name.len], name);
             tt.name_data[name.len] = 0;
         }
@@ -155,13 +156,13 @@ pub const Tz = struct {
         i = 0;
         while (i < header.counts.leapcnt) : (i += 1) {
             const occur: i64 = if (legacy) try reader.readInt(i32, .big) else try reader.readInt(i64, .big);
-            if (occur < 0) return error.Malformed; // rfc8536: occur [...] MUST be nonnegative
-            if (i > 0 and leapseconds[i - 1].occurrence + 2419199 > occur) return error.Malformed; // rfc8536: occur [...] each later value MUST be at least 2419199 greater than the previous value
+            if (occur < 0) return error.Malformed; // RFC 9636: occur [...] MUST be nonnegative
+            if (i > 0 and leapseconds[i - 1].occurrence + 2419199 > occur) return error.Malformed; // RFC 9636: occur [...] each later value MUST be at least 2419199 greater than the previous value
             if (occur > std.math.maxInt(i48)) return error.Malformed; // Unreasonably far into the future
 
             const corr = try reader.readInt(i32, .big);
-            if (i == 0 and corr != -1 and corr != 1) return error.Malformed; // rfc8536: The correction value in the first leap-second record, if present, MUST be either one (1) or minus one (-1)
-            if (i > 0 and leapseconds[i - 1].correction != corr + 1 and leapseconds[i - 1].correction != corr - 1) return error.Malformed; // rfc8536: The correction values in adjacent leap-second records MUST differ by exactly one (1)
+            if (i == 0 and corr != -1 and corr != 1) return error.Malformed; // RFC 9636: The correction value in the first leap-second record, if present, MUST be either one (1) or minus one (-1)
+            if (i > 0 and leapseconds[i - 1].correction != corr + 1 and leapseconds[i - 1].correction != corr - 1) return error.Malformed; // RFC 9636: The correction values in adjacent leap-second records MUST differ by exactly one (1)
             if (corr > std.math.maxInt(i16)) return error.Malformed; // Unreasonably large correction
 
             leapseconds[i] = .{
@@ -185,14 +186,14 @@ pub const Tz = struct {
             const ut = try reader.readByte();
             if (ut == 1) {
                 timetypes[i].flags |= 0x04;
-                if (!timetypes[i].standardTimeIndicator()) return error.Malformed; // rfc8536: standard/wall value MUST be one (1) if the UT/local value is one (1)
+                if (!timetypes[i].standardTimeIndicator()) return error.Malformed; // RFC 9636: standard/wall value MUST be one (1) if the UT/local value is one (1)
             }
         }
 
         // Footer
         var footer: ?[]u8 = null;
         if (!legacy) {
-            if ((try reader.readByte()) != '\n') return error.Malformed; // An rfc8536 footer must start with a newline
+            if ((try reader.readByte()) != '\n') return error.Malformed; // An RFC 9636 footer must start with a newline
             var footerdata_buf: [128]u8 = undefined;
             const footer_mem = reader.readUntilDelimiter(&footerdata_buf, '\n') catch |err| switch (err) {
                 error.StreamTooLong => return error.OverlargeFooter, // Read more than 128 bytes, much larger than any reasonable POSIX TZ string

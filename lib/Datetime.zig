@@ -439,7 +439,7 @@ pub fn fromUnix(
         },
     }
 
-    try _dt.__normalize();
+    try _dt.normalizeToUnix();
     return _dt;
 }
 
@@ -448,7 +448,7 @@ pub fn fromUnix(
 /// UTC offset of the time zone (if such is supplied).
 ///
 /// Modifies input in-place.
-fn __normalize(dt: *Datetime) TzError!void {
+fn normalizeToUnix(dt: *Datetime) TzError!void {
     // "local" Unix time to get the fields right:
     var fake_unix = dt.unix_sec;
     // if a time zone is defined, this takes precedence and overwrites the UTC offset if one is specified.
@@ -597,8 +597,8 @@ pub fn compareWall(this: Datetime, other: Datetime) !std.math.Order {
     return try Datetime.compareUT(_this, _other);
 }
 
-/// Add a duration to a datetime. Makes a new datetime.
-pub fn add(dt: Datetime, td: Duration) ZdtError!Datetime {
+/// Add absolute duration to a datetime.
+pub fn add(dt: *const Datetime, td: Duration) ZdtError!Datetime {
     const ns: i128 = ( //
         @as(i128, dt.unix_sec) * ns_per_s + //
         @as(i128, dt.nanosecond) + //
@@ -609,9 +609,48 @@ pub fn add(dt: Datetime, td: Duration) ZdtError!Datetime {
     return try Datetime.fromUnix(ns, Duration.Resolution.nanosecond, opts);
 }
 
-/// Subtract a duration from a datetime. Makes a new datetime.
-pub fn sub(dt: Datetime, td: Duration) ZdtError!Datetime {
+/// Subtract a duration from a datetime.
+pub fn sub(dt: *const Datetime, td: Duration) ZdtError!Datetime {
     return dt.add(.{ .__sec = td.__sec * -1, .__nsec = td.__nsec });
+}
+
+/// Add a relative duration to a datetime, might include months and years.
+pub fn addRelative(dt: *const Datetime, rel_delta: Duration.RelativeDelta) !Datetime {
+    const abs_delta = try Duration.RelativeDelta.toDuration(.{
+        .weeks = rel_delta.weeks,
+        .days = rel_delta.days,
+        .hours = rel_delta.hours,
+        .minutes = rel_delta.minutes,
+        .seconds = rel_delta.seconds,
+        .nanoseconds = rel_delta.nanoseconds,
+    });
+    var result: Datetime = try dt.add(abs_delta);
+
+    var m_off: i32 = @intCast(rel_delta.months + rel_delta.years * 12);
+    if (rel_delta.negative) m_off *= -1;
+    m_off += result.month;
+
+    result.year = @intCast(@as(i32, result.year) + @divFloor(m_off, 12));
+    const new_month: u8 = @intCast(@mod(m_off, 12));
+    if (new_month <= 0) {
+        result.month = new_month + 12;
+        result.year -= 1;
+    } else result.month = new_month;
+
+    const days_in_month = cal.daysInMonth(result.month, cal.isLeapYear(result.year));
+    if (result.day > days_in_month) result.day = days_in_month;
+
+    return try Datetime.fromFields(.{
+        .year = result.year,
+        .month = result.month,
+        .day = result.day,
+        .hour = result.hour,
+        .minute = result.minute,
+        .second = result.second,
+        .nanosecond = result.nanosecond,
+        .dst_fold = result.dst_fold,
+        .tz_options = if (dt.tz) |tz_ptr| .{ .tz = tz_ptr } else null,
+    });
 }
 
 /// Calculate the absolute difference between two datetimes, independent of the time zone.
