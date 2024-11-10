@@ -616,6 +616,8 @@ pub fn sub(dt: *const Datetime, td: Duration) ZdtError!Datetime {
 
 /// Add a relative duration to a datetime, might include months and years.
 pub fn addRelative(dt: *const Datetime, rel_delta: Duration.RelativeDelta) !Datetime {
+    // FIXME: this function should not use absolute addition.
+    // It should recalculate the datetime fields, then use replace().
     const abs_delta = try Duration.RelativeDelta.toDuration(.{
         .weeks = rel_delta.weeks,
         .days = rel_delta.days,
