@@ -108,7 +108,10 @@ pub fn format(
     if (rd.weeks > 0) try writer.print("{d}W", .{rd.weeks});
     if (rd.days > 0) try writer.print("{d}D", .{rd.days});
 
-    try writer.print("T", .{});
+    if (rd.hours > 0 or rd.minutes > 0 or rd.seconds > 0 or rd.nanoseconds > 0)
+        try writer.print("T", .{})
+    else
+        return;
 
     if (rd.hours > 0) try writer.print("{d}H", .{rd.hours});
     if (rd.minutes > 0) try writer.print("{d}M", .{rd.minutes});
