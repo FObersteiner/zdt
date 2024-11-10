@@ -614,10 +614,17 @@ pub fn sub(dt: *const Datetime, td: Duration) ZdtError!Datetime {
     return dt.add(.{ .__sec = td.__sec * -1, .__nsec = td.__nsec });
 }
 
-/// Add a relative duration to a datetime, might include months and years.
+/// Add a duration which might include months and years to a datetime.
+///
+/// Arithmetic is wall-time arithmetic; e.g. adding a day across a DST transition
+/// would not change the hour of the resulting datetime.
+///
+/// Returns an error if the resulting datetime would be a non-existent datetime (DST gap).
+/// A resulting ambiguous datetime (DST fold) is resolved if the 'dst_fold' attribute
+/// is set. If not (= null), this function will also return an error.
 pub fn addRelative(dt: *const Datetime, rel_delta: Duration.RelativeDelta) !Datetime {
     const nrd = rel_delta.normalize();
-    const new_time = if (nrd.negative)
+    const new_time = if (nrd.negative) // [hours, minutes, seconds, nanoseconds, day_changed]
         subTimes(
             [4]u32{ dt.hour, dt.minute, dt.second, dt.nanosecond },
             [4]u32{ nrd.hours, nrd.minutes, nrd.seconds, nrd.nanoseconds },
@@ -698,8 +705,6 @@ pub fn diffWall(this: Datetime, other: Datetime) !Duration {
 
 /// Validate a datetime in terms of leap seconds;
 /// Returns an error if the datetime has seconds == 60 but is NOT a leap second datetime.
-//
-// TODO : might be private
 pub fn validateLeap(this: *const Datetime) !void {
     if (this.second != 60) return;
     if (cal.mightBeLeap(this.unix_sec)) return;
@@ -904,7 +909,7 @@ pub fn format(
 
 /// Surrounding timetypes at a given transition index. This index might be
 /// negative to indicate out-of-range values.
-pub fn getSurroundingTimetypes(idx: i32, _tz: *const Timezone) ![3]?*tzif.Timetype {
+fn getSurroundingTimetypes(idx: i32, _tz: *const Timezone) ![3]?*tzif.Timetype {
     switch (_tz.rules) {
         .tzif => {
             var surrounding = [3]?*tzif.Timetype{ null, null, null };
