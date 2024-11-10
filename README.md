@@ -11,7 +11,7 @@
 - [Roadmap](https://github.com/FObersteiner/zdt/wiki/Roadmap)
 - Contributions: Welcome!
 
-### [Demo](https://github.com/FObersteiner/zdt/blob/master/examples/ex_demo.zig)
+### [Demo](https://github.com/FObersteiner/zdt/blob/master/examples/demo.zig)
 
 ```zig
 // need an allocator for the time zones since the size of the rule-files varies.
