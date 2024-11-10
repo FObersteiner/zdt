@@ -616,17 +616,34 @@ pub fn sub(dt: *const Datetime, td: Duration) ZdtError!Datetime {
 
 /// Add a relative duration to a datetime, might include months and years.
 pub fn addRelative(dt: *const Datetime, rel_delta: Duration.RelativeDelta) !Datetime {
-    // FIXME: this function should not use absolute addition.
-    // It should recalculate the datetime fields, then use replace().
-    const abs_delta = try Duration.RelativeDelta.toDuration(.{
-        .weeks = rel_delta.weeks,
-        .days = rel_delta.days,
-        .hours = rel_delta.hours,
-        .minutes = rel_delta.minutes,
-        .seconds = rel_delta.seconds,
-        .nanoseconds = rel_delta.nanoseconds,
-    });
-    var result: Datetime = try dt.add(abs_delta);
+    const nrd = rel_delta.normalize();
+    const new_time = if (nrd.negative)
+        subTimes(
+            [4]u32{ dt.hour, dt.minute, dt.second, dt.nanosecond },
+            [4]u32{ nrd.hours, nrd.minutes, nrd.seconds, nrd.nanoseconds },
+        )
+    else
+        addTimes(
+            [4]u32{ dt.hour, dt.minute, dt.second, dt.nanosecond },
+            [4]u32{ nrd.hours, nrd.minutes, nrd.seconds, nrd.nanoseconds },
+        );
+
+    const days_off: i32 = @intCast(nrd.days + nrd.weeks * 7 + new_time[4]);
+    var rd_day = cal.dateToRD([3]u16{ dt.year, @as(u16, dt.month), @as(u16, dt.day) });
+    rd_day = if (nrd.negative) rd_day - days_off else rd_day + days_off;
+    const new_date = cal.rdToDate(rd_day);
+
+    var result: Fields = .{
+        .year = @truncate(new_date[0]),
+        .month = @truncate(new_date[1]),
+        .day = @truncate(new_date[2]),
+        .hour = @truncate(new_time[0]),
+        .minute = @truncate(new_time[1]),
+        .second = @truncate(new_time[2]),
+        .nanosecond = new_time[3],
+        .dst_fold = dt.dst_fold,
+        .tz_options = if (dt.tz) |tz_ptr| .{ .tz = tz_ptr } else null,
+    };
 
     var m_off: i32 = @intCast(rel_delta.months + rel_delta.years * 12);
     if (rel_delta.negative) m_off *= -1;
@@ -642,17 +659,7 @@ pub fn addRelative(dt: *const Datetime, rel_delta: Duration.RelativeDelta) !Date
     const days_in_month = cal.daysInMonth(result.month, cal.isLeapYear(result.year));
     if (result.day > days_in_month) result.day = days_in_month;
 
-    return try Datetime.fromFields(.{
-        .year = result.year,
-        .month = result.month,
-        .day = result.day,
-        .hour = result.hour,
-        .minute = result.minute,
-        .second = result.second,
-        .nanosecond = result.nanosecond,
-        .dst_fold = result.dst_fold,
-        .tz_options = if (dt.tz) |tz_ptr| .{ .tz = tz_ptr } else null,
-    });
+    return try Datetime.fromFields(result);
 }
 
 /// Calculate the absolute difference between two datetimes, independent of the time zone.
@@ -915,4 +922,57 @@ pub fn getSurroundingTimetypes(idx: i32, _tz: *const Timezone) ![3]?*tzif.Timety
         .posixtz => return TzError.NotImplemented,
         .utc => return TzError.NotImplemented,
     }
+}
+
+// a, b: [hour, minute, second, nanosecond]
+fn addTimes(t1: [4]u32, t2: [4]u32) [5]u32 {
+    var new_sec: u32 = t1[2] + t2[2];
+    var new_ns: u32 = t1[3] + t2[3];
+    if (new_ns > 1_000_000_000) {
+        new_sec += 1;
+        new_ns %= 1_000_000_000;
+    }
+    const min_add = new_sec / 60;
+    new_sec %= 60;
+
+    var new_min: u32 = t1[1] + t2[1] + min_add;
+    const h_add = new_min / 60;
+    new_min %= 60;
+
+    var new_h: u32 = t1[0] + t2[0] + h_add;
+    const day_change: bool = new_h >= 24;
+    new_h %= 24;
+
+    return [5]u32{ new_h, new_min, new_sec, new_ns, @intFromBool(day_change) };
+}
+
+// a, b: [hour, minute, second, nanosecond]
+fn subTimes(t1: [4]u32, t2: [4]u32) [5]u32 {
+    var _t1 = [4]i32{
+        @intCast(t1[0]), @intCast(t1[1]), @intCast(t1[2]), @intCast(t1[3]),
+    };
+
+    if (_t1[3] < t2[3]) {
+        _t1[3] += 1_000_000_000;
+        _t1[2] -= 1;
+    }
+
+    if (_t1[2] < t2[2]) {
+        _t1[1] -= 1;
+        _t1[2] += 60;
+    }
+
+    if (_t1[1] < t2[1]) {
+        _t1[0] -= 1;
+        _t1[1] += 60;
+    }
+
+    const new_ns: u32 = @intCast(_t1[3] - @as(i32, @intCast(t2[3])));
+    const new_sec: u32 = @intCast(_t1[2] - @as(i32, @intCast(t2[2])));
+    const new_min: u32 = @intCast(_t1[1] - @as(i32, @intCast(t2[1])));
+    var new_h: i32 = _t1[0] - @as(i32, @intCast(t2[0]));
+    const day_change = if (new_h < 0) true else false;
+    if (day_change) new_h += 24;
+
+    return [5]u32{ @intCast(new_h), new_min, new_sec, new_ns, @intFromBool(day_change) };
 }

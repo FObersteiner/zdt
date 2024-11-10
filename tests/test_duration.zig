@@ -391,8 +391,8 @@ test "add relative delta to datetime" {
     const cases = [_]TestCaseRelDelta{
         .{
             .datetime_a = .{ .year = 1970, .hour = 1, .unix_sec = 3600 },
-            .datetime_b = .{ .year = 1970, .hour = 2, .unix_sec = 7200 },
-            .rel_delta = .{ .hours = 1 },
+            .datetime_b = .{ .year = 1970, .hour = 3, .unix_sec = 10800 },
+            .rel_delta = .{ .hours = 2 },
         },
         .{
             .datetime_a = .{ .year = 1970, .unix_sec = 0 },
@@ -418,6 +418,11 @@ test "add relative delta to datetime" {
             .datetime_a = try Datetime.fromFields(.{ .year = 1970 }),
             .datetime_b = try Datetime.fromFields(.{ .year = 1969, .month = 11 }),
             .rel_delta = .{ .months = 2, .negative = true },
+        },
+        .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1969, .month = 11, .day = 30, .hour = 23, .minute = 59, .second = 59, .nanosecond = 1 }),
+            .rel_delta = .{ .months = 1, .nanoseconds = 999_999_999, .negative = true },
         },
         .{
             .datetime_a = try Datetime.fromFields(.{ .year = 1970, .day = 31 }),
