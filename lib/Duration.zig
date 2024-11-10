@@ -25,7 +25,10 @@ pub fn fromTimespanMultiple(n: i128, timespan: Timespan) Duration {
     };
 }
 
-/// Create a duration from an 'ISO8601 duration' style string.
+/// Create a duration from an 'ISO8601 duration' style string, e.g.
+///
+/// PT9H - 9 hours
+/// PT1.234S - 1 second, 234 milliseconds
 ///
 /// Restrictions:
 /// - Since the Duration type represents an absolute difference in time,
@@ -33,8 +36,8 @@ pub fn fromTimespanMultiple(n: i128, timespan: Timespan) Duration {
 /// - A fractional value is only allowed for seconds ('S').
 /// - The string might be prefixed '-' to indicate a negative duration.
 ///   Individual signed components are not allowed.
-pub fn fromISO8601Duration(string: []const u8) !Duration {
-    const fields: RelativeDelta = try parseIsoDur(string);
+pub fn fromISO8601(string: []const u8) !Duration {
+    const fields: RelativeDelta = try RelativeDelta.fromISO8601(string);
     return try RelativeDelta.toDuration(fields);
 }
 
@@ -53,7 +56,7 @@ pub fn totalSeconds(duration: Duration) f64 {
     return @floatCast(@as(f128, @floatFromInt(ns)) / 1_000_000_000);
 }
 
-/// Add a duration to another. Makes a new Duration.
+/// Add a duration to another. Makes a new Duration.P
 pub fn add(this: Duration, other: Duration) Duration {
     const s: i64 = this.__sec + other.__sec;
     const ns: u32 = this.__nsec + other.__nsec;
@@ -85,11 +88,7 @@ pub fn asNanoseconds(duration: Duration) i128 {
     return duration.__sec * 1_000_000_000 + duration.__nsec;
 }
 
-/// Formatted printing for Duration type. Defaults to 'ISO8601 duration'-style
-/// format, with years/months/days excluded due to the ambiguity of months and years.
-//
-// TODO : revise this method when RelativeDelta is introduced;
-// it might be simpler to convert Duration to RelativeDelta, then print.
+/// Formatted printing for Duration type. Defaults to 'ISO8601 duration'-like format.
 pub fn format(
     duration: Duration,
     comptime fmt: []const u8,
@@ -101,8 +100,20 @@ pub fn format(
 
     if (duration.__sec == 0 and duration.__nsec == 0) return try writer.print("PT0S", .{});
 
+    const rd = RelativeDelta.fromDuration(&duration);
+
     const is_negative = duration.__sec < 0;
-    const s: u64 = if (is_negative) @intCast(duration.__sec * -1) else @intCast(duration.__sec);
+    if (is_negative) try writer.print("-P", .{}) else try writer.print("P", .{});
+
+    if (rd.weeks > 0) try writer.print("{d}W", .{rd.weeks});
+    if (rd.days > 0) try writer.print("{d}D", .{rd.days});
+
+    try writer.print("T", .{});
+
+    if (rd.hours > 0) try writer.print("{d}H", .{rd.hours});
+    if (rd.minutes > 0) try writer.print("{d}M", .{rd.minutes});
+
+    if (rd.seconds == 0 and rd.nanoseconds == 0) return;
 
     var frac = duration.__nsec;
     // truncate zeros from fractional part
@@ -110,22 +121,10 @@ pub fn format(
         while (frac % 10 == 0) : (frac /= 10) {}
     }
 
-    if (is_negative) try writer.print("-PT", .{}) else try writer.print("PT", .{});
-
-    const hours = @divFloor(s, 3600);
-    if (hours > 0) try writer.print("{d}H", .{hours});
-
-    const remainder = @rem(s, 3600);
-    const minutes = @divFloor(remainder, 60);
-    if (minutes > 0) try writer.print("{d}M", .{minutes});
-
-    const seconds = @rem(remainder, 60);
-    if (seconds == 0 and frac == 0) return;
-
     if (frac > 0) {
-        try writer.print("{d}.{d}S", .{ seconds, frac });
+        try writer.print("{d}.{d}S", .{ rd.seconds, frac });
     } else {
-        try writer.print("{d}S", .{seconds});
+        try writer.print("{d}S", .{rd.seconds});
     }
 }
 
@@ -234,125 +233,125 @@ pub const RelativeDelta = struct {
             .__nsec = reldelta.nanoseconds,
         };
     }
-};
 
-/// Convert ISO8601 duration from string to a RelativeDelta.
-///
-/// Restrictions:
-/// - A fractional value is only allowed for seconds ('S').
-/// - The string might be prefixed '-' to indicate a negative duration.
-///   Individual signed components are not allowed.
-pub fn parseIsoDur(string: []const u8) !RelativeDelta {
-    var result: RelativeDelta = .{};
+    /// Convert ISO8601 duration from string to a RelativeDelta.
+    ///
+    /// Restrictions:
+    /// - A fractional value is only allowed for seconds ('S').
+    /// - The string might be prefixed '-' to indicate a negative duration.
+    ///   Individual signed components are not allowed.
+    pub fn fromISO8601(string: []const u8) !RelativeDelta {
+        var result: RelativeDelta = .{};
 
-    // at least 3 characters, e.g. P0D
-    if (string.len < 3) return error.InvalidFormat;
+        // at least 3 characters, e.g. P0D
+        if (string.len < 3) return error.InvalidFormat;
 
-    // must end with a character
-    if (!std.ascii.isAlphabetic(string[string.len - 1])) return error.InvalidFormat;
+        // must end with a character
+        if (!std.ascii.isAlphabetic(string[string.len - 1])) return error.InvalidFormat;
 
-    var stop: usize = 0;
+        var stop: usize = 0;
 
-    if (string[stop] == '-') { // minus prefix
-        result.negative = true;
+        if (string[stop] == '-') { // minus prefix
+            result.negative = true;
+            stop += 1;
+        }
+
+        // must start with P (ignore sign)
+        if (string[stop] != 'P') return error.InvalidFormat;
         stop += 1;
-    }
 
-    // must start with P (ignore sign)
-    if (string[stop] != 'P') return error.InvalidFormat;
-    stop += 1;
+        // 'P' must be followed by either 'T', '-' or a digit;
+        // if 'P' is followed by a 'T', that must also be followed by a '-' or a digit
+        if (string[stop] == 'T') {
+            if (!(std.ascii.isDigit(string[stop + 1]) or string[stop + 1] == '-'))
+                return error.InvalidFormat;
+        } else {
+            if (!(std.ascii.isDigit(string[stop]) or string[stop] == '-'))
+                return error.InvalidFormat;
+        }
 
-    // 'P' must be followed by either 'T', '-' or a digit;
-    // if 'P' is followed by a 'T', that must also be followed by a '-' or a digit
-    if (string[stop] == 'T') {
-        if (!(std.ascii.isDigit(string[stop + 1]) or string[stop + 1] == '-'))
-            return error.InvalidFormat;
-    } else {
-        if (!(std.ascii.isDigit(string[stop]) or string[stop] == '-'))
-            return error.InvalidFormat;
-    }
+        var idx: usize = string.len - 1;
 
-    var idx: usize = string.len - 1;
+        // need flags to keep track of what has been parsed already,
+        // and in which order.
+        // quantity/token:  Y m W d T H M S
+        // bit/order:       7 6 5 4 3 2 1 0
+        var flags: u8 = 0;
 
-    // need flags to keep track of what has been parsed already,
-    // and in which order.
-    // quantity/token:  Y m W d T H M S
-    // bit/order:       7 6 5 4 3 2 1 0
-    var flags: u8 = 0;
-
-    while (idx >= stop) {
-        switch (string[idx]) {
-            'S' => {
-                // seconds come last, so no other quantity must have been parsed yet
-                if (flags > 0) return error.InvalidFormat;
-                idx -= 1;
-                flags |= 1;
-                _ = try parseAndAdvanceS(string, &idx, &result.seconds, &result.nanoseconds);
-            },
-            'M' => {
-                // 'M' may appear twice; it's either minutes or months;
-                // depending on if the 'T' has been seen =>
-                // minutes if (flags & 0b1000 == 0), otherwise months
-                if (flags & 0b1000 == 0) {
-                    // minutes come second to last, so only seconds may have been parsed yet
-                    if (flags > 1) return error.InvalidFormat;
+        while (idx >= stop) {
+            switch (string[idx]) {
+                'S' => {
+                    // seconds come last, so no other quantity must have been parsed yet
+                    if (flags > 0) return error.InvalidFormat;
                     idx -= 1;
-                    flags |= 1 << 1;
+                    flags |= 1;
+                    _ = try parseAndAdvanceS(string, &idx, &result.seconds, &result.nanoseconds);
+                },
+                'M' => {
+                    // 'M' may appear twice; it's either minutes or months;
+                    // depending on if the 'T' has been seen =>
+                    // minutes if (flags & 0b1000 == 0), otherwise months
+                    if (flags & 0b1000 == 0) {
+                        // minutes come second to last, so only seconds may have been parsed yet
+                        if (flags > 1) return error.InvalidFormat;
+                        idx -= 1;
+                        flags |= 1 << 1;
+                        const quantity = try parseAndAdvanceYmWdHM(u32, string, &idx);
+                        result.minutes = quantity;
+                    } else {
+                        if (flags > 0b111111) return error.InvalidFormat;
+                        // if no 'T' was parsed before, flags 0, 1 and 2 must be 0:
+                        if (flags & 0b1000 == 0 and flags & 0b111 != 0) return error.InvalidFormat;
+                        idx -= 1;
+                        flags |= 1 << 6;
+                        const quantity = try parseAndAdvanceYmWdHM(u32, string, &idx);
+                        result.months = quantity;
+                    }
+                },
+                'H' => { // hours are the third-to-last component,
+                    // so only seconds and minutes may have been parsed yet
+                    if (flags > 0b11) return error.InvalidFormat;
+                    idx -= 1;
+                    flags |= 1 << 2;
                     const quantity = try parseAndAdvanceYmWdHM(u32, string, &idx);
-                    result.minutes = quantity;
-                } else {
-                    if (flags > 0b111111) return error.InvalidFormat;
-                    // if no 'T' was parsed before, flags 0, 1 and 2 must be 0:
+                    result.hours = quantity;
+                },
+                'T' => { // date/time separator must only appear once
+                    if (flags > 0b111) return error.InvalidFormat;
+                    idx -= 1;
+                    flags |= 1 << 3; // 0b1000;
+                },
+                'D' => {
+                    if (flags > 0b1111) return error.InvalidFormat;
                     if (flags & 0b1000 == 0 and flags & 0b111 != 0) return error.InvalidFormat;
                     idx -= 1;
-                    flags |= 1 << 6;
+                    flags |= 1 << 4;
                     const quantity = try parseAndAdvanceYmWdHM(u32, string, &idx);
-                    result.months = quantity;
-                }
-            },
-            'H' => { // hours are the third-to-last component,
-                // so only seconds and minutes may have been parsed yet
-                if (flags > 0b11) return error.InvalidFormat;
-                idx -= 1;
-                flags |= 1 << 2;
-                const quantity = try parseAndAdvanceYmWdHM(u32, string, &idx);
-                result.hours = quantity;
-            },
-            'T' => { // date/time separator must only appear once
-                if (flags > 0b111) return error.InvalidFormat;
-                idx -= 1;
-                flags |= 1 << 3; // 0b1000;
-            },
-            'D' => {
-                if (flags > 0b1111) return error.InvalidFormat;
-                if (flags & 0b1000 == 0 and flags & 0b111 != 0) return error.InvalidFormat;
-                idx -= 1;
-                flags |= 1 << 4;
-                const quantity = try parseAndAdvanceYmWdHM(u32, string, &idx);
-                result.days = quantity;
-            },
-            'W' => {
-                if (flags > 0b11111) return error.InvalidFormat;
-                if (flags & 0b1000 == 0 and flags & 0b111 != 0) return error.InvalidFormat;
-                idx -= 1;
-                flags |= 1 << 5;
-                const quantity = try parseAndAdvanceYmWdHM(u32, string, &idx);
-                result.weeks = quantity;
-            },
-            'Y' => {
-                if (flags & 1 << 7 != 0) return error.InvalidFormat;
-                if (flags & 0b1000 == 0 and flags & 0b111 != 0) return error.InvalidFormat;
-                idx -= 1;
-                flags |= 1 << 7;
-                const quantity = try parseAndAdvanceYmWdHM(u32, string, &idx);
-                result.years = quantity;
-            },
-            else => return error.InvalidFormat,
+                    result.days = quantity;
+                },
+                'W' => {
+                    if (flags > 0b11111) return error.InvalidFormat;
+                    if (flags & 0b1000 == 0 and flags & 0b111 != 0) return error.InvalidFormat;
+                    idx -= 1;
+                    flags |= 1 << 5;
+                    const quantity = try parseAndAdvanceYmWdHM(u32, string, &idx);
+                    result.weeks = quantity;
+                },
+                'Y' => {
+                    if (flags & 1 << 7 != 0) return error.InvalidFormat;
+                    if (flags & 0b1000 == 0 and flags & 0b111 != 0) return error.InvalidFormat;
+                    idx -= 1;
+                    flags |= 1 << 7;
+                    const quantity = try parseAndAdvanceYmWdHM(u32, string, &idx);
+                    result.years = quantity;
+                },
+                else => return error.InvalidFormat,
+            }
         }
-    }
 
-    return result;
-}
+        return result;
+    }
+};
 
 /// Backwards-looking parse chars from 'string' seconds and nanoseconds (sum),
 /// end index is the value of 'idx_ptr' when the function is called.
