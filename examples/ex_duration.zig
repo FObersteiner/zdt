@@ -4,6 +4,7 @@ const builtin = @import("builtin");
 const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
 const Duration = zdt.Duration;
+const Timezone = zdt.Timezone;
 
 pub fn main() !void {
     println("---> duration example", .{});
@@ -28,9 +29,22 @@ pub fn main() !void {
     println("two weeks ago : {s}", .{two_weeks_ago});
 
     // ISO8601-duration parser on-board:
-    const one_wk_one_h = try Duration.fromISO8601Duration("P7DT1H");
+    const one_wk_one_h = try Duration.fromISO8601("P7DT1H");
     const in_a_week = try now_utc.add(one_wk_one_h);
-    println("in a week and an hour : {s}", .{in_a_week});
+    println("in a week and an hour : {s}\n", .{in_a_week});
+
+    // wall-time arithmetic across DST transition using Duration.RelativeDelta:
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+    var tz_berlin: Timezone = try Timezone.fromTzdata("Europe/Berlin", allocator);
+    defer tz_berlin.deinit();
+
+    const delta = try Duration.RelativeDelta.fromISO8601("P1D");
+    const dt_dst_off = try Datetime.fromFields(.{ .year = 2024, .month = 3, .day = 30, .hour = 8, .tz_options = .{ .tz = &tz_berlin } });
+    const dt_dst_on = try dt_dst_off.addRelative(delta);
+    println("{s} --> {s}", .{ dt_dst_off, dt_dst_on });
+    println("wall diff: {s}, absolute diff: {s}", .{ try dt_dst_on.diffWall(dt_dst_off), dt_dst_on.diff(dt_dst_off) });
 }
 
 fn println(comptime fmt: []const u8, args: anytype) void {

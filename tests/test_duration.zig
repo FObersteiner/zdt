@@ -6,6 +6,7 @@ const testing = std.testing;
 const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
 const Duration = zdt.Duration;
+const Timezone = zdt.Timezone;
 
 const log = std.log.scoped(.test_duration);
 
@@ -212,30 +213,11 @@ test "iso duration parser, full valid input" {
         },
         .{
             .string = "-P9Y10M11DT12H13M14.156S",
-            .fields = .{
-                .years = 9,
-                .months = 10,
-                .days = 11,
-                .hours = 12,
-                .minutes = 13,
-                .seconds = 14,
-                .nanoseconds = 156000000,
-                .negative = true,
-            },
+            .fields = .{ .years = 9, .months = 10, .days = 11, .hours = 12, .minutes = 13, .seconds = 14, .nanoseconds = 156000000, .negative = true },
         },
         .{
             .string = "-P9Y10M41W11DT12H13M14.156S",
-            .fields = .{
-                .years = 9,
-                .months = 10,
-                .weeks = 41,
-                .days = 11,
-                .hours = 12,
-                .minutes = 13,
-                .seconds = 14,
-                .nanoseconds = 156000000,
-                .negative = true,
-            },
+            .fields = .{ .years = 9, .months = 10, .weeks = 41, .days = 11, .hours = 12, .minutes = 13, .seconds = 14, .nanoseconds = 156000000, .negative = true },
         },
         .{
             .string = "P1M7WT7M",
@@ -244,12 +226,11 @@ test "iso duration parser, full valid input" {
     };
 
     for (cases) |case| {
-        // log.warn("str: {s}", .{case.string});
-        const fields = try Duration.parseIsoDur(case.string);
+        const fields = try Duration.RelativeDelta.fromISO8601(case.string);
         try testing.expectEqual(case.fields, fields);
 
         // all test cases have year or month != 0, so conversion to duration fails:
-        const err = Duration.fromISO8601Duration(case.string);
+        const err = Duration.fromISO8601(case.string);
         try testing.expectError(error.InvalidFormat, err);
     }
 }
@@ -269,22 +250,21 @@ test "iso duration to Duration type round-trip" {
             .duration = .{ .__sec = 4 * 3600 + 5 * 60 + 6, .__nsec = 789000000 },
         },
         .{
-            .string = "PT37H12.789000001S",
+            .string = "P1DT13H12.789000001S",
             .duration = .{ .__sec = 37 * 3600 + 12, .__nsec = 789000001 },
         },
         .{
-            .string = "-PT46M59.789S", // default formatter normalizes, e.g. seconds >= 59
+            .string = "-PT46M59.789S",
             .duration = .{ .__sec = -(46 * 60 + 59), .__nsec = 789000000 },
         },
     };
 
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
     for (cases) |case| {
-        //log.warn("str: {s}", .{case.string});
-        const dur = try Duration.fromISO8601Duration(case.string);
+        const dur = try Duration.fromISO8601(case.string);
         try testing.expectEqual(case.duration, dur);
 
-        var buf = std.ArrayList(u8).init(testing.allocator);
-        defer buf.deinit();
         try dur.format("{s}", .{}, buf.writer());
         try testing.expectEqualStrings(case.string, buf.items);
         buf.clearAndFree();
@@ -321,8 +301,7 @@ test "iso duration fail cases" {
     };
 
     for (cases) |case| {
-        // log.warn("str: {s}", .{case});
-        if (Duration.parseIsoDur(case)) |_| {
+        if (Duration.RelativeDelta.fromISO8601(case)) |_| {
             log.err("did not error: {s}", .{case});
             @panic("FAIL");
         } else |err| switch (err) {
@@ -366,17 +345,24 @@ test "relative delta normalizer" {
             .fields = .{ .days = 1, .hours = 1, .minutes = 1, .negative = true },
             .duration = .{ .__sec = -(86400 + 3600 + 60) },
         },
+        .{
+            .string = "P1W2DT3H4M5S",
+            .fields = .{ .weeks = 1, .days = 2, .hours = 3, .minutes = 4, .seconds = 5 },
+            .duration = .{ .__sec = 9 * 86400 + 3 * 3600 + 4 * 60 + 5 },
+        },
+        .{
+            .string = "-P1W2DT3H4M5S",
+            .fields = .{ .weeks = 1, .days = 2, .hours = 3, .minutes = 4, .seconds = 5, .negative = true },
+            .duration = .{ .__sec = -(9 * 86400 + 3 * 3600 + 4 * 60 + 5) },
+        },
     };
 
     for (cases) |case| {
-        // log.warn("str: {s}", .{case.string});
-        const fields = try Duration.parseIsoDur(case.string);
+        const fields = try Duration.RelativeDelta.fromISO8601(case.string);
         const normalized_fields = fields.normalize();
-        // log.warn("fields norm.: {any}", .{normalized_fields});
         try testing.expectEqual(case.fields, normalized_fields);
 
         const from_dur = Duration.RelativeDelta.fromDuration(&case.duration);
-        // log.warn("from dura.: {any}", .{from_dur});
         try testing.expectEqual(normalized_fields, from_dur);
     }
 }
@@ -387,12 +373,12 @@ const TestCaseRelDelta = struct {
     rel_delta: Duration.RelativeDelta = .{},
 };
 
-test "add relative delta to datetime" {
+test "add relative delta to naive datetime" {
     const cases = [_]TestCaseRelDelta{
         .{
             .datetime_a = .{ .year = 1970, .hour = 1, .unix_sec = 3600 },
-            .datetime_b = .{ .year = 1970, .hour = 2, .unix_sec = 7200 },
-            .rel_delta = .{ .hours = 1 },
+            .datetime_b = .{ .year = 1970, .hour = 3, .unix_sec = 10800 },
+            .rel_delta = .{ .hours = 2 },
         },
         .{
             .datetime_a = .{ .year = 1970, .unix_sec = 0 },
@@ -420,6 +406,11 @@ test "add relative delta to datetime" {
             .rel_delta = .{ .months = 2, .negative = true },
         },
         .{
+            .datetime_a = try Datetime.fromFields(.{ .year = 1970 }),
+            .datetime_b = try Datetime.fromFields(.{ .year = 1969, .month = 11, .day = 30, .hour = 23, .minute = 59, .second = 59, .nanosecond = 1 }),
+            .rel_delta = .{ .months = 1, .nanoseconds = 999_999_999, .negative = true },
+        },
+        .{
             .datetime_a = try Datetime.fromFields(.{ .year = 1970, .day = 31 }),
             .datetime_b = try Datetime.fromFields(.{ .year = 1970, .month = 2, .day = 28 }),
             .rel_delta = .{ .months = 1 },
@@ -445,4 +436,46 @@ test "add relative delta to datetime" {
         const dt_new = try case.datetime_a.addRelative(case.rel_delta);
         try testing.expectEqual(case.datetime_b, dt_new);
     }
+}
+
+test "add relative delta to aware datetime" {
+    var tz = try Timezone.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tz.deinit();
+
+    var have: Datetime = try Datetime.fromFields(.{ .year = 1970, .tz_options = .{ .tz = &tz } });
+    var delta: Duration.RelativeDelta = try Duration.RelativeDelta.fromISO8601("P1Y");
+    var want: Datetime = try Datetime.fromFields(.{ .year = 1971, .tz_options = .{ .tz = &tz } });
+    var new: Datetime = try have.addRelative(delta);
+    try testing.expectEqual(want, new);
+    delta.negative = true;
+    new = try want.addRelative(delta);
+    try testing.expectEqual(have, new);
+
+    // 23 hours absolute is 1 day relative during DST off --> on
+    have = try Datetime.fromFields(.{ .year = 2024, .month = 3, .day = 30, .hour = 8, .tz_options = .{ .tz = &tz } });
+    delta = try Duration.RelativeDelta.fromISO8601("P1D");
+    want = try Datetime.fromFields(.{ .year = 2024, .month = 3, .day = 31, .hour = 8, .tz_options = .{ .tz = &tz } });
+    new = try have.addRelative(delta);
+    try testing.expectEqual(want, new);
+    var abs_diff: Duration = new.diff(have);
+    var wall_diff: Duration = try new.diffWall(have);
+    try testing.expectEqual(try Duration.fromISO8601("PT23H"), abs_diff);
+    try testing.expectEqual(try Duration.fromISO8601("PT24H"), wall_diff);
+    delta.negative = true;
+    new = try want.addRelative(delta);
+    try testing.expectEqual(have, new);
+
+    // 25 hours absolute is 1 day relative during DST on --> off
+    have = try Datetime.fromFields(.{ .year = 2024, .month = 10, .day = 26, .hour = 8, .tz_options = .{ .tz = &tz } });
+    delta = try Duration.RelativeDelta.fromISO8601("P1D");
+    want = try Datetime.fromFields(.{ .year = 2024, .month = 10, .day = 27, .hour = 8, .tz_options = .{ .tz = &tz } });
+    new = try have.addRelative(delta);
+    try testing.expectEqual(want, new);
+    abs_diff = new.diff(have);
+    wall_diff = try new.diffWall(have);
+    try testing.expectEqual(try Duration.fromISO8601("PT25H"), abs_diff);
+    try testing.expectEqual(try Duration.fromISO8601("PT24H"), wall_diff);
+    delta.negative = true;
+    new = try want.addRelative(delta);
+    try testing.expectEqual(have, new);
 }
