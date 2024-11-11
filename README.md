@@ -61,8 +61,6 @@ std.debug.print(
 // Absolute time difference: PT0S
 ```
 
-More examples in the `./examples` directory. 
-
 ## Documentation
 
 See [Wiki](https://github.com/FObersteiner/zdt/wiki)
