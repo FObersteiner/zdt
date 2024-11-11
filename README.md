@@ -61,11 +61,7 @@ std.debug.print(
 // Absolute time difference: PT0S
 ```
 
-More examples in the `./examples` directory. There's a build-step to build them all;
-
-```zig
-zig build examples && ./zig-out/bin/ex_datetime
-```
+More examples in the `./examples` directory. 
 
 ## Documentation
 
