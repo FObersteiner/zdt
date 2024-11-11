@@ -666,7 +666,12 @@ pub fn addRelative(dt: *const Datetime, rel_delta: Duration.RelativeDelta) !Date
     const days_in_month = cal.daysInMonth(result.month, cal.isLeapYear(result.year));
     if (result.day > days_in_month) result.day = days_in_month;
 
-    return try Datetime.fromFields(result);
+    const dt_out = Datetime.fromFields(result) catch |err| switch (err) {
+        ZdtError.AmbiguousDatetime => @panic("!?"),
+        ZdtError.NonexistentDatetime => @panic("!?"),
+        else => return err,
+    };
+    return dt_out;
 }
 
 /// Calculate the absolute difference between two datetimes, independent of the time zone.
