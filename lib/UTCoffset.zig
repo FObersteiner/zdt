@@ -11,7 +11,7 @@ const UTCoffset = @This();
 const cap_designation_data: usize = 6;
 
 /// offset from UTC should be in range -25h to +26h as specified by
-/// RFC8536, sect. 3.2, TZif data block.
+/// RFC9636, sect. 3.2, TZif data block.
 pub const offset_range = [2]i32{ -89999, 93599 };
 
 /// seconds East of Greenwich

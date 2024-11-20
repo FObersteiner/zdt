@@ -367,6 +367,30 @@ test "relative delta normalizer" {
     }
 }
 
+const TestCaseFormatter = struct {
+    have: []const u8,
+    want: []const u8,
+};
+
+test "ISO8601 duration parse and normalize" {
+    const cases = [_]TestCaseFormatter{
+        .{ .have = "P24H", .want = "P1D" },
+        .{ .have = "P24H60M", .want = "P1DT1H" },
+        .{ .have = "PT249H", .want = "P1W3DT9H" },
+        .{ .have = "PT294423.9S", .want = "P3DT9H47M3.9S" },
+        .{ .have = "PT10080000M", .want = "P1000W" },
+    };
+
+    var buf = std.ArrayList(u8).init(testing.allocator);
+    defer buf.deinit();
+    for (cases) |case| {
+        const reldelta = try Duration.fromISO8601(case.have);
+        try reldelta.format("{s}", .{}, buf.writer());
+        try testing.expectEqualStrings(case.want, buf.items);
+        buf.clearAndFree();
+    }
+}
+
 const TestCaseRelDelta = struct {
     datetime_a: Datetime = .{},
     datetime_b: Datetime = .{},

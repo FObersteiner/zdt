@@ -13,20 +13,24 @@ Types of changes
 
 ## Unreleased
 
+### Added
+
+- some more tests for Duration formatter
+
 ## 2024-11-10, v0.4.3
 
-## Added
+### Added
 
 - Datetime method 'addRelative' to add a RelativeDelta to a Datetime
 - ISO duration parser 'W' directive / relative delta type can handle weeks
 - Normalizer for the fields of a RelativeDelta (set fields to their "natural" modulo; e.g. hours = [0..23]).
 
-## Changed
+### Changed
 
 - ISO duration parser only accepts a minus prefix ('-') to indicate a negative duration. Individual quantities must not be signed.
 - Conversion from RelativeDelta to Duration type now a method of RelativeDelta
 
-## Fixed
+### Fixed
 
 - ISO duration format validation for incorrect order of quantities and position of 'T'
 

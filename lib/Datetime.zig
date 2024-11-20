@@ -929,7 +929,7 @@ fn getSurroundingTimetypes(idx: i32, _tz: *const Timezone) ![3]?*tzif.Timetype {
     }
 }
 
-// a, b: [hour, minute, second, nanosecond]
+// t1, t2: [hour, minute, second, nanosecond]
 fn addTimes(t1: [4]u32, t2: [4]u32) [5]u32 {
     var new_sec: u32 = t1[2] + t2[2];
     var new_ns: u32 = t1[3] + t2[3];
@@ -951,7 +951,7 @@ fn addTimes(t1: [4]u32, t2: [4]u32) [5]u32 {
     return [5]u32{ new_h, new_min, new_sec, new_ns, @intFromBool(day_change) };
 }
 
-// a, b: [hour, minute, second, nanosecond]
+// t1, t2: [hour, minute, second, nanosecond]
 fn subTimes(t1: [4]u32, t2: [4]u32) [5]u32 {
     var _t1 = [4]i32{
         @intCast(t1[0]), @intCast(t1[1]), @intCast(t1[2]), @intCast(t1[3]),
