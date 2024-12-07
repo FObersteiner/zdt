@@ -32,15 +32,11 @@ const test_files = [_][]const u8{
     "test_timezone",
 };
 
+const tzdb_prefix_default = "/usr/share/zoneinfo/";
 const tzdb_submodule_dir = "tz";
 const tzdb_tag = "2024b";
 
-const tzdb_prefix_default = "/usr/share/zoneinfo/";
-
-const _zig_build_help_hangindent = "                               ";
-
 const req_zig_version = "0.13.0";
-
 comptime {
     const req_zig = std.SemanticVersion.parse(req_zig_version) catch unreachable;
     if (builtin.zig_version.order(req_zig) == .lt) {
@@ -55,6 +51,7 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const _zig_build_help_hangindent = "                               ";
     const tzdb_prefix = b.option(
         []const u8,
         "prefix_tzdb",
