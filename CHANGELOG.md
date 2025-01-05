@@ -13,6 +13,10 @@ Types of changes
 
 ## Unreleased
 
+## 2025-01-05, v0.4.4
+
+Upgrade release, so that zdt build.zig works with the latest 0.14-dev.
+
 ### Added
 
 - some more tests for Duration formatter

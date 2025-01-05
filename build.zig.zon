@@ -1,6 +1,6 @@
 .{
     .name = "zdt",
-    .version = "0.4.3",
+    .version = "0.4.4",
     .minimum_zig_version = "0.13.0",
     .paths = .{
         "zdt.zig",
