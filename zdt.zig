@@ -1,4 +1,4 @@
-// Copyright © 2023-2024 Florian Obersteiner <f.obersteiner@posteo.de>
+// Copyright © 2023-2025 Florian Obersteiner <f.obersteiner@posteo.de>
 // License: see LICENSE file in the root directory of the zdt repository.
 
 const std = @import("std");
