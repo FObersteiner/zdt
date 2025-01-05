@@ -17,6 +17,10 @@ Types of changes
 
 - some more tests for Duration formatter
 
+### Changed
+
+- build.zig: tzdb generator steps use  `b.graph.host` instead of `b.host` (zig 0.13 to 0.14 change)
+
 ## 2024-11-10, v0.4.3
 
 ### Added
