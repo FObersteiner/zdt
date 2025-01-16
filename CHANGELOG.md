@@ -11,7 +11,13 @@ Types of changes
 - 'Fixed' for any bug fixes.
 - 'Security' in case of vulnerabilities.
 
-## Unreleased
+## [Unreleased]
+
+## 2025-01-16, v0.4.5
+
+### Changed
+
+- tzdb update to release 2025a
 
 ## 2025-01-05, v0.4.4
 
