@@ -10,7 +10,8 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 4, .patch = 4 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 4, .patch = 5 };
+const tzdb_tag = "2025a";
 
 const example_files = [_][]const u8{
     "demo",
@@ -34,7 +35,6 @@ const test_files = [_][]const u8{
 
 const tzdb_prefix_default = "/usr/share/zoneinfo/";
 const tzdb_submodule_dir = "tz";
-const tzdb_tag = "2024b";
 
 const req_zig_version = "0.13.0";
 comptime {

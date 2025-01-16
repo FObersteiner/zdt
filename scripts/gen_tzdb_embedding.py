@@ -28,6 +28,6 @@ with open(dst, "w") as fp:
         if z in skip_zones:
             continue
         print(f'    .{{ "{z}", @embedFile("{zoneinfo_path}/{z}") }},', file=fp)
-    print(" });", end="", file=fp)
+    print(" });\n", end="", file=fp)
 
 print(f"{dst.resolve().as_posix()} updated.")
