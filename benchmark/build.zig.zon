@@ -1,0 +1,19 @@
+.{
+    .name = "benchmark",
+    .version = "0.0.1",
+    .dependencies = .{
+        .zdt_030 = .{
+            .url = "https://github.com/FObersteiner/zdt/archive/refs/tags/v0.3.0.tar.gz",
+            .hash = "1220158f660a44f64c4dad27ed379ee221ea5cdb834bb5ac90083aac8872eec2cc60",
+        },
+        .zdt_045 = .{
+            .url = "https://github.com/FObersteiner/zdt/archive/refs/tags/v0.4.5.tar.gz",
+            .hash = "1220f841de6b76c125883bdc1e6919cb3289c6fa50b2e65f834e73355f98032a1fd4",
+        },
+        .zbench = .{
+            .url = "https://github.com/hendriknielaender/zBench/archive/refs/tags/v0.9.1.tar.gz",
+            .hash = "1220b19e117897a42abc5e58633766a3be92f9ebade400116afea57957bebe41aed0",
+        },
+    },
+    .paths = .{""},
+}
