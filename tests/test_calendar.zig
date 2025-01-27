@@ -109,6 +109,19 @@ test "ymd_from_unix-days" {
     try testing.expectEqual(want, date_);
 }
 
+test "Easter, Gregorian" {
+    var ymd = cal.gregorianEaster(2009);
+    try testing.expectEqual([3]u16{ 2009, 4, 12 }, ymd);
+    ymd = cal.gregorianEaster(1970);
+    try testing.expectEqual([3]u16{ 1970, 3, 29 }, ymd);
+    ymd = cal.gregorianEaster(2018);
+    try testing.expectEqual([3]u16{ 2018, 4, 1 }, ymd);
+    ymd = cal.gregorianEaster(2025);
+    try testing.expectEqual([3]u16{ 2025, 4, 20 }, ymd);
+    ymd = cal.gregorianEaster(2160);
+    try testing.expectEqual([3]u16{ 2160, 3, 23 }, ymd);
+}
+
 // ---vv--- test generated with Python scripts ---vv---
 
 test "leap correction" {
