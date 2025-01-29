@@ -882,6 +882,12 @@ pub fn formatOffset(
     return if (dt.isAware()) dt.utc_offset.?.format("", options, writer);
 }
 
+/// Calculate the date of Gregorian calendar Easter
+pub fn EasterDate(year: u16) Datetime {
+    const ymd = cal.gregorianEaster(year);
+    return Datetime.fromFields(.{ .year = ymd[0], .month = ymd[1], .day = ymd[2] });
+}
+
 /// Formatted printing for Datetime. Defaults to ISO8601 / RFC3339nano.
 /// Nanoseconds are displayed if not zero. To get milli- or microsecond
 /// precision, use formatting directive 's:.3' (ms) or 's:.6' (us).
