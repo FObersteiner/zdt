@@ -883,9 +883,9 @@ pub fn formatOffset(
 }
 
 /// Calculate the date of Gregorian calendar Easter
-pub fn EasterDate(year: u16) Datetime {
+pub fn EasterDate(year: u16) !Datetime {
     const ymd = cal.gregorianEaster(year);
-    return Datetime.fromFields(.{
+    return try Datetime.fromFields(.{
         .year = ymd[0],
         .month = @truncate(ymd[1]),
         .day = @truncate(ymd[2]),
