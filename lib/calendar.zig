@@ -332,7 +332,21 @@ pub fn gregorianEaster(year: u16) [3]u16 {
     const l = (32 + 2 * e + 2 * i - h - k) % 7;
     const m = (a + 11 * h + 22) / 451;
     const n = (h + l - 7 * m + 114) / 31;
-    const o = (h + l - 7 * m + 114) % 31;
+    const o = ((h + l - 7 * m + 114) % 31) + 1;
 
-    return [3]u16{ year, n, o + 1 };
+    return [3]u16{ year, n, o };
+}
+
+/// Calculate the Julian calendar Easter date, according to
+/// <https://en.wikipedia.org/wiki/Date_of_Easter#Meeus's_Julian_algorithm>
+pub fn julianEaster(year: u16) [3]u16 {
+    const a: i32 = @mod(year, 4);
+    const b: i32 = @mod(year, 7);
+    const c: i32 = @mod(year, 19);
+    const d = @mod((19 * c + 15), 30);
+    const e = @mod((2 * a + 4 * b - d + 34), 7);
+    const n = @divFloor((d + e + 114), 31);
+    const o = @mod((d + e + 114), 31) + 1;
+
+    return [3]u16{ year, @intCast(n), @intCast(o) };
 }
