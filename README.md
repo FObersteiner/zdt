@@ -52,12 +52,17 @@ std.debug.print(
 const wall_diff = try this_time_Paris.diffWall(this_time_LA);
 const abs_diff = this_time_Paris.diff(this_time_LA);
 
-std.debug.print(
-    "Wall clock time difference: {s}\nAbsolute time difference: {s}\n",
-    .{ wall_diff, abs_diff },
-);
+std.debug.print("Wall clock time difference: {s}\nAbsolute time difference: {s}\n\n", .{ wall_diff, abs_diff });
 // Wall clock time difference: PT9H
 // Absolute time difference: PT0S
+
+// Easteregg:
+const now = zdt.Datetime.nowUTC();
+const easter_date = try zdt.Datetime.EasterDate(now.year);
+buf.clearAndFree();
+try easter_date.toString("%B %d, %Y", buf.writer());
+std.debug.print("Easter this year is on {s}\n", .{buf.items});
+// Easter this year is on April 20, 2025
 ```
 
 ## Documentation
@@ -70,7 +75,7 @@ See [changelog](https://github.com/FObersteiner/zdt/blob/master/CHANGELOG.md)
 
 ## Zig version
 
-This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2025-01-16, Zig-0.13 stable or higher should work.
+This library is developed with Zig `0.14.0-dev` aka 'master', might not compile with older versions. As of 2025-01-29, Zig-0.13 stable or higher should work.
 
 ## IANA timezone database version
 
