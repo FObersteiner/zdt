@@ -5,11 +5,11 @@ const Timer = std.time.Timer;
 const zdt_030 = @import("zdt_030");
 const zdt_045 = @import("zdt_045");
 
-const N: usize = 100_000;
-const str: []const u8 = "2022-08-03T13:44:01.994Z";
-const directive: []const u8 = "%Y-%m-%dT%H:%M:%S.%f%z";
+pub const N: usize = 100_000;
+pub const str: []const u8 = "2022-08-03T13:44:01.994Z";
+pub const directive: []const u8 = "%Y-%m-%dT%H:%M:%S.%f%z";
 
-fn parse_iso_030() !void {
+pub fn parse_iso_030() !void {
     var i: usize = 0;
     while (i < N) : (i += 1) {
         const t = try zdt_030.parseISO8601(str);
@@ -17,7 +17,7 @@ fn parse_iso_030() !void {
     }
 }
 
-fn parse_iso_strp_030() !void {
+pub fn parse_iso_strp_030() !void {
     var i: usize = 0;
     while (i < N) : (i += 1) {
         const t = try zdt_030.parseToDatetime(directive, str);
@@ -25,7 +25,7 @@ fn parse_iso_strp_030() !void {
     }
 }
 
-fn parse_iso_045() !void {
+pub fn parse_iso_045() !void {
     var i: usize = 0;
     while (i < N) : (i += 1) {
         const t = zdt_045.Datetime.fromISO8601(str);
@@ -33,7 +33,7 @@ fn parse_iso_045() !void {
     }
 }
 
-fn parse_iso_strp_045() !void {
+pub fn parse_iso_strp_045() !void {
     var i: usize = 0;
     while (i < N) : (i += 1) {
         const t = zdt_045.Datetime.fromString(str, directive);

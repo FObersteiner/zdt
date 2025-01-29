@@ -21,10 +21,12 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const zbench = b.dependency("zbench", .{});
     const zdt_030 = b.dependency("zdt_030", .{});
     const zdt_045 = b.dependency("zdt_045", .{});
     // TODO : labeled switch parser will require zig 0.14
 
+    const zbench_module = zbench.module("zbench");
     const zdt_030_module = zdt_030.module("zdt");
     const zdt_045_module = zdt_045.module("zdt");
 
@@ -36,6 +38,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         });
         b.installArtifact(_bench);
+        _bench.root_module.addImport("zbench", zbench_module);
         _bench.root_module.addImport("zdt_030", zdt_030_module);
         _bench.root_module.addImport("zdt_045", zdt_045_module);
         _bench.linkLibC();
