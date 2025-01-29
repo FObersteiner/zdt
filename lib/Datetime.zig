@@ -885,7 +885,11 @@ pub fn formatOffset(
 /// Calculate the date of Gregorian calendar Easter
 pub fn EasterDate(year: u16) Datetime {
     const ymd = cal.gregorianEaster(year);
-    return Datetime.fromFields(.{ .year = ymd[0], .month = ymd[1], .day = ymd[2] });
+    return Datetime.fromFields(.{
+        .year = ymd[0],
+        .month = @truncate(ymd[1]),
+        .day = @truncate(ymd[2]),
+    });
 }
 
 /// Formatted printing for Datetime. Defaults to ISO8601 / RFC3339nano.
