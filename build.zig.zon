@@ -1,9 +1,10 @@
 .{
     .name = "zdt",
-    .version = "0.4.5",
+    .version = "0.4.6",
     .minimum_zig_version = "0.13.0",
     .paths = .{
         "zdt.zig",
+        // benchmark directory is excluded
         "lib", // anything from lib
         "scripts/gen_tzdb_prefix.zig",
         "scripts/gen_tzdb_version.zig",

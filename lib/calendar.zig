@@ -315,3 +315,38 @@ pub fn dateToRD(ymd: [3]u16) i32 {
     const n = y3 +% m +% d1;
     return @as(i32, @intCast(n)) -% DAY_OFFSET;
 }
+
+/// Calculate the Gregorian calendar Easter date, according to
+/// <https://en.wikipedia.org/wiki/Date_of_Easter#Anonymous%20Gregorian%20algorithm>
+pub fn gregorianEaster(year: u16) [3]u16 {
+    const a = year % 19;
+    const b = year / 100;
+    const c = year % 100;
+    const d = b / 4;
+    const e = b % 4;
+    const f = (b + 8) / 25;
+    const g = (b - f + 1) / 3;
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = c / 4;
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = (a + 11 * h + 22) / 451;
+    const n = (h + l - 7 * m + 114) / 31;
+    const o = ((h + l - 7 * m + 114) % 31) + 1;
+
+    return [3]u16{ year, n, o };
+}
+
+/// Calculate the Julian calendar Easter date, according to
+/// <https://en.wikipedia.org/wiki/Date_of_Easter#Meeus's_Julian_algorithm>
+pub fn julianEaster(year: u16) [3]u16 {
+    const a: i32 = @mod(year, 4);
+    const b: i32 = @mod(year, 7);
+    const c: i32 = @mod(year, 19);
+    const d = @mod((19 * c + 15), 30);
+    const e = @mod((2 * a + 4 * b - d + 34), 7);
+    const n = @divFloor((d + e + 114), 31);
+    const o = @mod((d + e + 114), 31) + 1;
+
+    return [3]u16{ year, @intCast(n), @intCast(o) };
+}

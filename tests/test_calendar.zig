@@ -109,6 +109,42 @@ test "ymd_from_unix-days" {
     try testing.expectEqual(want, date_);
 }
 
+test "Easter, Gregorian" {
+    var ymd = cal.gregorianEaster(2009);
+    try testing.expectEqual([3]u16{ 2009, 4, 12 }, ymd);
+    ymd = cal.gregorianEaster(1970);
+    try testing.expectEqual([3]u16{ 1970, 3, 29 }, ymd);
+    ymd = cal.gregorianEaster(2018);
+    try testing.expectEqual([3]u16{ 2018, 4, 1 }, ymd);
+    ymd = cal.gregorianEaster(2025);
+    try testing.expectEqual([3]u16{ 2025, 4, 20 }, ymd);
+    ymd = cal.gregorianEaster(2160);
+    try testing.expectEqual([3]u16{ 2160, 3, 23 }, ymd);
+
+    // ensure there is not int overflow:
+    var i: u16 = 0;
+    while (i < 9999) : (i += 1) {
+        _ = cal.gregorianEaster(i);
+    }
+}
+
+test "Easter, Julian" {
+    var ymd = cal.julianEaster(2008);
+    try testing.expectEqual([3]u16{ 2008, 4, 14 }, ymd);
+    ymd = cal.julianEaster(2009);
+    try testing.expectEqual([3]u16{ 2009, 4, 6 }, ymd);
+    ymd = cal.julianEaster(2010);
+    try testing.expectEqual([3]u16{ 2010, 3, 22 }, ymd);
+    ymd = cal.julianEaster(2011);
+    try testing.expectEqual([3]u16{ 2011, 4, 11 }, ymd);
+    ymd = cal.julianEaster(2016);
+    try testing.expectEqual([3]u16{ 2016, 4, 18 }, ymd);
+    ymd = cal.julianEaster(2025);
+    try testing.expectEqual([3]u16{ 2025, 4, 7 }, ymd);
+    ymd = cal.julianEaster(2026);
+    try testing.expectEqual([3]u16{ 2026, 3, 30 }, ymd);
+}
+
 // ---vv--- test generated with Python scripts ---vv---
 
 test "leap correction" {

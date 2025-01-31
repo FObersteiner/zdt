@@ -13,6 +13,10 @@ Types of changes
 
 ## [Unreleased]
 
+### Added
+
+- calculate the date of Easter, two methods, one for Gregorian and one for Julian calendar
+
 ## 2025-01-16, v0.4.5
 
 ### Changed

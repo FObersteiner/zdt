@@ -882,6 +882,28 @@ pub fn formatOffset(
     return if (dt.isAware()) dt.utc_offset.?.format("", options, writer);
 }
 
+/// Calculate the date of Easter (Gregorian calendar)
+pub fn EasterDate(year: u16) !Datetime {
+    const ymd = cal.gregorianEaster(year);
+    return try Datetime.fromFields(.{
+        .year = ymd[0],
+        .month = @truncate(ymd[1]),
+        .day = @truncate(ymd[2]),
+    });
+}
+
+/// Julian calendar easter date.
+/// Note that from year 1900 to 2099, 13 days must be added to the Julian
+/// calendar date to get the equivalent Gregorian calendar date.
+pub fn EasterDateJulian(year: u16) !Datetime {
+    const ymd = cal.julianEaster(year);
+    return try Datetime.fromFields(.{
+        .year = ymd[0],
+        .month = @truncate(ymd[1]),
+        .day = @truncate(ymd[2]),
+    });
+}
+
 /// Formatted printing for Datetime. Defaults to ISO8601 / RFC3339nano.
 /// Nanoseconds are displayed if not zero. To get milli- or microsecond
 /// precision, use formatting directive 's:.3' (ms) or 's:.6' (us).
