@@ -16,6 +16,7 @@ Types of changes
 ### Added
 
 - calculate the date of Easter, two methods, one for Gregorian and one for Julian calendar
+- `./benchmark/` with a separate Zig package to benchmark some functionality in different versions of zdt and other libraries
 
 ## 2025-01-16, v0.4.5
 
