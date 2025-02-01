@@ -35,7 +35,7 @@ const ParserFlags = enum(u32) {
 };
 
 /// Tokenize the parsing directives and parse the datetime string accordingly.
-pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
+pub fn tokenizeAndParse(data: []const u8, comptime directives: []const u8) !Datetime {
     var fmt_idx: usize = 0;
     var data_idx: usize = 0;
     var flags: u32 = 0; // see ParserFlags

@@ -834,7 +834,7 @@ pub fn toISOCalendar(dt: Datetime) ISOCalendar {
 }
 
 /// Parse a string to a datetime.
-pub fn fromString(string: []const u8, directives: []const u8) !Datetime {
+pub fn fromString(string: []const u8, comptime directives: []const u8) !Datetime {
     return try str.tokenizeAndParse(string, directives);
 }
 
