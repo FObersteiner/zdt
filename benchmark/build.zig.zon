@@ -1,0 +1,34 @@
+.{
+    .name = "benchmark",
+    .version = "0.0.1",
+    .dependencies = .{
+        .zdt_023 = .{
+            .url = "https://github.com/FObersteiner/zdt/archive/refs/tags/v0.2.3.tar.gz",
+            .hash = "1220158f660a44f64c4dad27ed379ee221ea5cdb834bb5ac90083aac8872eec2cc60",
+        },
+        .zdt_045 = .{
+            .url = "https://github.com/FObersteiner/zdt/archive/refs/tags/v0.4.5.tar.gz",
+            .hash = "1220770d2ef9e42764b080adc3024cc7833c8d5e9e025e7f1241b7d53b0a905589c6",
+        },
+        .zdt_046 = .{
+            .url = "https://github.com/FObersteiner/zdt/archive/a43721fb6a9ddef7861b7899fd9c6ab66cba5a5c.tar.gz",
+            .hash = "1220b75b303e0ea3d78d820bfb3596afabe9e7c5e91bd3439962e72b0eadbedeff5d",
+        },
+        .zdt_current = .{
+            .path = "../",
+        },
+        // .zbench = .{
+        //     .url = "https://github.com/hendriknielaender/zBench/archive/refs/tags/v0.9.1.tar.gz",
+        //     .hash = "1220b19e117897a42abc5e58633766a3be92f9ebade400116afea57957bebe41aed0",
+        // },
+        .zbench = .{
+            .url = "https://github.com/FObersteiner/zBench/archive/27ddfc984e563c8d23f1f534610a6886807440f2.tar.gz",
+            .hash = "12209d3b63572fecb61a775637cabdb26c51bcb51c14c9bed09a14760b26c0d4c4ac",
+        },
+        .zeit = .{
+            .url = "https://github.com/rockorager/zeit/archive/refs/tags/v0.4.4.tar.gz",
+            .hash = "12204b653c90b503f89e2f1a73c4754b83fb7275c100c81872deaca12c9f17e334ec",
+        },
+    },
+    .paths = .{""},
+}
