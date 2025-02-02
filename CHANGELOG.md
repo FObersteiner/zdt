@@ -16,6 +16,7 @@ Types of changes
 ### Added
 
 - calculate the date of Easter, two methods, one for Gregorian and one for Julian calendar
+- benchmarking module in ./benchmark/ directory - pretty crude right now, to be continued...
 
 ## 2025-01-16, v0.4.5
 
