@@ -14,6 +14,9 @@
             .url = "https://github.com/FObersteiner/zdt/archive/a43721fb6a9ddef7861b7899fd9c6ab66cba5a5c.tar.gz",
             .hash = "1220b75b303e0ea3d78d820bfb3596afabe9e7c5e91bd3439962e72b0eadbedeff5d",
         },
+        .zdt_current = .{
+            .path = "../",
+        },
         // .zbench = .{
         //     .url = "https://github.com/hendriknielaender/zBench/archive/refs/tags/v0.9.1.tar.gz",
         //     .hash = "1220b19e117897a42abc5e58633766a3be92f9ebade400116afea57957bebe41aed0",

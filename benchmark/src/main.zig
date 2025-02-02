@@ -5,7 +5,7 @@ const zeit = @import("zeit");
 
 const zdt_023 = @import("zdt_023");
 const zdt_045 = @import("zdt_045");
-const zdt_046 = @import("zdt_046");
+const zdt_current = @import("zdt_current");
 
 const pbs = @import("parser_isoformat.zig");
 
@@ -17,6 +17,10 @@ fn benchParseISOv045(_: std.mem.Allocator) void {
     _ = zdt_045.Datetime.fromISO8601(pbs.str) catch unreachable;
 }
 
+fn benchParseISOcurrentvers(_: std.mem.Allocator) void {
+    _ = zdt_current.Datetime.fromISO8601(pbs.str) catch unreachable;
+}
+
 fn benchParseISOzeit(_: std.mem.Allocator) void {
     const t = zeit.instant(.{
         .source = .{ .iso8601 = pbs.str },
@@ -25,11 +29,11 @@ fn benchParseISOzeit(_: std.mem.Allocator) void {
 }
 
 fn benchEasterv046(_: std.mem.Allocator) void {
-    _ = zdt_046.Datetime.EasterDate(2025) catch unreachable;
+    _ = zdt_current.Datetime.EasterDate(2025) catch unreachable;
 }
 
 fn benchEasterJulv046(_: std.mem.Allocator) void {
-    _ = zdt_046.Datetime.EasterDateJulian(2025) catch unreachable;
+    _ = zdt_current.Datetime.EasterDateJulian(2025) catch unreachable;
 }
 
 pub fn main() !void {
@@ -41,9 +45,10 @@ pub fn main() !void {
 
     try bench.add("parse iso zdt v0.2.3", benchParseISOv023, .{ .iterations = pbs.N });
     try bench.add("parse iso zdt v0.4.5", benchParseISOv045, .{ .iterations = pbs.N });
+    try bench.add("parse iso zdt latest", benchParseISOcurrentvers, .{ .iterations = pbs.N });
     try bench.add("parse iso zeit 0.4.4", benchParseISOzeit, .{ .iterations = pbs.N });
-    try bench.add("\nEaster dt zdt v0.4.6", benchEasterv046, .{ .iterations = pbs.N });
-    try bench.add("Easter JL zdt v0.4.6", benchEasterJulv046, .{ .iterations = pbs.N });
+    try bench.add("\nEaster dt zdt latest", benchEasterv046, .{ .iterations = pbs.N });
+    try bench.add("Easter JL zdt latest", benchEasterJulv046, .{ .iterations = pbs.N });
 
     try stdout.writeAll("\n");
     try bench.run(stdout);

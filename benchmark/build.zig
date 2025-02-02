@@ -25,14 +25,14 @@ pub fn build(b: *std.Build) void {
     const zeit = b.dependency("zeit", .{});
     const zdt_023 = b.dependency("zdt_023", .{});
     const zdt_045 = b.dependency("zdt_045", .{});
-    const zdt_046 = b.dependency("zdt_046", .{});
+    const zdt_current = b.dependency("zdt_current", .{});
     // TODO : labeled switch parser will require zig 0.14
 
     const zbench_module = zbench.module("zbench");
     const zeit_module = zeit.module("zeit");
     const zdt_023_module = zdt_023.module("zdt");
     const zdt_045_module = zdt_045.module("zdt");
-    const zdt_046_module = zdt_046.module("zdt");
+    const zdt_current_module = zdt_current.module("zdt");
 
     for (benchmarks) |benchname| {
         const _bench = b.addExecutable(.{
@@ -46,7 +46,7 @@ pub fn build(b: *std.Build) void {
         _bench.root_module.addImport("zeit", zeit_module);
         _bench.root_module.addImport("zdt_023", zdt_023_module);
         _bench.root_module.addImport("zdt_045", zdt_045_module);
-        _bench.root_module.addImport("zdt_046", zdt_046_module);
+        _bench.root_module.addImport("zdt_current", zdt_current_module);
         _bench.linkLibC();
 
         const run_cmd = b.addRunArtifact(_bench);
