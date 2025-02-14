@@ -10,20 +10,16 @@
             .url = "https://github.com/FObersteiner/zdt/archive/refs/tags/v0.4.5.tar.gz",
             .hash = "1220770d2ef9e42764b080adc3024cc7833c8d5e9e025e7f1241b7d53b0a905589c6",
         },
-        .zdt_current = .{
+        .zdt_latest = .{
             .path = "../",
         },
-        // .zbench = .{
-        //     .url = "https://github.com/hendriknielaender/zBench/archive/refs/tags/v0.9.1.tar.gz",
-        //     .hash = "1220b19e117897a42abc5e58633766a3be92f9ebade400116afea57957bebe41aed0",
-        // },
-        .zbench = .{
-            .url = "https://github.com/FObersteiner/zBench/archive/27ddfc984e563c8d23f1f534610a6886807440f2.tar.gz",
-            .hash = "12209d3b63572fecb61a775637cabdb26c51bcb51c14c9bed09a14760b26c0d4c4ac",
+        .zbench = .{ // requires zig-014-dev
+            .url = "https://github.com/hendriknielaender/zBench/archive/fb3c3bb04070b6d7fcc0b9a27d6e89d45b1141c6.tar.gz",
+            .hash = "122025b6da5ae00e03b4011c07a2b4a0faeb7d5982dbd69a0cbca5e77ea4c03f4fce",
         },
         .zeit = .{
-            .url = "https://github.com/rockorager/zeit/archive/refs/tags/v0.4.4.tar.gz",
-            .hash = "12204b653c90b503f89e2f1a73c4754b83fb7275c100c81872deaca12c9f17e334ec",
+            .url = "https://github.com/rockorager/zeit/archive/refs/tags/v0.5.0.tar.gz",
+            .hash = "122022233835adc719535a8e7cefdd2902a67bbfb7ef198441ca9ce89c0593f488c2",
         },
     },
     .paths = .{""},
