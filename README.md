@@ -4,7 +4,7 @@
 
 # zdt
 
-**Timezoned Datetime in Zig.** Opinionated, and mostly for learning purposes.
+**Time<ins>z</ins>oned <ins>D</ins>ate<ins>t</ins>ime in Zig.** Opinionated, and mostly for learning purposes.
 
 - [API overview](https://github.com/FObersteiner/zdt/wiki/API-overview)
 - [Examples](https://github.com/FObersteiner/zdt/tree/master/examples) (build step: `zig build examples`)
