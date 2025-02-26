@@ -42,7 +42,7 @@ pub fn parse_iso_strp_045() !void {
     }
 }
 
-pub fn parse_iso_current() !void {
+pub fn parse_iso_latest() !void {
     var i: usize = 0;
     while (i < N) : (i += 1) {
         const t = zdt_current.Datetime.fromISO8601(str);
@@ -50,7 +50,7 @@ pub fn parse_iso_current() !void {
     }
 }
 
-pub fn parse_iso_strp_current() !void {
+pub fn parse_iso_strp_latest() !void {
     var i: usize = 0;
     while (i < N) : (i += 1) {
         const t = zdt_current.Datetime.fromString(str, directive);
@@ -59,78 +59,57 @@ pub fn parse_iso_strp_current() !void {
 }
 
 pub fn run_isoparse_bench_simple() !void {
+    const n_runs: usize = 3;
+    var i: usize = 0;
+    var t0: u64 = 0;
+    var t1: u64 = 0;
     var t = try Timer.start();
-    var t0 = t.read();
 
-    print("\n-- zdt current: parse ISO format\n", .{});
-    _ = try parse_iso_current();
-    var t1 = t.read();
-    print("zdt_current: {d} ns per run\n", .{(t1 - t0) / N});
-    t.reset();
-    t0 = t.read();
-    _ = try parse_iso_current();
-    t1 = t.read();
-    print("zdt_023: {d} ns per run\n", .{(t1 - t0) / N});
-    t.reset();
-    t0 = t.read();
-    _ = try parse_iso_current();
-    t1 = t.read();
-    print("zdt_023: {d} ns per run\n", .{(t1 - t0) / N});
+    // ---
+
+    print("\n-- zdt latest: parse ISO format\n", .{});
+    i = 0;
+    while (i < n_runs) : (i += 1) {
+        t.reset();
+        t0 = t.read();
+        _ = try parse_iso_latest();
+        t1 = t.read();
+        print("run {d} of {d}: {d} ns per run\n", .{ i + 1, n_runs, (t1 - t0) / N });
+    }
 
     // ---
 
     print("\n-- zdt 045: parse ISO format\n", .{});
-    t.reset();
-    t0 = t.read();
-    _ = try parse_iso_045();
-    t1 = t.read();
-    print("zdt_045: {d} ns per run\n", .{(t1 - t0) / N});
-    t.reset();
-    t0 = t.read();
-    _ = try parse_iso_045();
-    t1 = t.read();
-    print("zdt_045: {d} ns per run\n", .{(t1 - t0) / N});
-    t.reset();
-    t0 = t.read();
-    _ = try parse_iso_045();
-    t1 = t.read();
-    print("zdt_045: {d} ns per run\n", .{(t1 - t0) / N});
+    i = 0;
+    while (i < n_runs) : (i += 1) {
+        t.reset();
+        t0 = t.read();
+        _ = try parse_iso_045();
+        t1 = t.read();
+        print("run {d} of {d}: {d} ns per run\n", .{ i + 1, n_runs, (t1 - t0) / N });
+    }
+
+    // ---
+
+    print("\n-- zdt latest: parse ISO format with strptime\n", .{});
+    i = 0;
+    while (i < n_runs) : (i += 1) {
+        t.reset();
+        t0 = t.read();
+        _ = try parse_iso_strp_latest();
+        t1 = t.read();
+        print("run {d} of {d}: {d} ns per run\n", .{ i + 1, n_runs, (t1 - t0) / N });
+    }
 
     // ---
 
     print("\n-- zdt 045: parse ISO format with strptime\n", .{});
-    t.reset();
-    t0 = t.read();
-    _ = try parse_iso_strp_045();
-    t1 = t.read();
-    print("zdt_045 strp: {d} ns per run\n", .{(t1 - t0) / N});
-    t.reset();
-    t0 = t.read();
-    _ = try parse_iso_strp_045();
-    t1 = t.read();
-    print("zdt_045 strp: {d} ns per run\n", .{(t1 - t0) / N});
-    t.reset();
-    t0 = t.read();
-    _ = try parse_iso_strp_045();
-    t1 = t.read();
-    print("zdt_045 strp: {d} ns per run\n", .{(t1 - t0) / N});
-
-    // ---
-
-    print("\n-- zdt current: parse ISO format with strptime\n", .{});
-    t.reset();
-    t0 = t.read();
-    _ = try parse_iso_strp_current();
-    t1 = t.read();
-    print("zdt_current strp: {d} ns per run\n", .{(t1 - t0) / N});
-    t.reset();
-    t0 = t.read();
-    _ = try parse_iso_strp_current();
-    t1 = t.read();
-    print("zdt_current strp: {d} ns per run\n", .{(t1 - t0) / N});
-    t.reset();
-    t0 = t.read();
-    _ = try parse_iso_strp_current();
-    t1 = t.read();
-    print("zdt_023 strp: {d} ns per run\n", .{(t1 - t0) / N});
+    i = 0;
+    while (i < n_runs) : (i += 1) {
+        t.reset();
+        t0 = t.read();
+        _ = try parse_iso_strp_045();
+        t1 = t.read();
+        print("run {d} of {d}: {d} ns per run\n", .{ i + 1, n_runs, (t1 - t0) / N });
+    }
 }
