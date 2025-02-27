@@ -5,9 +5,7 @@ const bmarks_timer = @import("bmarks_timer.zig");
 const bmarks_zbench = @import("bmarks_zbench.zig");
 
 pub fn main() !void {
-    log.warn("+++ Timer benchmarks +++", .{});
     _ = try bmarks_timer.run();
 
-    log.warn("+++ zbench benchmarks +++", .{});
     _ = try bmarks_zbench.run();
 }
