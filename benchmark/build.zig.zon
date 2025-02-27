@@ -2,10 +2,10 @@
     .name = "benchmark",
     .version = "0.0.1",
     .dependencies = .{
-        // .zdt_023 = .{
-        //     .url = "https://github.com/FObersteiner/zdt/archive/refs/tags/v0.2.3.tar.gz",
-        //     .hash = "1220158f660a44f64c4dad27ed379ee221ea5cdb834bb5ac90083aac8872eec2cc60",
-        // },
+        .zdt_023 = .{ // modified version in branch 'legacy-v0.2.3' that runs with zig-014
+            .url = "https://github.com/FObersteiner/zdt/archive/5905158b1bc5c72e68af5268d13d0b116b63aa8d.tar.gz",
+            .hash = "12202e5d349ac802def6af5a85bc591abcbb8b718a22c209e8b07689a96cd59464ae",
+        },
         .zdt_045 = .{
             .url = "https://github.com/FObersteiner/zdt/archive/refs/tags/v0.4.5.tar.gz",
             .hash = "1220770d2ef9e42764b080adc3024cc7833c8d5e9e025e7f1241b7d53b0a905589c6",

@@ -5,7 +5,7 @@ const zeit = @import("zeit");
 
 const config = @import("config.zig");
 
-// const zdt_023 = @import("zdt_023");
+const zdt_023 = @import("zdt_023");
 const zdt_045 = @import("zdt_045");
 const zdt_latest = @import("zdt_current");
 
@@ -13,6 +13,10 @@ var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 // -------- ISO ------------------------------------------------------------------------------------
 // parse an ISO8601 formatted string to a datetime
+
+fn benchParseISOv023(_: std.mem.Allocator) void {
+    _ = zdt_023.parseISO8601(config.str) catch unreachable;
+}
 
 fn benchParseISOv045(_: std.mem.Allocator) void {
     _ = zdt_045.Datetime.fromISO8601(config.str) catch unreachable;
@@ -24,6 +28,10 @@ fn benchParseISOlatest(_: std.mem.Allocator) void {
 
 fn benchParseISOstrplatest(_: std.mem.Allocator) void {
     _ = zdt_latest.Datetime.fromString(config.str, config.directive) catch unreachable;
+}
+
+fn benchParseISOstrpv023(_: std.mem.Allocator) void {
+    _ = zdt_023.parseToDatetime(config.directive, config.str) catch unreachable;
 }
 
 fn benchParseISOzeit(_: std.mem.Allocator) void {
@@ -62,10 +70,11 @@ pub fn run() !void {
     var bench = zbench.Benchmark.init(gpa.allocator(), .{});
     defer bench.deinit();
 
-    // try bench.add("parse iso zdt v0.2.3", benchParseISOv023, .{ .iterations = pbs.N });
-    try bench.add("parse iso zdt v0.4.5", benchParseISOv045, .{ .iterations = config.N });
-    try bench.add("parse iso zdt latest", benchParseISOlatest, .{ .iterations = config.N });
-    try bench.add("parse iso zdt strptm", benchParseISOstrplatest, .{ .iterations = config.N });
+    try bench.add("iso zdt v0.2.3", benchParseISOv023, .{ .iterations = config.N });
+    try bench.add("iso zdt v0.4.5", benchParseISOv045, .{ .iterations = config.N });
+    try bench.add("iso zdt latest", benchParseISOlatest, .{ .iterations = config.N });
+    try bench.add("iso zdt strp v0.2.3", benchParseISOstrpv023, .{ .iterations = config.N });
+    try bench.add("iso zdt strp latest", benchParseISOstrplatest, .{ .iterations = config.N });
 
     try bench.add("parse iso zeit 0.5.0", benchParseISOzeit, .{ .iterations = config.N });
 
@@ -79,4 +88,6 @@ pub fn run() !void {
 
     try stdout.writeAll("\n");
     try bench.run(stdout);
+
+    std.debug.print("\n", .{});
 }
