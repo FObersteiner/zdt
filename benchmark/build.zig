@@ -6,13 +6,13 @@ const benchmarks = [_][]const u8{
     "main",
 };
 
-const req_zig_version = "0.13.0";
+const req_vers = std.SemanticVersion.parse("0.14.0-dev") catch unreachable;
+
 comptime {
-    const req_zig = std.SemanticVersion.parse(req_zig_version) catch unreachable;
-    if (builtin.zig_version.order(req_zig) == .lt) {
+    if (builtin.zig_version.order(req_vers) == .lt) {
         @compileError(std.fmt.comptimePrint(
             "Your Zig version v{} does not meet the minimum build requirement of v{}",
-            .{ builtin.zig_version, req_zig },
+            .{ builtin.zig_version, req_vers },
         ));
     }
 }
@@ -25,14 +25,13 @@ pub fn build(b: *std.Build) void {
     const zeit = b.dependency("zeit", .{});
     const zdt_023 = b.dependency("zdt_023", .{});
     const zdt_045 = b.dependency("zdt_045", .{});
-    const zdt_current = b.dependency("zdt_current", .{});
-    // TODO : labeled switch parser will require zig 0.14
+    const zdt_latest = b.dependency("zdt_latest", .{});
 
     const zbench_module = zbench.module("zbench");
     const zeit_module = zeit.module("zeit");
     const zdt_023_module = zdt_023.module("zdt");
     const zdt_045_module = zdt_045.module("zdt");
-    const zdt_current_module = zdt_current.module("zdt");
+    const zdt_latest_module = zdt_latest.module("zdt");
 
     for (benchmarks) |benchname| {
         const _bench = b.addExecutable(.{
@@ -46,7 +45,7 @@ pub fn build(b: *std.Build) void {
         _bench.root_module.addImport("zeit", zeit_module);
         _bench.root_module.addImport("zdt_023", zdt_023_module);
         _bench.root_module.addImport("zdt_045", zdt_045_module);
-        _bench.root_module.addImport("zdt_current", zdt_current_module);
+        _bench.root_module.addImport("zdt_current", zdt_latest_module);
         _bench.linkLibC();
 
         const run_cmd = b.addRunArtifact(_bench);
