@@ -1,3 +1,5 @@
 # zdt benchmarks
 
-This is for demo purposes only and work-in-progress - no production-ready code! It is not included if you use `zdt` as a library.
+- intended for testing the effect of changes to the implementation
+- work-in-progress, no production-ready code!
+- not included if you use `zdt` as a library
