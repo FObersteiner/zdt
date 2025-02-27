@@ -88,7 +88,7 @@ pub fn build(b: *std.Build) !void {
     var gen_tzdb_prefix = b.addExecutable(.{
         .name = "gen_tzdb_prefix",
         .root_source_file = b.path("util/gen_tzdb_prefix.zig"),
-        .target = b.host,
+        .target = b.graph.host,
     });
     const run_gen_prefix = b.addRunArtifact(gen_tzdb_prefix);
     run_gen_prefix.step.dependOn(&gen_tzdb_prefix.step);
@@ -120,7 +120,7 @@ pub fn build(b: *std.Build) !void {
         var gen_tzdb = b.addExecutable(.{
             .name = "gen_tzdb",
             .root_source_file = b.path("util/gen_tzdb.zig"),
-            .target = b.host,
+            .target = b.graph.host,
         });
 
         const run_tzdata_update = b.addRunArtifact(gen_tzdb);
@@ -142,7 +142,7 @@ pub fn build(b: *std.Build) !void {
         var gen_tzdb_version = b.addExecutable(.{
             .name = "gen_tzdb_version",
             .root_source_file = b.path("util/gen_tzdb_version.zig"),
-            .target = b.host,
+            .target = b.graph.host,
         });
 
         const run_gen_version = b.addRunArtifact(gen_tzdb_version);
