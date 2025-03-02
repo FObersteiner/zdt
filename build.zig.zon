@@ -1,5 +1,6 @@
 .{
-    .name = "zdt",
+    .name = .zdt,
+    .fingerprint = 0xf0de2f12bc3fbdc6,
     .version = "0.4.6",
     .dependencies = .{
         .zbench = .{
