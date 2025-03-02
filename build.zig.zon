@@ -1,7 +1,7 @@
 .{
     .name = .zdt,
     .fingerprint = 0xf0de2f12bc3fbdc6,
-    .version = "0.4.6",
+    .version = "0.5.0",
     .dependencies = .{
         .zbench = .{
             .url = "https://github.com/hendriknielaender/zBench/archive/fb3c3bb04070b6d7fcc0b9a27d6e89d45b1141c6.tar.gz",

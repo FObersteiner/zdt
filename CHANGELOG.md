@@ -13,6 +13,11 @@ Types of changes
 
 ## [Unreleased]
 
+### Changed
+
+- zon file: Zig 0.14 features
+- labeled switches used in parsers (also requires Zig 0.14)
+
 ### Added
 
 - calculate the date of Easter, two methods, one for Gregorian and one for Julian calendar
