@@ -471,7 +471,6 @@ const ISOParserState = enum(u8) {
 /// 2014-08-23T12:15:56+02:15:30   28   2014-08-23T12:15:56+02:15:30
 pub fn parseISO8601(string: []const u8, idx_ptr: *usize) !Datetime.Fields {
     var fields = Datetime.Fields{};
-    var utcoffset: ?i32 = null;
     var state: ISOParserState = .Year;
     var check_idx: usize = idx_ptr.*;
 
@@ -575,17 +574,14 @@ pub fn parseISO8601(string: []const u8, idx_ptr: *usize) !Datetime.Fields {
                 break :parsing;
             },
             .Offset => {
-                utcoffset = try parseOffset(i32, string, idx_ptr, 9);
+                const utcoffset = try parseOffset(i32, string, idx_ptr, 9);
+                if (string[idx_ptr.* - 1] == 'Z')
+                    fields.tz_options = .{ .utc_offset = UTCoffset.UTC }
+                else
+                    fields.tz_options = .{ .utc_offset = try UTCoffset.fromSeconds(utcoffset, "") };
                 break :parsing;
             },
         }
-    }
-
-    if (utcoffset) |offset| {
-        if (string[idx_ptr.* - 1] == 'Z')
-            fields.tz_options = .{ .utc_offset = UTCoffset.UTC }
-        else
-            fields.tz_options = .{ .utc_offset = try UTCoffset.fromSeconds(offset, "") };
     }
 
     return fields;
