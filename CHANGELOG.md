@@ -17,6 +17,7 @@ Types of changes
 
 - zon file: Zig 0.14 features
 - labeled switches used in parsers (also requires Zig 0.14)
+- use specific function to parse exactly n digits if possible
 
 ### Added
 
