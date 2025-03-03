@@ -10,7 +10,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 4, .patch = 6 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 5, .patch = 0 };
 const tzdb_tag = "2025a";
 
 const example_files = [_][]const u8{
@@ -36,9 +36,8 @@ const test_files = [_][]const u8{
 const tzdb_prefix_default = "/usr/share/zoneinfo/";
 const tzdb_submodule_dir = "tz";
 
-const req_zig_version = "0.13.0";
+const req_zig = std.SemanticVersion.parse("0.14.0-dev.3445") catch unreachable;
 comptime {
-    const req_zig = std.SemanticVersion.parse(req_zig_version) catch unreachable;
     if (builtin.zig_version.order(req_zig) == .lt) {
         @compileError(std.fmt.comptimePrint(
             "Your Zig version v{} does not meet the minimum build requirement of v{}",

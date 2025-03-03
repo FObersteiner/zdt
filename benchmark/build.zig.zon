@@ -1,5 +1,6 @@
 .{
-    .name = "benchmark",
+    .name = .benchmark,
+    .fingerprint = 0xb70c48feaf3d5b02,
     .version = "0.0.1",
     .dependencies = .{
         .zdt_023 = .{ // modified version in branch 'legacy-v0.2.3' that runs with zig-014

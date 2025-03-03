@@ -13,6 +13,14 @@ Types of changes
 
 ## [Unreleased]
 
+### 2025-03-03, v0.5.0
+
+### Changed
+
+- zon file: Zig 0.14 features
+- labeled switches used in parsers (also requires Zig 0.14)
+- use specific function to parse exactly n digits if possible
+
 ### Added
 
 - calculate the date of Easter, two methods, one for Gregorian and one for Julian calendar
