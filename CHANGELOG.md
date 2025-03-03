@@ -13,6 +13,8 @@ Types of changes
 
 ## [Unreleased]
 
+### 2025-03-03, v0.5.0
+
 ### Changed
 
 - zon file: Zig 0.14 features
