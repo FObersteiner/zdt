@@ -8,10 +8,10 @@
             .hash = "122025b6da5ae00e03b4011c07a2b4a0faeb7d5982dbd69a0cbca5e77ea4c03f4fce",
         },
     },
-    .minimum_zig_version = "0.13.0",
+    .minimum_zig_version = "0.14.0-dev.3445",
     .paths = .{
         "zdt.zig",
-        // benchmark directory is excluded
+        // benchmark directory not included
         "lib", // anything from lib
         "scripts/gen_tzdb_prefix.zig",
         "scripts/gen_tzdb_version.zig",
