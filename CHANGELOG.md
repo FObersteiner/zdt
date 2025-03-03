@@ -13,7 +13,7 @@ Types of changes
 
 ## [Unreleased]
 
-### 2025-03-03, v0.5.0
+## 2025-03-03, v0.5.0
 
 ### Changed
 
