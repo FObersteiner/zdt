@@ -13,6 +13,10 @@ Types of changes
 
 ## [Unreleased]
 
+### Fixed
+
+- incorrect dependency specification in build.zig.zon file; zdt has no dependencies except the std lib
+
 ### Changed
 
 - for better performance:
