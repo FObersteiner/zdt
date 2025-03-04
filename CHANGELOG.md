@@ -13,23 +13,16 @@ Types of changes
 
 ## [Unreleased]
 
-### Fixed
-
-- incorrect dependency specification in build.zig.zon file; zdt has no dependencies except the std lib
-
-### Changed
-
-- for better performance:
-  - parser subroutines `parseDigits` and `parseExactNDigits` do not catch error from `std.fmt.parseInt`
-  - parsing of UTC offset does not catch error from `std.math.powi`
-
-## 2025-03-03, v0.5.0
+## 2025-03-04, v0.5.0
 
 ### Changed
 
 - zon file: Zig 0.14 features
 - labeled switches used in parsers (also requires Zig 0.14)
 - use specific function to parse exactly n digits if possible
+- for better performance:
+  - parser subroutines `parseDigits` and `parseExactNDigits` do not catch error from `std.fmt.parseInt`
+  - parsing of UTC offset does not catch error from `std.math.powi`
 
 ### Added
 
