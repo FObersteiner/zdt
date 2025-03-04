@@ -26,15 +26,25 @@ fn benchParseISOlatest(_: std.mem.Allocator) void {
     _ = zdt_latest.Datetime.fromISO8601(config.str) catch unreachable;
 }
 
-fn benchParseISOstrplatest(_: std.mem.Allocator) void {
-    _ = zdt_latest.Datetime.fromString(config.str, config.directive) catch unreachable;
-}
-
 fn benchParseISOstrpv023(_: std.mem.Allocator) void {
     _ = zdt_023.parseToDatetime(config.directive, config.str) catch unreachable;
 }
 
+fn benchParseISOstrpv045(_: std.mem.Allocator) void {
+    _ = zdt_045.Datetime.fromString(config.str, config.directive) catch unreachable;
+}
+
+fn benchParseISOstrplatest(_: std.mem.Allocator) void {
+    _ = zdt_latest.Datetime.fromString(config.str, config.directive) catch unreachable;
+}
+
+fn benchParseISOzeitInst(_: std.mem.Allocator) void {
+    // only make an instant
+    _ = zeit.instant(.{ .source = .{ .iso8601 = config.str } }) catch unreachable;
+}
+
 fn benchParseISOzeit(_: std.mem.Allocator) void {
+    // make an instant and convert to datetime
     const t = zeit.instant(.{ .source = .{ .iso8601 = config.str } }) catch unreachable;
     _ = t.time();
 }
@@ -74,16 +84,18 @@ pub fn run() !void {
     try bench.add("iso zdt v0.4.5", benchParseISOv045, .{ .iterations = config.N });
     try bench.add("iso zdt latest", benchParseISOlatest, .{ .iterations = config.N });
     try bench.add("iso zdt strp v0.2.3", benchParseISOstrpv023, .{ .iterations = config.N });
+    try bench.add("iso zdt strp v0.4.5", benchParseISOstrpv045, .{ .iterations = config.N });
     try bench.add("iso zdt strp latest", benchParseISOstrplatest, .{ .iterations = config.N });
 
-    try bench.add("parse iso zeit 0.5.0", benchParseISOzeit, .{ .iterations = config.N });
+    try bench.add("\niso zeit 0.5.0 inst", benchParseISOzeitInst, .{ .iterations = config.N });
+    try bench.add("iso zeit 0.5.0 full", benchParseISOzeit, .{ .iterations = config.N });
 
     try bench.add("\nEaster dt zdt latest", benchEasterv046, .{ .iterations = config.N });
     try bench.add("Easter JL zdt latest", benchEasterJulv046, .{ .iterations = config.N });
 
     try bench.add("\nZoned local, zdt", benchZonedZdt, .{ .iterations = 1000 });
     try bench.add("Zoned local, zdt", benchZonedZdt, .{ .iterations = 1000, .track_allocations = true });
-    try bench.add("Zoned local, zeit", benchZonedZeit, .{ .iterations = 1000 });
+    try bench.add("\nZoned local, zeit", benchZonedZeit, .{ .iterations = 1000 });
     try bench.add("Zoned local, zeit", benchZonedZeit, .{ .iterations = 1000, .track_allocations = true });
 
     try stdout.writeAll("\n");
