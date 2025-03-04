@@ -8,7 +8,7 @@ const Datetime = @import("./Datetime.zig");
 const UTCoffset = @import("./UTCoffset.zig");
 const TzError = @import("./errors.zig").TzError;
 const tzif = @import("./tzif.zig");
-const posix = @import("./posix.zig");
+const posix = @import("./posixtz.zig");
 const tzwin = @import("./windows/windows_tz.zig");
 
 const Timezone = @This();
