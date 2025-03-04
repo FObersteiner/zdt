@@ -2,11 +2,11 @@
 
 const std = @import("std");
 const testing = std.testing;
-const print = std.debug.print;
 
-// NOTE : this test directly imports calendar.zig
 const cal = @import("../lib/calendar.zig");
 const Datetime = @import("zdt").Datetime;
+
+const log = std.log.scoped(.test_calendar);
 
 test "days_in_month" {
     var d = cal.daysInMonth(2, std.time.epoch.isLeapYear(2020));
