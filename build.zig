@@ -10,7 +10,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 5, .patch = 0 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 6, .patch = 0 };
 const tzdb_tag = "2025a";
 
 const example_files = [_][]const u8{
@@ -29,6 +29,7 @@ const test_files = [_][]const u8{
     "test_datetime",
     "test_duration",
     "test_formats",
+    "test_posixtz",
     "test_string",
     "test_timezone",
 };
