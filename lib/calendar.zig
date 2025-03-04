@@ -5,7 +5,13 @@ const log = std.log.scoped(.zdt__calendar);
 const assert = std.debug.assert;
 const testing = std.testing;
 
-pub const isLeapYear = std.time.epoch.isLeapYear;
+pub fn isLeapYear(year: u16) bool {
+    if (@mod(year, 4) != 0)
+        return false;
+    if (@mod(year, 100) != 0)
+        return true;
+    return (0 == @mod(year, 400));
+}
 
 /// Number of days in a certain month of any year.
 pub fn lastDayOfMonth(year: u16, month: u8) u8 {
