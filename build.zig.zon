@@ -2,12 +2,6 @@
     .name = .zdt,
     .fingerprint = 0xf0de2f12bc3fbdc6,
     .version = "0.5.0",
-    .dependencies = .{
-        .zbench = .{
-            .url = "https://github.com/hendriknielaender/zBench/archive/fb3c3bb04070b6d7fcc0b9a27d6e89d45b1141c6.tar.gz",
-            .hash = "122025b6da5ae00e03b4011c07a2b4a0faeb7d5982dbd69a0cbca5e77ea4c03f4fce",
-        },
-    },
     .minimum_zig_version = "0.14.0-dev.3445",
     .paths = .{
         "zdt.zig",
