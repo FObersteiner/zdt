@@ -1111,10 +1111,10 @@ test "not ISO8601" {
     try testing.expectError(error.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-2-03"); // 1-digit fields not allowed
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(error.InvalidCharacter, err);
 
     err = Datetime.fromISO8601("14-02-03"); // 2-digit year not allowed
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(error.InvalidCharacter, err);
 
     err = Datetime.fromISO8601("2014-02-03T13:60"); // invlid minute
     try testing.expectError(error.MinuteOutOfRange, err);

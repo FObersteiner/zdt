@@ -202,8 +202,7 @@ fn parseIntoFields(
             const tmp_idx = idx_ptr.*;
             fields.nanosecond = try parseDigits(u32, string, idx_ptr, 9);
             const missing = 9 - (idx_ptr.* - tmp_idx);
-            const f: u32 = std.math.powi(u32, 10, @as(u32, @intCast(missing))) catch
-                return error.InvalidFraction;
+            const f: u32 = try std.math.powi(u32, 10, @as(u32, @intCast(missing)));
             fields.nanosecond *= f;
         },
         'z' => { // UTC offset (+|-)hh[:mm[:ss]] or Z
@@ -368,7 +367,7 @@ fn parseExactNDigits(comptime T: type, string: []const u8, idx_ptr: *usize, nDig
         return error.InvalidFormat;
     }
     idx_ptr.* += nDigits;
-    return std.fmt.parseInt(T, string[idx_ptr.* - nDigits .. idx_ptr.*], 10) catch error.InvalidFormat;
+    return std.fmt.parseInt(T, string[idx_ptr.* - nDigits .. idx_ptr.*], 10);
 }
 
 /// Parse up to  maxDigits to an integer.
@@ -383,7 +382,7 @@ fn parseDigits(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits:
             std.ascii.isDigit(string[idx_ptr.*])) : (idx_ptr.* += 1)
         {}
 
-        return std.fmt.parseInt(T, string[start_idx..idx_ptr.*], 10) catch error.InvalidFormat;
+        return std.fmt.parseInt(T, string[start_idx..idx_ptr.*], 10);
     }
     return error.InvalidFormat;
 }
@@ -556,7 +555,7 @@ pub fn parseISO8601(string: []const u8, idx_ptr: *usize) !Datetime.Fields {
             const tmp_idx = idx_ptr.*;
             fields.nanosecond = try parseDigits(u32, string, idx_ptr, 9);
             const missing = 9 - (idx_ptr.* - tmp_idx);
-            const f: u32 = std.math.powi(u32, 10, @as(u32, @intCast(missing))) catch return error.InvalidFraction;
+            const f: u32 = try std.math.powi(u32, 10, @as(u32, @intCast(missing)));
             fields.nanosecond *= f;
             if (peekChar(string, idx_ptr)) |c| {
                 if (c == '+' or c == '-' or c == 'Z') {

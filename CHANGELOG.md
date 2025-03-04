@@ -13,6 +13,12 @@ Types of changes
 
 ## [Unreleased]
 
+### Changed
+
+- for better performance:
+  - parser subroutines `parseDigits` and `parseExactNDigits` do not catch error from `std.fmt.parseInt`
+  - parsing of UTC offset does not catch error from `std.math.powi`
+
 ## 2025-03-03, v0.5.0
 
 ### Changed
