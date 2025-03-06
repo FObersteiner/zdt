@@ -73,11 +73,11 @@ pub const Tz = struct {
         } else {
             const skipv = ( // If the format is modern, just skip over the legacy data
                 legacy_header.counts.timecnt * 5 +
-                legacy_header.counts.typecnt * 6 +
-                legacy_header.counts.charcnt +
-                legacy_header.counts.leapcnt * 8 +
-                legacy_header.counts.isstdcnt +
-                legacy_header.counts.isutcnt //
+                    legacy_header.counts.typecnt * 6 +
+                    legacy_header.counts.charcnt +
+                    legacy_header.counts.leapcnt * 8 +
+                    legacy_header.counts.isstdcnt +
+                    legacy_header.counts.isutcnt //
             );
             try reader.skipBytes(skipv, .{});
 
