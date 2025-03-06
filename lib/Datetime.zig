@@ -254,8 +254,8 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         .nanosecond = fields.nanosecond,
         .unix_sec = ( //
             @as(i40, d) * s_per_day +
-            @as(u17, fields.hour) * s_per_hour +
-            @as(u12, fields.minute) * s_per_minute + s //
+                @as(u17, fields.hour) * s_per_hour +
+                @as(u12, fields.minute) * s_per_minute + s //
         ),
     };
 
@@ -298,9 +298,11 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
     );
     dt_guess_1.nanosecond = dt.nanosecond;
 
-    // However, we could still have an ambiguous datetime or a datetime in a gap of
-    // a DST transition. To exclude that, we need the surrounding timetypes of the current one.
-    const sts = try getSurroundingTimetypes(local_offset.__transition_index, dt.tz.?);
+    // However, we could still have
+    // - an ambiguous datetime or
+    // - a datetime in a gap of a DST transition.
+    // To exclude that, we need the surrounding timetypes (UTC offsets) of the current one.
+    const sts = try getSurroundingTimetypes(local_offset, dt.tz.?);
 
     // #1 - if there are no surrounding timetypes, we can only use the first guessed datetime
     // to compare to.
@@ -396,11 +398,11 @@ pub fn replace(dt: *const Datetime, new_fields: OptFields) !Datetime {
 fn __equalFields(this: Datetime, other: Datetime) bool {
     return ( //
         this.year == other.year and
-        this.month == other.month and
-        this.day == other.day and
-        this.hour == other.hour and
-        this.minute == other.minute and
-        this.second == other.second //
+            this.month == other.month and
+            this.day == other.day and
+            this.hour == other.hour and
+            this.minute == other.minute and
+            this.second == other.second //
     );
 }
 
@@ -601,9 +603,9 @@ pub fn compareWall(this: Datetime, other: Datetime) !std.math.Order {
 pub fn add(dt: *const Datetime, td: Duration) ZdtError!Datetime {
     const ns: i128 = ( //
         @as(i128, dt.unix_sec) * ns_per_s + //
-        @as(i128, dt.nanosecond) + //
-        td.__sec * ns_per_s + //
-        td.__nsec //
+            @as(i128, dt.nanosecond) + //
+            td.__sec * ns_per_s + //
+            td.__nsec //
     );
     const opts: ?tz_options = if (dt.tz) |tz_ptr| .{ .tz = tz_ptr } else null;
     return try Datetime.fromUnix(ns, Duration.Resolution.nanosecond, opts);
@@ -931,10 +933,12 @@ pub fn format(
 
 /// Surrounding timetypes at a given transition index. This index might be
 /// negative to indicate out-of-range values.
-fn getSurroundingTimetypes(idx: i32, _tz: *const Timezone) ![3]?*tzif.Timetype {
+fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) ![3]?*tzif.Timetype {
+    const idx = local_offset.__transition_index;
+    var surrounding = [3]?*tzif.Timetype{ null, null, null };
+    const dummy: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 };
     switch (_tz.rules) {
         .tzif => {
-            var surrounding = [3]?*tzif.Timetype{ null, null, null };
             if (idx > 0) {
                 surrounding[1] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx))].timetype;
             }
@@ -946,7 +950,20 @@ fn getSurroundingTimetypes(idx: i32, _tz: *const Timezone) ![3]?*tzif.Timetype {
             }
             return surrounding;
         },
-        .posixtz => return TzError.NotImplemented,
+        .posixtz => {
+            // TODO : check if there is DST at all
+            // TODO : verify that name_data is not used
+            if (local_offset.is_dst) {
+                surrounding[0] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
+                surrounding[1] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.dst_offset, .flags = 1, .name_data = dummy });
+                surrounding[2] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
+            } else {
+                surrounding[0] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.dst_offset, .flags = 1, .name_data = dummy });
+                surrounding[1] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
+                surrounding[2] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.dst_offset, .flags = 1, .name_data = dummy });
+            }
+            return surrounding;
+        },
         .utc => return TzError.NotImplemented,
     }
 }

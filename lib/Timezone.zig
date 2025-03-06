@@ -61,6 +61,16 @@ pub fn name(tz: *const Timezone) []const u8 {
     return std.mem.sliceTo(&tz.__name_data, 0);
 }
 
+/// Make a time zone for a POSIX TZ string like
+/// 'AEST-10AEDT,M10.1.0/2,M4.1.0/3'
+pub fn fromPOSIXTZ(posixString: []const u8) !Timezone {
+    const ptz = try posix.parsePosixTzString(posixString);
+    var tz = Timezone{ .rules = .{ .posixtz = ptz } };
+    tz.__name_data_len = if (posixString.len <= cap_name_data) posixString.len else cap_name_data;
+    @memcpy(tz.__name_data[0..tz.__name_data_len], posixString[0..tz.__name_data_len]);
+    return tz;
+}
+
 /// Make a time zone from IANA tz database TZif data, taken from the embedded tzdata.
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned TZ instance.
