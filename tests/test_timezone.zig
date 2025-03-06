@@ -26,15 +26,15 @@ test "utc" {
 }
 
 test "offset from seconds" {
-    var off = try UTCoffset.fromSeconds(999, "hello world");
+    var off = try UTCoffset.fromSeconds(999, "hello world", false);
     try testing.expect(std.mem.eql(u8, off.designation(), "hello "));
 
-    var err: zdt.ZdtError!zdt.UTCoffset = UTCoffset.fromSeconds(-99999, "invalid");
+    var err: zdt.ZdtError!zdt.UTCoffset = UTCoffset.fromSeconds(-99999, "invalid", false);
     try testing.expectError(ZdtError.InvalidOffset, err);
-    err = UTCoffset.fromSeconds(99999, "invalid");
+    err = UTCoffset.fromSeconds(99999, "invalid", false);
     try testing.expectError(ZdtError.InvalidOffset, err);
 
-    off = try UTCoffset.fromSeconds(3600, "UTC+1");
+    off = try UTCoffset.fromSeconds(3600, "UTC+1", false);
     const dt = try Datetime.fromFields(.{ .year = 1970, .tz_options = .{ .utc_offset = off } });
     try testing.expect(dt.unix_sec == -3600);
     try testing.expect(dt.hour == 0);

@@ -177,7 +177,7 @@ test "default format ISO8601, naive" {
 }
 
 test "format offset" {
-    var offset = try UTCoffset.fromSeconds(3600, "");
+    var offset = try UTCoffset.fromSeconds(3600, "", false);
     var dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tz_options = .{ .utc_offset = offset } });
 
     var str = std.ArrayList(u8).init(testing.allocator);
@@ -188,7 +188,7 @@ test "format offset" {
     try dt.format("", .{}, str.writer());
     try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", str.items);
 
-    offset = try UTCoffset.fromSeconds(3600 * 9 + 942, "");
+    offset = try UTCoffset.fromSeconds(3600 * 9 + 942, "", false);
     dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tz_options = .{ .utc_offset = offset } });
     str.clearAndFree();
     try dt.formatOffset(.{ .fill = ':', .precision = 2 }, str.writer());
@@ -197,7 +197,7 @@ test "format offset" {
 }
 
 test "compare Unix time" {
-    const offset = try UTCoffset.fromSeconds(3600, "");
+    const offset = try UTCoffset.fromSeconds(3600, "", false);
     var a = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tz_options = .{ .utc_offset = offset } });
     const b = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 18 });
 
@@ -219,7 +219,7 @@ test "compare Unix time" {
 }
 
 test "compare wall time" {
-    const offset = try UTCoffset.fromSeconds(3600, "");
+    const offset = try UTCoffset.fromSeconds(3600, "", false);
     var a = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 18, .nanosecond = 42 });
     const b = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 18, .nanosecond = 42, .tz_options = .{ .utc_offset = offset } });
     try testing.expectEqual(std.math.Order.eq, try Datetime.compareWall(a, b));

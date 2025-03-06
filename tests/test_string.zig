@@ -168,7 +168,7 @@ test "format datetime with literal characters in format string" {
 test "format with z" {
     var buf = std.ArrayList(u8).init(testing.allocator);
     defer buf.deinit();
-    const offset = try UTCoffset.fromSeconds(3600, "");
+    const offset = try UTCoffset.fromSeconds(3600, "", false);
     const dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tz_options = .{ .utc_offset = offset } });
     try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z", buf.writer());
     try testing.expectEqualStrings("2021-02-18T17:00:00+0100", buf.items);
@@ -200,7 +200,7 @@ test "format with z" {
 test "format with z, full day off" {
     var buf = std.ArrayList(u8).init(testing.allocator);
     defer buf.deinit();
-    const offset = try UTCoffset.fromSeconds(-86400, "");
+    const offset = try UTCoffset.fromSeconds(-86400, "", false);
     const dt = try Datetime.fromFields(.{ .year = 1970, .month = 2, .day = 13, .hour = 12, .tz_options = .{ .utc_offset = offset } });
     const string = "1970-02-13T12:00:00-2400";
     const directive = "%Y-%m-%dT%H:%M:%S%z";
@@ -215,7 +215,7 @@ test "format with z, full day off" {
 test "format with z, strange directive" {
     var buf = std.ArrayList(u8).init(testing.allocator);
     defer buf.deinit();
-    const offset = try UTCoffset.fromSeconds(900, "");
+    const offset = try UTCoffset.fromSeconds(900, "", false);
     const dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3, .tz_options = .{ .utc_offset = offset } });
     const string = "% 2023-12-09 % 01:02:03 % +0015";
     const directive = "%% %Y-%m-%d %% %H:%M:%S %% %z";
@@ -906,7 +906,7 @@ test "parse with literal characters" {
 }
 
 test "parse with z" {
-    var offset = try UTCoffset.fromSeconds(3600, "");
+    var offset = try UTCoffset.fromSeconds(3600, "", false);
     var dt_ref = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tz_options = .{ .utc_offset = offset } });
     const s_hhmm = "2021-02-18T17:00:00+01:00";
     var dt = try Datetime.fromString(s_hhmm, "%Y-%m-%dT%H:%M:%S%z");
@@ -918,7 +918,7 @@ test "parse with z" {
     try testing.expectEqual(off_want, off_have);
 
     // with seconds in UTC offset
-    offset = try UTCoffset.fromSeconds(-3601, "");
+    offset = try UTCoffset.fromSeconds(-3601, "", false);
     dt_ref = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tz_options = .{ .utc_offset = offset } });
     const s_hhmmss = "2021-02-18T17:00:00-01:00:01";
     dt = try Datetime.fromString(s_hhmmss, "%Y-%m-%dT%H:%M:%S%z");
@@ -932,7 +932,7 @@ test "parse with z" {
     // literal Z
     // Note : a literal Z = UTC always implies an offset of 0;
     // however, an offset of 0 does not unambiguously mean UTC.
-    offset = try UTCoffset.fromSeconds(0, "");
+    offset = try UTCoffset.fromSeconds(0, "", false);
     dt_ref = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tz_options = .{ .utc_offset = offset } });
     const Z = "2021-02-18T17:00:00Z";
     dt = try Datetime.fromString(Z, "%Y-%m-%dT%H:%M:%S%z");
@@ -1038,7 +1038,7 @@ test "parse ISO" {
     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099Z");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
-    var offset = try UTCoffset.fromSeconds(0, "");
+    var offset = try UTCoffset.fromSeconds(0, "", false);
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .nanosecond = 99, .tz_options = .{ .utc_offset = offset } });
     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00");
     try testing.expect(std.meta.eql(dt_ref, dt));
@@ -1047,12 +1047,12 @@ test "parse ISO" {
     dt = try Datetime.fromISO8601("2014-08-23 12:15:56.000000099+00:00:00");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
-    offset = try UTCoffset.fromSeconds(2 * 3600 + 15 * 60 + 30, "");
+    offset = try UTCoffset.fromSeconds(2 * 3600 + 15 * 60 + 30, "", false);
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .tz_options = .{ .utc_offset = offset } });
     dt = try Datetime.fromISO8601("2014-08-23T12:15:56+02:15:30");
     try testing.expect(std.meta.eql(dt_ref, dt));
 
-    offset = try UTCoffset.fromSeconds(-2 * 3600, "");
+    offset = try UTCoffset.fromSeconds(-2 * 3600, "", false);
     dt_ref = try Datetime.fromFields(.{ .year = 2014, .month = 8, .day = 23, .hour = 12, .minute = 15, .second = 56, .tz_options = .{ .utc_offset = offset } });
     dt = try Datetime.fromISO8601("2014-08-23T12:15:56-0200");
     try testing.expect(std.meta.eql(dt_ref, dt));

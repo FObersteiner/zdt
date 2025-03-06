@@ -42,7 +42,7 @@ pub fn designation(offset: *const UTCoffset) []const u8 {
 }
 
 /// Make a UTC offset from a given number of seconds East of Greenwich.
-pub fn fromSeconds(offset_sec_East: i32, name: []const u8) TzError!UTCoffset {
+pub fn fromSeconds(offset_sec_East: i32, name: []const u8, is_dst: bool) TzError!UTCoffset {
     if (offset_sec_East < offset_range[0] or offset_sec_East > offset_range[1]) {
         return TzError.InvalidOffset;
     }
@@ -57,6 +57,7 @@ pub fn fromSeconds(offset_sec_East: i32, name: []const u8) TzError!UTCoffset {
     return .{
         .seconds_east = offset_sec_East,
         .__designation_data = name_data,
+        .is_dst = is_dst,
     };
 }
 
