@@ -40,7 +40,7 @@ rules: union(ruleTypes) {
     /// use Timezone.fromTzdata or Timezone.fromSystemTzdata to set as time zone of a datetime.
     tzif: tzif.Tz,
     /// Not implemented! - POSIX TZ string
-    posixtz: posix.Tz,
+    posixtz: posix.PosixTz,
     /// UTC placeholder;
     /// use Timezone.UTC constant to set UTC as time zone of a datetime.
     utc: struct {},
