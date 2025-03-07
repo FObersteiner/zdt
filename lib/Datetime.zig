@@ -951,17 +951,19 @@ fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) ![3]?*
             return surrounding;
         },
         .posixtz => {
-            // TODO : check if there is DST at all
-            // TODO : verify that name_data is not used
-            if (local_offset.is_dst) {
-                surrounding[0] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
-                surrounding[1] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.dst_offset, .flags = 1, .name_data = dummy });
-                surrounding[2] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
-            } else {
-                surrounding[0] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.dst_offset, .flags = 1, .name_data = dummy });
-                surrounding[1] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
-                surrounding[2] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.dst_offset, .flags = 1, .name_data = dummy });
+            if (_tz.rules.posixtz.dst_offset) |dst_offset| { // do we have DST at all ?
+                if (local_offset.is_dst) {
+                    surrounding[0] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
+                    surrounding[1] = @constCast(&tzif.Timetype{ .offset = dst_offset, .flags = 1, .name_data = dummy });
+                    surrounding[2] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
+                } else {
+                    surrounding[0] = @constCast(&tzif.Timetype{ .offset = dst_offset, .flags = 1, .name_data = dummy });
+                    surrounding[1] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
+                    surrounding[2] = @constCast(&tzif.Timetype{ .offset = dst_offset, .flags = 1, .name_data = dummy });
+                }
             }
+            // implicid 'else':
+            // if we do not have DST, are not surrounding timetypes
             return surrounding;
         },
         .utc => return TzError.NotImplemented,
