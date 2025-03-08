@@ -12,7 +12,7 @@ const psx = @import("../lib/posixtz.zig");
 const log = std.log.scoped(.test_posixtz);
 
 test "posix tz has name and abbreviation" {
-    var tzinfo = try Tz.fromPOSIXTZ("CET-1CEST,M3.5.0,M10.5.0/3");
+    var tzinfo = try Tz.fromPosixTz("CET-1CEST,M3.5.0,M10.5.0/3");
 
     var dt = try Datetime.fromFields(.{ .year = 2023, .month = 2, .tz_options = .{ .tz = &tzinfo } });
     try testing.expectEqualStrings("CET-1CEST,M3.5.0,M10.5.0/3", dt.tzName());
@@ -32,7 +32,7 @@ test "posix tz has name and abbreviation" {
 }
 
 test "Japan has only std time" {
-    var tzinfo = try Tz.fromPOSIXTZ("JST-9");
+    var tzinfo = try Tz.fromPosixTz("JST-9");
     const dt_early = try Datetime.fromFields(.{ .year = 2025, .month = 2, .tz_options = .{ .tz = &tzinfo } });
     const dt_late = try Datetime.fromFields(.{ .year = 2025, .month = 8, .tz_options = .{ .tz = &tzinfo } });
     try testing.expectEqual(9 * 3600, dt_early.utc_offset.?.seconds_east);
@@ -44,7 +44,7 @@ test "Japan has only std time" {
 }
 
 test "non-existing / ambiguous datetime" {
-    var tzinfo = try Tz.fromPOSIXTZ("CET-1CEST,M3.5.0,M10.5.0/3");
+    var tzinfo = try Tz.fromPosixTz("CET-1CEST,M3.5.0,M10.5.0/3");
     var dt = Datetime.fromFields(.{ .year = 2023, .month = 10, .day = 29, .hour = 2, .tz_options = .{ .tz = &tzinfo } });
     try testing.expectError(ZdtError.AmbiguousDatetime, dt);
 

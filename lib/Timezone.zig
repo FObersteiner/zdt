@@ -61,9 +61,9 @@ pub fn name(tz: *const Timezone) []const u8 {
     return std.mem.sliceTo(&tz.__name_data, 0);
 }
 
-/// Make a time zone for a POSIX TZ string like
+/// Make a time zone from a POSIX TZ string like
 /// 'AEST-10AEDT,M10.1.0/2,M4.1.0/3'
-pub fn fromPOSIXTZ(posixString: []const u8) !Timezone {
+pub fn fromPosixTz(posixString: []const u8) !Timezone {
     const ptz = try posix.parsePosixTzString(posixString);
     var tz = Timezone{ .rules = .{ .posixtz = ptz } };
     tz.__name_data_len = if (posixString.len <= cap_name_data) posixString.len else cap_name_data;
