@@ -251,6 +251,15 @@ test "tz has name and abbreviation" {
     try testing.expectEqualStrings("CEST", dt.tzAbbreviation());
 }
 
+test "Paraguay has no DST anymore in 2025 (tzdb 2025a)" {
+    var tzinfo = try Tz.fromTzdata("America/Asuncion", testing.allocator);
+    defer tzinfo.deinit();
+    const dt_early = try Datetime.fromFields(.{ .year = 2025, .month = 2, .tz_options = .{ .tz = &tzinfo } });
+    const dt_late = try Datetime.fromFields(.{ .year = 2025, .month = 8, .tz_options = .{ .tz = &tzinfo } });
+    try testing.expectEqual(-3 * 3600, dt_early.utc_offset.?.seconds_east);
+    try testing.expectEqual(-3 * 3600, dt_late.utc_offset.?.seconds_east);
+}
+
 test "longest tz name" {
     var tzinfo = try Tz.fromTzdata("America/Argentina/ComodRivadavia", testing.allocator);
     defer tzinfo.deinit();
