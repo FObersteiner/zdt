@@ -13,6 +13,16 @@ Types of changes
 
 ## [Unreleased]
 
+## 2025-03-08, v0.6.0
+
+### Added
+
+- POSIX TZ handling
+
+### Changed
+
+- fall back to using POSIX TZ rules if zoned datetimes lie beyond the defined transition range (tzif) in the future
+
 ## 2025-03-04, v0.5.0
 
 ### Changed

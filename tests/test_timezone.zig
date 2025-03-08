@@ -26,15 +26,15 @@ test "utc" {
 }
 
 test "offset from seconds" {
-    var off = try UTCoffset.fromSeconds(999, "hello world");
+    var off = try UTCoffset.fromSeconds(999, "hello world", false);
     try testing.expect(std.mem.eql(u8, off.designation(), "hello "));
 
-    var err: zdt.ZdtError!zdt.UTCoffset = UTCoffset.fromSeconds(-99999, "invalid");
+    var err: zdt.ZdtError!zdt.UTCoffset = UTCoffset.fromSeconds(-99999, "invalid", false);
     try testing.expectError(ZdtError.InvalidOffset, err);
-    err = UTCoffset.fromSeconds(99999, "invalid");
+    err = UTCoffset.fromSeconds(99999, "invalid", false);
     try testing.expectError(ZdtError.InvalidOffset, err);
 
-    off = try UTCoffset.fromSeconds(3600, "UTC+1");
+    off = try UTCoffset.fromSeconds(3600, "UTC+1", false);
     const dt = try Datetime.fromFields(.{ .year = 1970, .tz_options = .{ .utc_offset = off } });
     try testing.expect(dt.unix_sec == -3600);
     try testing.expect(dt.hour == 0);
@@ -251,6 +251,15 @@ test "tz has name and abbreviation" {
     try testing.expectEqualStrings("CEST", dt.tzAbbreviation());
 }
 
+test "Paraguay has no DST anymore in 2025 (tzdb 2025a)" {
+    var tzinfo = try Tz.fromTzdata("America/Asuncion", testing.allocator);
+    defer tzinfo.deinit();
+    const dt_early = try Datetime.fromFields(.{ .year = 2025, .month = 2, .tz_options = .{ .tz = &tzinfo } });
+    const dt_late = try Datetime.fromFields(.{ .year = 2025, .month = 8, .tz_options = .{ .tz = &tzinfo } });
+    try testing.expectEqual(-3 * 3600, dt_early.utc_offset.?.seconds_east);
+    try testing.expectEqual(-3 * 3600, dt_late.utc_offset.?.seconds_east);
+}
+
 test "longest tz name" {
     var tzinfo = try Tz.fromTzdata("America/Argentina/ComodRivadavia", testing.allocator);
     defer tzinfo.deinit();
@@ -258,16 +267,16 @@ test "longest tz name" {
     try testing.expectEqualStrings("America/Argentina/ComodRivadavia", dt.tzName());
 }
 
-test "early LMT, late CET" {
+test "early LMT, late CEST" {
     var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
     defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 1880, .tz_options = .{ .tz = &tzinfo } });
     try testing.expectEqualStrings("LMT", dt.tzAbbreviation());
 
-    // NOTE: this might fail in 10 years from 2024...
-    dt = try Datetime.fromFields(.{ .year = 2039, .month = 8, .tz_options = .{ .tz = &tzinfo } });
-    try testing.expectEqualStrings("CET", dt.tzAbbreviation());
+    // this falls back to using the POSIX TZ from the tzif footer:
+    dt = try Datetime.fromFields(.{ .year = 2500, .month = 8, .tz_options = .{ .tz = &tzinfo } });
+    try testing.expectEqualStrings("CEST", dt.tzAbbreviation());
 }
 
 test "tz name and abbr correct after localize" {

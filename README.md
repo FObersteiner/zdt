@@ -69,6 +69,12 @@ std.debug.print("Easter this year is on {s}\n", .{buf.items});
 
 See [Wiki](https://github.com/FObersteiner/zdt/wiki)
 
+## Credits
+
+- inspiration for early version of parser, and most of the POSIX TZ code: [leroycep/zig-tzif](https://github.com/leroycep/zig-tzif)
+- date <--> days since Unix epoch conversion, algorithm: [cassioneri/eaf](https://github.com/cassioneri/eaf) . Zig implementation: [travisstaloch/date-zig](https://github.com/travisstaloch/date-zig)
+- general support from <https://ziggit.dev/>
+
 ## Development
 
 See [changelog](https://github.com/FObersteiner/zdt/blob/master/CHANGELOG.md)

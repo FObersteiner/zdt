@@ -10,7 +10,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 5, .patch = 0 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 6, .patch = 0 };
 const tzdb_tag = "2025a";
 
 const example_files = [_][]const u8{
@@ -18,7 +18,7 @@ const example_files = [_][]const u8{
     "ex_datetime",
     "ex_duration",
     "ex_locale",
-    "ex_offsetTz",
+    "ex_offsetTz-posixTz",
     "ex_strings",
     "ex_timezones",
     "ex_zdt-types",
@@ -29,6 +29,7 @@ const test_files = [_][]const u8{
     "test_datetime",
     "test_duration",
     "test_formats",
+    "test_posixtz",
     "test_string",
     "test_timezone",
 };
@@ -36,7 +37,7 @@ const test_files = [_][]const u8{
 const tzdb_prefix_default = "/usr/share/zoneinfo/";
 const tzdb_submodule_dir = "tz";
 
-const req_zig = std.SemanticVersion.parse("0.14.0-dev.3445") catch unreachable;
+const req_zig = std.SemanticVersion.parse("0.14.0") catch unreachable;
 comptime {
     if (builtin.zig_version.order(req_zig) == .lt) {
         @compileError(std.fmt.comptimePrint(

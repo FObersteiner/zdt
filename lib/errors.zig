@@ -25,6 +25,7 @@ pub const RangeError = error{
 pub const TzError = error{
     AllTZRulesUndefined,
     InvalidOffset,
+    InvalidPosixTz,
     BadTZifVersion,
     InvalidTz,
     InvalidIdentifier,

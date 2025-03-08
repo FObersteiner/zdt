@@ -23,12 +23,12 @@ const HKEY = ?*align(1) struct_HKEY__;
 
 const HKEY_LOCAL_MACHINE = trnsl.cast(HKEY, //
     trnsl.cast(ULONG_PTR, //
-    trnsl.cast(LONG, //
-    trnsl.promoteIntLiteral( //
-    c_int,
-    0x80000002,
-    .hex,
-))));
+        trnsl.cast(LONG, //
+            trnsl.promoteIntLiteral( //
+                c_int,
+                0x80000002,
+                .hex,
+            ))));
 
 // https://learn.microsoft.com/de-de/windows/win32/api/winreg/nf-winreg-reggetvaluea
 extern fn RegGetValueA(
