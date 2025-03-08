@@ -18,7 +18,7 @@ const example_files = [_][]const u8{
     "ex_datetime",
     "ex_duration",
     "ex_locale",
-    "ex_offsetTz",
+    "ex_offsetTz-posixTz",
     "ex_strings",
     "ex_timezones",
     "ex_zdt-types",
@@ -37,7 +37,7 @@ const test_files = [_][]const u8{
 const tzdb_prefix_default = "/usr/share/zoneinfo/";
 const tzdb_submodule_dir = "tz";
 
-const req_zig = std.SemanticVersion.parse("0.14.0-dev.3445") catch unreachable;
+const req_zig = std.SemanticVersion.parse("0.14.0") catch unreachable;
 comptime {
     if (builtin.zig_version.order(req_zig) == .lt) {
         @compileError(std.fmt.comptimePrint(
