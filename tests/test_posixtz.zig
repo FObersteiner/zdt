@@ -11,9 +11,6 @@ const psx = @import("../lib/posixtz.zig");
 
 const log = std.log.scoped(.test_posixtz);
 
-// TODO : add integration tests, with the main Timezone struct
-// TODO : add designation tests
-
 test "posix tz has name and abbreviation" {
     var tzinfo = try Tz.fromPOSIXTZ("CET-1CEST,M3.5.0,M10.5.0/3");
 
@@ -32,6 +29,18 @@ test "posix tz has name and abbreviation" {
     dt = try Datetime.fromUnix(1690840800, Duration.Resolution.second, .{ .tz = &tzinfo });
     try testing.expectEqualStrings("CET-1CEST,M3.5.0,M10.5.0/3", dt.tzName());
     try testing.expectEqualStrings("CEST", dt.tzAbbreviation());
+}
+
+test "Japan has only std time" {
+    var tzinfo = try Tz.fromPOSIXTZ("JST-9");
+    const dt_early = try Datetime.fromFields(.{ .year = 2025, .month = 2, .tz_options = .{ .tz = &tzinfo } });
+    const dt_late = try Datetime.fromFields(.{ .year = 2025, .month = 8, .tz_options = .{ .tz = &tzinfo } });
+    try testing.expectEqual(9 * 3600, dt_early.utc_offset.?.seconds_east);
+    try testing.expectEqual(9 * 3600, dt_late.utc_offset.?.seconds_east);
+    try testing.expectEqualStrings("JST-9", dt_early.tzName());
+    try testing.expectEqualStrings("JST", dt_early.tzAbbreviation());
+    try testing.expectEqualStrings("JST-9", dt_late.tzName());
+    try testing.expectEqualStrings("JST", dt_late.tzAbbreviation());
 }
 
 test "non-existing / ambiguous datetime" {
