@@ -81,6 +81,7 @@ See [changelog](https://github.com/FObersteiner/zdt/blob/master/CHANGELOG.md)
 
 ## Zig version
 
+- zdt v0.6.x: Zig 0.14
 - zdt v0.5.x: Zig 0.14
 - zdt v0.4.x: Zig 0.13
 
