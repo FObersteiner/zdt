@@ -267,16 +267,16 @@ test "longest tz name" {
     try testing.expectEqualStrings("America/Argentina/ComodRivadavia", dt.tzName());
 }
 
-test "early LMT, late CET" {
+test "early LMT, late CEST" {
     var tzinfo = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
     defer tzinfo.deinit();
 
     var dt = try Datetime.fromFields(.{ .year = 1880, .tz_options = .{ .tz = &tzinfo } });
     try testing.expectEqualStrings("LMT", dt.tzAbbreviation());
 
-    // NOTE: this might fail in 10 years from 2024...
-    dt = try Datetime.fromFields(.{ .year = 2039, .month = 8, .tz_options = .{ .tz = &tzinfo } });
-    try testing.expectEqualStrings("CET", dt.tzAbbreviation());
+    // this falls back to using the POSIX TZ from the tzif footer:
+    dt = try Datetime.fromFields(.{ .year = 2500, .month = 8, .tz_options = .{ .tz = &tzinfo } });
+    try testing.expectEqualStrings("CEST", dt.tzAbbreviation());
 }
 
 test "tz name and abbr correct after localize" {
