@@ -57,7 +57,7 @@ pub fn build(b: *std.Build) !void {
         "prefix_tzdb",
         ("Absolute path to IANA time zone database, containing TZif files.\n" ++
             _zig_build_help_hangindent ++
-            "Needed if 'Timezone.runtimeFromTzfile' function is used.\n" ++
+            "Needed if 'zdt.Timezone.fromSystemTzdata' function is used.\n" ++
             _zig_build_help_hangindent ++
             "The default is '/usr/share/zoneinfo/'."),
     ) orelse tzdb_prefix_default;
