@@ -22,6 +22,7 @@ Types of changes
 ### Changed
 
 - fall back to using POSIX TZ rules if zoned datetimes lie beyond the defined transition range (tzif) in the future
+- method UTCoffset.fromSecond now requires a parameter "is_dst" (boolean) to be specified.
 
 ## 2025-03-04, v0.5.0
 

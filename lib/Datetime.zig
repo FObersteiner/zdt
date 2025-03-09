@@ -195,7 +195,7 @@ const tzOpts = enum {
     utc_offset,
 };
 
-/// helper to specify either a time zone or a UTC offset:
+/// helper to specify either a time zone (from TZif or POSIX TZ) or a UTC offset:
 pub const tz_options = union(tzOpts) {
     tz: *const Timezone,
     utc_offset: UTCoffset,
