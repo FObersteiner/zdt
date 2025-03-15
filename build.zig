@@ -138,7 +138,7 @@ pub fn build(b: *std.Build) !void {
 
     // --------------------------------------------------------------------------------
     // tests
-    const run_tests = b.step("tests", "Run library tests");
+    const run_tests = b.step("test", "Run library tests");
     {
         // unit tests in lib/*.zig files
         const root_test = b.addTest(.{

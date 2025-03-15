@@ -13,6 +13,14 @@ Types of changes
 
 ## [Unreleased]
 
+### Added
+
+- (development) use pre-commit
+
+### Changed
+
+- (development) build step for running tests is now `zig build test`
+
 ## 2025-03-08, v0.6.0
 
 ### Added
