@@ -7,7 +7,7 @@ const log = std.log.scoped(.zdt__UTCoffset);
 const Timezone = @import("./Timezone.zig");
 const TzError = @import("./errors.zig").TzError;
 const tzif = @import("./tzif.zig");
-const posixtz = @import("./posixtz.zig");
+const psx = @import("./posixtz.zig");
 
 const UTCoffset = @This();
 
@@ -81,7 +81,7 @@ pub fn atUnixtime(tz: *const Timezone, unixtime: i64) TzError!UTCoffset {
                 // Unix time exceeds defined range of transitions => use POSIX from tzif footer
                 -2 => blk: {
                     // check the POSIX TZ from the footer.
-                    const psxtz = posixtz.parsePosixTzString(tz.rules.tzif.footer.?) catch return TzError.InvalidPosixTz;
+                    const psxtz = psx.parsePosixTzString(tz.rules.tzif.footer.?) catch return TzError.InvalidPosixTz;
                     // If it has DST, make a UTC offset directly
                     if (psxtz.dst_offset) |_| return psxtz.utcOffsetAt(unixtime);
                     // ...otherwise use existing timetype

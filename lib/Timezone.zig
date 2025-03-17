@@ -8,7 +8,7 @@ const Datetime = @import("./Datetime.zig");
 const UTCoffset = @import("./UTCoffset.zig");
 const TzError = @import("./errors.zig").TzError;
 const tzif = @import("./tzif.zig");
-const posix = @import("./posixtz.zig");
+const psx = @import("./posixtz.zig");
 const tzwin = @import("./windows/windows_tz.zig");
 
 const Timezone = @This();
@@ -40,7 +40,7 @@ rules: union(ruleTypes) {
     /// use Timezone.fromTzdata or Timezone.fromSystemTzdata to set as time zone of a datetime.
     tzif: tzif.Tz,
     /// Not implemented! - POSIX TZ string
-    posixtz: posix.PosixTz,
+    posixtz: psx.PosixTz,
     /// UTC placeholder;
     /// use Timezone.UTC constant to set UTC as time zone of a datetime.
     utc: struct {},
@@ -64,7 +64,7 @@ pub fn name(tz: *const Timezone) []const u8 {
 /// Make a time zone from a POSIX TZ string like
 /// 'AEST-10AEDT,M10.1.0/2,M4.1.0/3'
 pub fn fromPosixTz(posixString: []const u8) !Timezone {
-    const ptz = try posix.parsePosixTzString(posixString);
+    const ptz = try psx.parsePosixTzString(posixString);
     var tz = Timezone{ .rules = .{ .posixtz = ptz } };
     tz.__name_data_len = if (posixString.len <= cap_name_data) posixString.len else cap_name_data;
     @memcpy(tz.__name_data[0..tz.__name_data_len], posixString[0..tz.__name_data_len]);
