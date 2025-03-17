@@ -5,6 +5,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+pub const footer_buf_sz: usize = 128;
+
 pub const Transition = struct {
     ts: i64,
     timetype: *Timetype,
@@ -33,7 +35,7 @@ pub const Timetype = struct {
 };
 
 pub const Leapsecond = struct {
-    occurrence: i48,
+    occurrence: i64,
     correction: i16,
 };
 
@@ -166,7 +168,7 @@ pub const Tz = struct {
             if (corr > std.math.maxInt(i16)) return error.Malformed; // Unreasonably large correction
 
             leapseconds[i] = .{
-                .occurrence = @as(i48, @intCast(occur)),
+                .occurrence = @as(i64, @intCast(occur)),
                 .correction = @as(i16, @intCast(corr)),
             };
         }
@@ -194,7 +196,7 @@ pub const Tz = struct {
         var footer: ?[]u8 = null;
         if (!legacy) {
             if ((try reader.readByte()) != '\n') return error.Malformed; // An RFC 9636 footer must start with a newline
-            var footerdata_buf: [128]u8 = undefined;
+            var footerdata_buf: [footer_buf_sz]u8 = undefined;
             const footer_mem = reader.readUntilDelimiter(&footerdata_buf, '\n') catch |err| switch (err) {
                 error.StreamTooLong => return error.OverlargeFooter, // Read more than 128 bytes, much larger than any reasonable POSIX TZ string
                 else => return err,

@@ -20,6 +20,7 @@ Types of changes
 ### Changed
 
 - (development) build step for running tests is now `zig build test`
+- TZif reader: use power-of-two size integers consistently as llvm (sometimes?) fails to optimize output for the arbitrary sized integers
 
 ## 2025-03-08, v0.6.0
 
