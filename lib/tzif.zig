@@ -3,10 +3,19 @@
 //! taken from Zig standard library, 0.12.0-dev.2059+42389cb9c, modified.
 
 const std = @import("std");
+const testing = std.testing;
+const assert = std.debug.assert;
 const builtin = @import("builtin");
+const log = std.log.scoped(.test_tzif);
 
 const magic_cookie = "TZif";
-const footer_buf_sz: usize = 128;
+
+const footer_buf_sz: usize = 64;
+const desgnation_buf_sz: usize = 64;
+
+// for fixed buffer allocations
+const transitions_buf_sz: usize = 310;
+const timetypes_buf_sz: usize = 18;
 
 pub const Transition = struct {
     ts: i64,
@@ -35,25 +44,26 @@ pub const Timetype = struct {
     }
 };
 
+const Header = extern struct {
+    magic: [4]u8,
+    version: u8,
+    reserved: [15]u8,
+    counts: extern struct {
+        isutcnt: u32,
+        isstdcnt: u32,
+        leapcnt: u32,
+        timecnt: u32,
+        typecnt: u32,
+        charcnt: u32,
+    },
+};
+
 pub const Tz = struct {
     allocator: std.mem.Allocator,
     transitions: []const Transition, // TODO : determine max. size required; how to handle less-than-max elements?
     timetypes: []const Timetype, // TODO : determine max. size required; how to handle less-than-max elements?
     footer: ?[]const u8, // TODO: might need to change type if no allocator.dupe available
-
-    const Header = extern struct {
-        magic: [4]u8,
-        version: u8,
-        reserved: [15]u8,
-        counts: extern struct {
-            isutcnt: u32,
-            isstdcnt: u32,
-            leapcnt: u32,
-            timecnt: u32,
-            typecnt: u32,
-            charcnt: u32,
-        },
-    };
+    // h: Header,
 
     /// Parse a IANA db TZif file. Only accepts version 2 or 3 files.
     pub fn parse(allocator: std.mem.Allocator, reader: anytype) !Tz {
@@ -95,14 +105,13 @@ pub const Tz = struct {
         if (header.counts.charcnt == 0) return error.Malformed; // RFC 9636: charcnt [...] MUST NOT be zero
         if (header.counts.charcnt > 256 + 6) return error.Malformed; // Not explicitly banned by RFC 9636 but nonsensical
 
-        // var leapseconds = try allocator.alloc(Leapsecond, header.counts.leapcnt);
-        // errdefer allocator.free(leapseconds);
         var transitions = try allocator.alloc(Transition, header.counts.timecnt);
         errdefer allocator.free(transitions);
         var timetypes = try allocator.alloc(Timetype, header.counts.typecnt);
         errdefer allocator.free(timetypes);
 
         // Parse transition types
+        assert(header.counts.timecnt <= transitions_buf_sz);
         var i: usize = 0;
         while (i < header.counts.timecnt) : (i += 1) {
             transitions[i].ts = if (legacy) try reader.readInt(i32, .big) else try reader.readInt(i64, .big);
@@ -116,6 +125,7 @@ pub const Tz = struct {
         }
 
         // Parse time types
+        assert(header.counts.typecnt <= timetypes_buf_sz);
         i = 0;
         while (i < header.counts.typecnt) : (i += 1) {
             const offset = try reader.readInt(i32, .big);
@@ -130,7 +140,8 @@ pub const Tz = struct {
             timetypes[i].name_data[0] = idx;
         }
 
-        var designators_data: [256 + 6]u8 = undefined; // TODO : why 256 + 6 ?
+        assert(header.counts.charcnt <= desgnation_buf_sz);
+        var designators_data: [desgnation_buf_sz]u8 = undefined;
         try reader.readNoEof(designators_data[0..header.counts.charcnt]);
         const designators = designators_data[0..header.counts.charcnt];
         if (designators[designators.len - 1] != 0) return error.Malformed; // RFC 9636: charcnt [...] includes the trailing NUL (0x00) octet
@@ -191,6 +202,7 @@ pub const Tz = struct {
             .transitions = transitions,
             .timetypes = timetypes,
             .footer = footer,
+            // .h = header,
         };
     }
 
@@ -243,4 +255,31 @@ test "legacy" {
     try std.testing.expectEqual(tz.transitions.len, 170);
     try std.testing.expect(std.mem.eql(u8, tz.transitions[69].timetype.name(), "CET"));
     try std.testing.expectEqual(tz.transitions[123].ts, 1414285200); // 2014-10-26 01:00:00 UTC
+}
+
+test "load a lot of tzif" {
+    const tzdata = @import("./tzdata.zig").tzdata;
+    var sz_footer: usize = 0;
+
+    // var sz_timecnt: usize = 0;
+    // var sz_typecnt: usize = 0;
+
+    for (tzdata.keys()) |zone| {
+        if (tzdata.get(zone)) |TZifBytes| {
+            var in_stream = std.io.fixedBufferStream(TZifBytes);
+            var tzif_tz = try Tz.parse(testing.allocator, in_stream.reader());
+            if (tzif_tz.footer.?.len > sz_footer) sz_footer = tzif_tz.footer.?.len;
+
+            // if (tzif_tz.h.counts.timecnt > sz_timecnt) sz_timecnt = tzif_tz.h.counts.timecnt;
+            // if (tzif_tz.h.counts.typecnt > sz_typecnt) sz_typecnt = tzif_tz.h.counts.typecnt;
+            // log.warn("{s} -- timecnt: {d}, typecnt: {d}", .{ zone, tzif_tz.h.counts.timecnt, tzif_tz.h.counts.typecnt });
+
+            tzif_tz.deinit();
+        }
+    }
+
+    // log.warn("transitions max. {d} timetypes max. {d}", .{ sz_timecnt, sz_typecnt });
+    // log.warn("transitions sz. {d} timetypes sz. {d}", .{ sz_timecnt * @sizeOf(Transition), sz_typecnt * @sizeOf(Timetype) });
+
+    try testing.expect(sz_footer <= footer_buf_sz);
 }
