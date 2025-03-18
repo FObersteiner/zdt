@@ -13,7 +13,7 @@ const magic_cookie = "TZif";
 const footer_buf_sz: usize = 64;
 const desgnation_buf_sz: usize = 64;
 
-// for fixed buffer allocations
+// for fixed array sizes of transitions and timetypes
 const transitions_buf_sz: usize = 310;
 const timetypes_buf_sz: usize = 18;
 
@@ -44,8 +44,9 @@ pub const Timetype = struct {
     }
 };
 
+/// TZif header struct
 const Header = extern struct {
-    magic: [4]u8,
+    magic: [4]u8, // must be == magic_cookie
     version: u8,
     reserved: [15]u8,
     counts: extern struct {
@@ -99,8 +100,10 @@ pub const Tz = struct {
     }
 
     fn parseBlock(allocator: std.mem.Allocator, reader: anytype, header: Header, legacy: bool) !Tz {
-        if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt) return error.Malformed; // RFC 9636: isstdcnt [...] MUST either be zero or equal to "typecnt"
-        if (header.counts.isutcnt != 0 and header.counts.isutcnt != header.counts.typecnt) return error.Malformed; // RFC 9636: isutcnt [...] MUST either be zero or equal to "typecnt"
+        // RFC 9636: isstdcnt [...] MUST either be zero or equal to "typecnt":
+        if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt) return error.Malformed;
+        // RFC 9636: isutcnt [...] MUST either be zero or equal to "typecnt":
+        if (header.counts.isutcnt != 0 and header.counts.isutcnt != header.counts.typecnt) return error.Malformed;
         if (header.counts.typecnt == 0) return error.Malformed; // RFC 9636: typecnt [...] MUST NOT be zero
         if (header.counts.charcnt == 0) return error.Malformed; // RFC 9636: charcnt [...] MUST NOT be zero
         if (header.counts.charcnt > 256 + 6) return error.Malformed; // Not explicitly banned by RFC 9636 but nonsensical
@@ -181,7 +184,7 @@ pub const Tz = struct {
             }
         }
 
-        // Footer
+        // Footer / POSIX TZ string
         var footer: ?[]u8 = null;
         if (!legacy) {
             if ((try reader.readByte()) != '\n') return error.Malformed; // An RFC 9636 footer must start with a newline
@@ -214,7 +217,7 @@ pub const Tz = struct {
         tz.allocator.free(tz.transitions);
         tz.allocator.free(tz.timetypes);
 
-        // set emtpy slices to prevent a segfault if the tz is used after deinit
+        // set empty slices to prevent a segfault if the tz is used after deinit
         tz.transitions = &.{};
         tz.timetypes = &.{Timetype{ .offset = 0, .flags = 0, .name_data = [6:0]u8{ 0, 0, 0, 0, 0, 0 } }};
     }
