@@ -7,7 +7,7 @@
 **Time<ins>z</ins>oned <ins>D</ins>ate<ins>t</ins>ime in Zig.** Opinionated, and mostly for learning purposes.
 
 - [API overview](https://github.com/FObersteiner/zdt/wiki/API-overview)
-- [Examples](https://github.com/FObersteiner/zdt/tree/master/examples) (build step: `zig build examples`)
+- [Examples](https://github.com/FObersteiner/zdt/tree/master/examples)
 - [Roadmap](https://github.com/FObersteiner/zdt/wiki/Roadmap)
 
 ### [Demo](https://github.com/FObersteiner/zdt/blob/master/examples/demo.zig)
@@ -82,7 +82,7 @@ See [changelog](https://github.com/FObersteiner/zdt/blob/master/CHANGELOG.md)
 ## Zig version
 
 - zdt v0.6.x: Zig 0.14
-- zdt v0.5.x: Zig 0.14
+- zdt v0.5.x: Zig 0.13 / 0.14
 - zdt v0.4.x: Zig 0.13
 
 This library is developed with Zig 'master' - this might sometimes introduce version incompatibilities. If you just want to use the library, use a tagged version that suites your Zig version.
