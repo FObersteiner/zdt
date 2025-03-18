@@ -35,16 +35,10 @@ pub const Timetype = struct {
     }
 };
 
-pub const Leapsecond = struct {
-    occurrence: i64,
-    correction: i16, // RFC 9636 actually specifies 4 bytes here
-};
-
 pub const Tz = struct {
     allocator: std.mem.Allocator,
     transitions: []const Transition, // TODO : determine max. size required; how to handle less-than-max elements?
     timetypes: []const Timetype, // TODO : determine max. size required; how to handle less-than-max elements?
-    leapseconds: []const Leapsecond, // TODO : these are TZ-independent; why have them in each Tz struct ?
     footer: ?[]const u8, // TODO: might need to change type if no allocator.dupe available
 
     const Header = extern struct {
@@ -101,8 +95,8 @@ pub const Tz = struct {
         if (header.counts.charcnt == 0) return error.Malformed; // RFC 9636: charcnt [...] MUST NOT be zero
         if (header.counts.charcnt > 256 + 6) return error.Malformed; // Not explicitly banned by RFC 9636 but nonsensical
 
-        var leapseconds = try allocator.alloc(Leapsecond, header.counts.leapcnt);
-        errdefer allocator.free(leapseconds);
+        // var leapseconds = try allocator.alloc(Leapsecond, header.counts.leapcnt);
+        // errdefer allocator.free(leapseconds);
         var transitions = try allocator.alloc(Transition, header.counts.timecnt);
         errdefer allocator.free(transitions);
         var timetypes = try allocator.alloc(Timetype, header.counts.typecnt);
@@ -151,27 +145,10 @@ pub const Tz = struct {
             tt.name_data[name.len] = 0;
         }
 
-        // Parse leap seconds
-        i = 0;
-        while (i < header.counts.leapcnt) : (i += 1) {
-            const occur: i64 = if (legacy) try reader.readInt(i32, .big) else try reader.readInt(i64, .big);
-            if (occur < 0) return error.Malformed; // RFC 9636: occur [...] MUST be nonnegative
-            //// RFC 9636: occur [...] each later value MUST be at least 2419199 greater than the previous value:
-            if (i > 0 and leapseconds[i - 1].occurrence + 2419199 > occur) return error.Malformed;
-            if (occur > std.math.maxInt(i48)) return error.Malformed; // Unreasonably far into the future
-
-            const corr = try reader.readInt(i32, .big);
-            // RFC 9636: The correction value in the first leap-second record, if present, MUST be either one (1) or minus one (-1):
-            if (i == 0 and corr != -1 and corr != 1) return error.Malformed;
-            // RFC 9636: The correction values in adjacent leap-second records MUST differ by exactly one (1):
-            if (i > 0 and leapseconds[i - 1].correction != corr + 1 and leapseconds[i - 1].correction != corr - 1) return error.Malformed;
-            if (corr > std.math.maxInt(i16)) return error.Malformed; // Unreasonably large correction
-
-            leapseconds[i] = .{
-                .occurrence = @as(i64, @intCast(occur)),
-                .correction = @as(i16, @intCast(corr)),
-            };
-        }
+        // Skip leap seconds / correction since those are not time-zone specific;
+        // zdt provides this timezone-independent
+        // - move file pointer by header.counts.leapcount * 12
+        try reader.skipBytes(@as(u64, header.counts.leapcnt * 12), .{});
 
         // Parse standard/wall indicators
         i = 0;
@@ -213,7 +190,6 @@ pub const Tz = struct {
             .allocator = allocator,
             .transitions = transitions,
             .timetypes = timetypes,
-            .leapseconds = leapseconds,
             .footer = footer,
         };
     }
@@ -223,12 +199,10 @@ pub const Tz = struct {
             tz.allocator.free(footer);
             tz.footer = null;
         }
-        tz.allocator.free(tz.leapseconds);
         tz.allocator.free(tz.transitions);
         tz.allocator.free(tz.timetypes);
 
         // set emtpy slices to prevent a segfault if the tz is used after deinit
-        tz.leapseconds = &.{};
         tz.transitions = &.{};
         tz.timetypes = &.{Timetype{ .offset = 0, .flags = 0, .name_data = [6:0]u8{ 0, 0, 0, 0, 0, 0 } }};
     }
@@ -244,7 +218,6 @@ test "slim" {
     try std.testing.expectEqual(tz.transitions.len, 9);
     try std.testing.expect(std.mem.eql(u8, tz.transitions[3].timetype.name(), "JDT"));
     try std.testing.expectEqual(tz.transitions[5].ts, -620298000); // 1950-05-06 15:00:00 UTC
-    try std.testing.expectEqual(tz.leapseconds[13].occurrence, 567993613); // 1988-01-01 00:00:00 UTC (+23s in TAI, and +13 in the data since it doesn't store the initial 10 second offset)
 }
 
 test "fat" {
