@@ -194,7 +194,6 @@ pub const Tz = struct {
                 else => return err,
             };
             if (footer_mem.len != 0) {
-                // TODO : without allocator, footer might better be a u8[x:0] ?
                 footer = try allocator.dupe(u8, footer_mem);
             }
         }
@@ -223,6 +222,168 @@ pub const Tz = struct {
     }
 };
 
+pub const TzZeroAlloc = struct {
+    transitions: []const Transition, // slice just points to __transition_data
+    timetypes: []const Timetype, //
+    footer: ?[]const u8, //
+    __transitions_data: [transitions_buf_sz]Transition,
+    __timetypes_data: [timetypes_buf_sz]Timetype,
+    __footer_data: [footer_buf_sz]u8 = std.mem.zeroes([footer_buf_sz]u8),
+    // h: Header,
+
+    /// Parse a IANA db TZif file. Only accepts version 2 or 3 files.
+    pub fn parse(reader: anytype) !TzZeroAlloc {
+        var legacy_header = try reader.readStruct(Header);
+        if (!std.mem.eql(u8, &legacy_header.magic, "TZif")) return error.BadHeader;
+        if (legacy_header.version != 0 and legacy_header.version != '2' and legacy_header.version != '3') return error.BadVersion;
+
+        if (builtin.target.cpu.arch.endian() != std.builtin.Endian.big) {
+            std.mem.byteSwapAllFields(@TypeOf(legacy_header.counts), &legacy_header.counts);
+        }
+
+        if (legacy_header.version == 0)
+            return parseBlock(reader, legacy_header, true);
+
+        // If the format is modern, just skip over the legacy data
+        const skipv = (legacy_header.counts.timecnt * 5 +
+            legacy_header.counts.typecnt * 6 +
+            legacy_header.counts.charcnt +
+            legacy_header.counts.leapcnt * 8 +
+            legacy_header.counts.isstdcnt +
+            legacy_header.counts.isutcnt //
+        );
+        try reader.skipBytes(skipv, .{});
+
+        var header = try reader.readStruct(Header);
+        if (!std.mem.eql(u8, &header.magic, magic_cookie)) return error.BadHeader;
+        if (header.version != '2' and header.version != '3') return error.BadVersion;
+        if (builtin.target.cpu.arch.endian() != std.builtin.Endian.big) {
+            std.mem.byteSwapAllFields(@TypeOf(header.counts), &header.counts);
+        }
+
+        return parseBlock(reader, header, false);
+    }
+
+    /// load TZif data into self
+    fn parseBlock(reader: anytype, header: Header, legacy: bool) !TzZeroAlloc {
+        // RFC 9636: isstdcnt [...] MUST either be zero or equal to "typecnt":
+        if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt) return error.Malformed;
+        // RFC 9636: isutcnt [...] MUST either be zero or equal to "typecnt":
+        if (header.counts.isutcnt != 0 and header.counts.isutcnt != header.counts.typecnt) return error.Malformed;
+        if (header.counts.typecnt == 0) return error.Malformed; // RFC 9636: typecnt [...] MUST NOT be zero
+        if (header.counts.charcnt == 0) return error.Malformed; // RFC 9636: charcnt [...] MUST NOT be zero
+        if (header.counts.charcnt > 256 + 6) return error.Malformed; // Not explicitly banned by RFC 9636 but nonsensical
+
+        // transitions: []const Transition,
+        // timetypes: []const Timetype, //
+        var footer: ?[]const u8 = undefined;
+        var __transitions_data: [transitions_buf_sz]Transition = undefined;
+        var __timetypes_data: [timetypes_buf_sz]Timetype = undefined;
+        var __footer_data: [footer_buf_sz]u8 = std.mem.zeroes([footer_buf_sz]u8);
+
+        // Parse transitions
+        assert(header.counts.timecnt <= transitions_buf_sz);
+        var i: usize = 0;
+        while (i < header.counts.timecnt) : (i += 1) {
+            __transitions_data[i].ts = if (legacy) try reader.readInt(i32, .big) else try reader.readInt(i64, .big);
+        }
+
+        // each transition has an index that specifies the according timetype
+        i = 0;
+        var tt_idx: [transitions_buf_sz]u8 = undefined;
+        while (i < header.counts.timecnt) : (i += 1) {
+            tt_idx[i] = try reader.readByte();
+        }
+
+        // Parse time types
+        assert(header.counts.typecnt <= timetypes_buf_sz);
+        i = 0;
+        while (i < header.counts.typecnt) : (i += 1) {
+            const offset = try reader.readInt(i32, .big);
+            if (offset < -2147483648) return error.Malformed; // RFC 9636: utoff [...] MUST NOT be -2**31
+            const dst = try reader.readByte();
+            if (dst != 0 and dst != 1) return error.Malformed; // RFC 9636: (is)dst [...] The value MUST be 0 or 1.
+            const idx = try reader.readByte();
+            if (idx > header.counts.charcnt - 1) return error.Malformed; // RFC 9636: (desig)idx [...] Each index MUST be in the range [0, "charcnt" - 1]
+            __timetypes_data[i] = .{ .offset = offset, .flags = dst, .name_data = undefined };
+
+            // Temporarily cache idx in name_data to be processed after we've read the designator names below
+            __timetypes_data[i].name_data[0] = idx;
+        }
+
+        assert(header.counts.charcnt <= desgnation_buf_sz);
+        var designators_data: [desgnation_buf_sz]u8 = undefined;
+        try reader.readNoEof(designators_data[0..header.counts.charcnt]);
+        const designators = designators_data[0..header.counts.charcnt];
+        if (designators[designators.len - 1] != 0) return error.Malformed; // RFC 9636: charcnt [...] includes the trailing NUL (0x00) octet
+
+        const transitions = __transitions_data[0..header.counts.timecnt];
+        const timetypes = __timetypes_data[0..header.counts.typecnt];
+
+        // for each transition, set the pointer to the appropriate timetype
+        i = 0;
+        while (i < header.counts.timecnt) : (i += 1) {
+            transitions[i].timetype = &timetypes[tt_idx[i]];
+        }
+
+        // Iterate through the timetypes again, setting the designator names
+        for (timetypes) |*tt| {
+            const name = std.mem.sliceTo(designators[tt.name_data[0]..], 0);
+            // We are mandating the "SHOULD" 6-character limit so we can pack the struct better, and to conform to POSIX.
+            // RFC 9636: Time zone designations SHOULD consist of at least three (3) and no more than six (6) ASCII characters:
+            if (name.len > 6) return error.Malformed;
+            @memcpy(tt.name_data[0..name.len], name);
+            tt.name_data[name.len] = 0;
+        }
+
+        // Skip leap seconds / correction since those are not time-zone specific;
+        // zdt provides this timezone-independent
+        // - move file pointer by header.counts.leapcount * 12
+        try reader.skipBytes(@as(u64, header.counts.leapcnt * 12), .{});
+
+        // Parse standard/wall indicators
+        i = 0;
+        while (i < header.counts.isstdcnt) : (i += 1) {
+            const stdtime = try reader.readByte();
+            if (stdtime == 1) {
+                timetypes[i].flags |= 0x02;
+            }
+        }
+
+        // Parse UT/local indicators
+        i = 0;
+        while (i < header.counts.isutcnt) : (i += 1) {
+            const ut = try reader.readByte();
+            if (ut == 1) {
+                timetypes[i].flags |= 0x04;
+                // RFC 9636: standard/wall value MUST be one (1) if the UT/local value is one (1):
+                if (!timetypes[i].standardTimeIndicator()) return error.Malformed;
+            }
+        }
+
+        // Footer / POSIX TZ string
+        if (!legacy) {
+            if ((try reader.readByte()) != '\n') return error.Malformed; // An RFC 9636 footer must start with a newline
+            const footer_mem = reader.readUntilDelimiter(&__footer_data, '\n') catch |err| switch (err) {
+                error.StreamTooLong => return error.OverlargeFooter, // Read more than 128 bytes, much larger than any reasonable POSIX TZ string
+                else => return err,
+            };
+            if (footer_mem.len != 0) {
+                footer = std.mem.sliceTo(__footer_data[0..], 0);
+            }
+        }
+
+        return TzZeroAlloc{
+            .transitions = transitions,
+            .timetypes = timetypes,
+            .footer = footer,
+            .__transitions_data = __transitions_data,
+            .__timetypes_data = __timetypes_data,
+            .__footer_data = __footer_data,
+        };
+    }
+};
+
 test "slim" {
     const data = @embedFile("./tzif_testdata/asia_tokyo.tzif");
     var in_stream = std.io.fixedBufferStream(data);
@@ -248,7 +409,6 @@ test "fat" {
 }
 
 test "legacy" {
-    // Taken from Slackware 8.0, from 2001
     const data = @embedFile("./tzif_testdata/europe_vatican.tzif");
     var in_stream = std.io.fixedBufferStream(data);
 
@@ -285,4 +445,16 @@ test "load a lot of tzif" {
     // log.warn("transitions sz. {d} timetypes sz. {d}", .{ sz_timecnt * @sizeOf(Transition), sz_typecnt * @sizeOf(Timetype) });
 
     try testing.expect(sz_footer <= footer_buf_sz);
+}
+
+test "zero alloc tz" {
+    log.warn("tz size: {d}", .{@sizeOf(Tz)});
+    log.warn("tz zero alloc size: {d}", .{@sizeOf(TzZeroAlloc)});
+
+    const tzdata = @import("./tzdata.zig").tzdata;
+    if (tzdata.get("Europe/Paris")) |TZifBytes| {
+        var in_stream = std.io.fixedBufferStream(TZifBytes);
+        const tzif_tz = try TzZeroAlloc.parse(in_stream.reader());
+        log.warn("{s}", .{tzif_tz.footer.?});
+    }
 }
