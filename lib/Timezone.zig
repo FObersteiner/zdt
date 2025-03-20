@@ -110,8 +110,7 @@ pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: 
     const p = std.fs.path.join(fb_alloc, &[_][]const u8{ db_path, identifier }) catch
         return TzError.InvalidIdentifier;
 
-    const file = std.fs.openFileAbsolute(p, .{}) catch
-        return TzError.TZifUnreadable;
+    const file = std.fs.openFileAbsolute(p, .{}) catch return TzError.TZifUnreadable;
     defer file.close();
 
     const tzif_tz = tzif.Tz.parse(allocator, file.reader()) catch

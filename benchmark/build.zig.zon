@@ -15,12 +15,12 @@
             .path = "../",
         },
         .zbench = .{ // requires zig-014-dev
-            .url = "https://github.com/hendriknielaender/zBench/archive/fb3c3bb04070b6d7fcc0b9a27d6e89d45b1141c6.tar.gz",
-            .hash = "122025b6da5ae00e03b4011c07a2b4a0faeb7d5982dbd69a0cbca5e77ea4c03f4fce",
+            .url = "https://github.com/hendriknielaender/zBench/archive/refs/tags/v0.9.3.tar.gz",
+            .hash = "zbench-0.9.3-YTdc79DoAABUp44km7nmp_E7XxPzBMl3FesDOU6J8S-n",
         },
         .zeit = .{
-            .url = "https://github.com/rockorager/zeit/archive/refs/tags/v0.5.0.tar.gz",
-            .hash = "122022233835adc719535a8e7cefdd2902a67bbfb7ef198441ca9ce89c0593f488c2",
+            .url = "https://github.com/rockorager/zeit/archive/refs/tags/v0.6.0.tar.gz",
+            .hash = "zeit-0.0.0-5I6bk_pZAgB03N1p1GmVOZ--gOFwwQSRKj1UXb5tnaKS",
         },
     },
     .paths = .{""},
