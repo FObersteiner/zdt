@@ -71,19 +71,21 @@ See [Wiki](https://github.com/FObersteiner/zdt/wiki)
 
 ## Credits
 
-- inspiration for early version of parser, and most of the POSIX TZ code: [leroycep/zig-tzif](https://github.com/leroycep/zig-tzif)
-- date <--> days since Unix epoch conversion, algorithm: [cassioneri/eaf](https://github.com/cassioneri/eaf) . Zig implementation: [travisstaloch/date-zig](https://github.com/travisstaloch/date-zig)
-- general support from <https://ziggit.dev/>
+- inspiration for early version of string-to-datetime parser, and most of the POSIX TZ code: [leroycep/zig-tzif](https://github.com/leroycep/zig-tzif)
+- date <--> days since Unix epoch conversion, algorithm: [cassioneri/eaf](https://github.com/cassioneri/eaf) ; Zig implementation: [travisstaloch/date-zig](https://github.com/travisstaloch/date-zig)
+- general support from [ziggit.dev](https://ziggit.dev/)
 
 ## Development
 
 See [changelog](https://github.com/FObersteiner/zdt/blob/master/CHANGELOG.md)
 
+- For development: to update the time zone database and the version info, run the following build steps: `zig build update-tzdb`. Some of the code generation is done with Python scripts, which require Python >= 3.9 but no third party packages, i.e. a system installation will do.
+
 ## Zig version
 
-- zdt v0.6.x: Zig 0.14
-- zdt v0.5.x: Zig 0.13 / 0.14
-- zdt v0.4.x: Zig 0.13
+- `v0.6.x`: Zig 0.14
+- `v0.5.x`: Zig 0.13 / 0.14
+- `v0.4.x`: Zig 0.13
 
 This library is developed with Zig 'master' - this might sometimes introduce version incompatibilities. If you just want to use the library, use a tagged version that suites your Zig version.
 
@@ -91,14 +93,13 @@ This library is developed with Zig 'master' - this might sometimes introduce ver
 
 - `v0.4.5+`: `2025a` (current)
 - `v0.2.2+`: `2024b`
-- `>= v0.2.1`: `2024a`
+- `<= v0.2.1`: `2024a`
 
-## Dependencies, Development and Time zone database
+## Dependencies and time zone database
 
-- No dependencies on other libraries.
-- Time zone database: `zdt` comes with [eggert/tz](https://github.com/eggert/tz). The database is compiled and shipped with `zdt` (as-is; not tar-balled or compressed).
+- No dependencies on other libraries
+- Time zone database: `zdt` comes with [eggert/tz](https://github.com/eggert/tz). The database is compiled and shipped with `zdt`.
 - if you wish to use your own version of the [IANA time zone db](https://www.iana.org/time-zones), you can set a path to it using the `-Dprefix-tzdb="path/to/your/tzdb"` option. See also `zig build --help`.
-- For development: to update the time zone database and the version info, run the following build steps: `zig build update-tzdb`. Some of the code generation is done with Python scripts, which require Python >= 3.9 but no third party packages, i.e. a system installation will do.
 
 ## License
 
