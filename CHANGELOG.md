@@ -13,6 +13,8 @@ Types of changes
 
 ## [Unreleased]
 
+## 2025-03-20, v0.6.1
+
 ### Added
 
 - development: use pre-commit
@@ -24,6 +26,11 @@ Types of changes
   - skip reading leapseconds / corrections since those are the same for all timezones and provided elsewhere by zdt
   - tweak buffer sizes for reading textual data
   - use power-of-two size integers consistently (Unix time is provided as i64 by TZif files)
+- benchmark dependencies: versions bumped
+
+### Removed
+
+- support for version 0 TZif files
 
 ## 2025-03-08, v0.6.0
 
