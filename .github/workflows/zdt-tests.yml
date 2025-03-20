@@ -39,7 +39,7 @@ jobs:
       - uses: mlugg/setup-zig@v1
         with:
           version: master
-      - run: zig build tests
+      - run: zig build test
   lint:
     runs-on: ubuntu-latest
     steps:
