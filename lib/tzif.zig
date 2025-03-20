@@ -74,7 +74,6 @@ pub const Tz = struct {
     transitions: []const Transition,
     timetypes: []const Timetype,
     footer: ?[]const u8,
-    // h: Header,
 
     /// Parse a IANA db TZif file. Only accepts version 2 or 3 files.
     pub fn parse(allocator: std.mem.Allocator, reader: anytype) !Tz {
@@ -104,11 +103,11 @@ pub const Tz = struct {
         if (builtin.target.cpu.arch.endian() != std.builtin.Endian.big)
             std.mem.byteSwapAllFields(@TypeOf(header.counts), &header.counts);
 
-        return parseBlock(allocator, reader, header, false);
+        return parseBlock(allocator, reader, header);
     }
 
     /// Load TZif data itself and make a Tz
-    fn parseBlock(allocator: std.mem.Allocator, reader: anytype, header: Header, legacy: bool) !Tz {
+    fn parseBlock(allocator: std.mem.Allocator, reader: anytype, header: Header) !Tz {
         // RFC 9636: isstdcnt [...] MUST either be zero or equal to "typecnt":
         if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt) return error.Malformed;
         // RFC 9636: isutcnt [...] MUST either be zero or equal to "typecnt":
@@ -126,7 +125,7 @@ pub const Tz = struct {
         assert(header.counts.timecnt <= transitions_buf_sz);
         var i: usize = 0;
         while (i < header.counts.timecnt) : (i += 1) {
-            transitions[i].ts = if (legacy) try reader.readInt(i32, .big) else try reader.readInt(i64, .big);
+            transitions[i].ts = try reader.readInt(i64, .big);
         }
 
         i = 0;
@@ -195,17 +194,16 @@ pub const Tz = struct {
 
         // Footer / POSIX TZ string
         var footer: ?[]u8 = null;
-        if (!legacy) {
-            if ((try reader.readByte()) != '\n') return error.Malformed; // An RFC 9636 footer must start with a newline
-            var footerdata_buf: [footer_buf_sz]u8 = undefined;
-            const footer_mem = reader.readUntilDelimiter(&footerdata_buf, '\n') catch |err| switch (err) {
-                error.StreamTooLong => return error.OverlargeFooter, // Read more than 128 bytes, much larger than any reasonable POSIX TZ string
-                else => return err,
-            };
-            if (footer_mem.len != 0) {
-                footer = try allocator.dupe(u8, footer_mem);
-            }
-        }
+
+        if ((try reader.readByte()) != '\n') return error.Malformed; // An RFC 9636 footer must start with a newline
+        var footerdata_buf: [footer_buf_sz]u8 = undefined;
+        const footer_mem = reader.readUntilDelimiter(&footerdata_buf, '\n') catch |err| switch (err) {
+            error.StreamTooLong => return error.OverlargeFooter, // Read more than 128 bytes, much larger than any reasonable POSIX TZ string
+            else => return err,
+        };
+        if (footer_mem.len != 0)
+            footer = try allocator.dupe(u8, footer_mem);
+
         errdefer if (footer) |ft| allocator.free(ft);
 
         return Tz{
@@ -255,7 +253,7 @@ test "fat" {
     try std.testing.expectEqual(tz.transitions[4].ts, 1268251224); // 2010-03-10 20:00:00 UTC
 }
 
-test "legacy" {
+test "vatican" {
     const data = @embedFile("./tzif_testdata/europe_vatican.tzif");
     var in_stream = std.io.fixedBufferStream(data);
 
@@ -267,29 +265,16 @@ test "legacy" {
     try std.testing.expectEqual(tz.transitions[123].ts, 1414285200); // 2014-10-26 01:00:00 UTC
 }
 
-test "load a lot of tzif" {
+test "load a lot of TZif" {
     const tzdata = @import("./tzdata.zig").tzdata;
     var sz_footer: usize = 0;
-
-    // var sz_timecnt: usize = 0;
-    // var sz_typecnt: usize = 0;
-
     for (tzdata.keys()) |zone| {
         if (tzdata.get(zone)) |TZifBytes| {
             var in_stream = std.io.fixedBufferStream(TZifBytes);
             var tzif_tz = try Tz.parse(testing.allocator, in_stream.reader());
             if (tzif_tz.footer.?.len > sz_footer) sz_footer = tzif_tz.footer.?.len;
-
-            // if (tzif_tz.h.counts.timecnt > sz_timecnt) sz_timecnt = tzif_tz.h.counts.timecnt;
-            // if (tzif_tz.h.counts.typecnt > sz_typecnt) sz_typecnt = tzif_tz.h.counts.typecnt;
-            // log.warn("{s} -- timecnt: {d}, typecnt: {d}", .{ zone, tzif_tz.h.counts.timecnt, tzif_tz.h.counts.typecnt });
-
             tzif_tz.deinit();
         }
     }
-
-    // log.warn("transitions max. {d} timetypes max. {d}", .{ sz_timecnt, sz_typecnt });
-    // log.warn("transitions sz. {d} timetypes sz. {d}", .{ sz_timecnt * @sizeOf(Transition), sz_typecnt * @sizeOf(Timetype) });
-
     try testing.expect(sz_footer <= footer_buf_sz);
 }
