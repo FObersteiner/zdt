@@ -1,27 +1,35 @@
-//! Parser for RFC 9636 TZif files, <https://www.rfc-editor.org/rfc/rfc9636>.
+//! Parsers for RFC 9636 TZif files, <https://www.rfc-editor.org/rfc/rfc9636>.
 //!
-//! taken from Zig standard library, 0.12.0-dev.2059+42389cb9c, modified.
+//! Originally taken from Zig 0.12.0-dev.2059+42389cb9c standard library, modified and extended.
 
 const std = @import("std");
+const builtin = @import("builtin");
+
 const testing = std.testing;
 const assert = std.debug.assert;
-const builtin = @import("builtin");
 const log = std.log.scoped(.test_tzif);
 
+// File header must start with this.
 const magic_cookie = "TZif";
 
+// There is a test below to ensure this is sufficient:
 const footer_buf_sz: usize = 64;
+
+// This is checked by an assertion:
 const desgnation_buf_sz: usize = 64;
 
-// for fixed array sizes of transitions and timetypes
+// Constants for fixed array sizes of transitions and timetypes.
+// The sizes need to be verified for each new version of the tzdb.
 const transitions_buf_sz: usize = 310;
 const timetypes_buf_sz: usize = 18;
 
+/// A transition to a new timetype
 pub const Transition = struct {
     ts: i64,
     timetype: *Timetype,
 };
 
+/// A specific UTC offset within a timezone. Referenced by a Transition.
 pub const Timetype = struct {
     offset: i32,
     flags: u8,
@@ -59,17 +67,21 @@ const Header = extern struct {
     },
 };
 
+/// A time zone specification to be loaded from a TZif file.
+/// Required dynamic allocation of heap memory.
 pub const Tz = struct {
     allocator: std.mem.Allocator,
-    transitions: []const Transition, // TODO : determine max. size required; how to handle less-than-max elements?
-    timetypes: []const Timetype, // TODO : determine max. size required; how to handle less-than-max elements?
-    footer: ?[]const u8, // TODO: might need to change type if no allocator.dupe available
+    transitions: []const Transition,
+    timetypes: []const Timetype,
+    footer: ?[]const u8,
     // h: Header,
 
     /// Parse a IANA db TZif file. Only accepts version 2 or 3 files.
     pub fn parse(allocator: std.mem.Allocator, reader: anytype) !Tz {
         var legacy_header = try reader.readStruct(Header);
         if (!std.mem.eql(u8, &legacy_header.magic, "TZif")) return error.BadHeader;
+
+        // TODO : limit to v2+ files
         if (legacy_header.version != 0 and legacy_header.version != '2' and legacy_header.version != '3') return error.BadVersion;
 
         if (builtin.target.cpu.arch.endian() != std.builtin.Endian.big) {
@@ -99,6 +111,7 @@ pub const Tz = struct {
         return parseBlock(allocator, reader, header, false);
     }
 
+    /// Load TZif data itself and make a Tz
     fn parseBlock(allocator: std.mem.Allocator, reader: anytype, header: Header, legacy: bool) !Tz {
         // RFC 9636: isstdcnt [...] MUST either be zero or equal to "typecnt":
         if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt) return error.Malformed;
@@ -235,6 +248,8 @@ pub const TzZeroAlloc = struct {
     pub fn parse(reader: anytype) !TzZeroAlloc {
         var legacy_header = try reader.readStruct(Header);
         if (!std.mem.eql(u8, &legacy_header.magic, "TZif")) return error.BadHeader;
+
+        // TODO : limit to v2+ files
         if (legacy_header.version != 0 and legacy_header.version != '2' and legacy_header.version != '3') return error.BadVersion;
 
         if (builtin.target.cpu.arch.endian() != std.builtin.Endian.big) {
@@ -264,7 +279,7 @@ pub const TzZeroAlloc = struct {
         return parseBlock(reader, header, false);
     }
 
-    /// load TZif data into self
+    /// Load TZif data itself and make a Tz
     fn parseBlock(reader: anytype, header: Header, legacy: bool) !TzZeroAlloc {
         // RFC 9636: isstdcnt [...] MUST either be zero or equal to "typecnt":
         if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt) return error.Malformed;
@@ -320,7 +335,7 @@ pub const TzZeroAlloc = struct {
         const transitions = __transitions_data[0..header.counts.timecnt];
         const timetypes = __timetypes_data[0..header.counts.typecnt];
 
-        // for each transition, set the pointer to the appropriate timetype
+        // For each transition, set the pointer to the appropriate timetype
         i = 0;
         while (i < header.counts.timecnt) : (i += 1) {
             transitions[i].timetype = &timetypes[tt_idx[i]];
@@ -448,13 +463,14 @@ test "load a lot of tzif" {
 }
 
 test "zero alloc tz" {
-    log.warn("tz size: {d}", .{@sizeOf(Tz)});
-    log.warn("tz zero alloc size: {d}", .{@sizeOf(TzZeroAlloc)});
+    // log.warn("tz size: {d}", .{@sizeOf(Tz)});
+    // log.warn("tz zero alloc size: {d}", .{@sizeOf(TzZeroAlloc)});
 
     const tzdata = @import("./tzdata.zig").tzdata;
     if (tzdata.get("Europe/Paris")) |TZifBytes| {
         var in_stream = std.io.fixedBufferStream(TZifBytes);
-        const tzif_tz = try TzZeroAlloc.parse(in_stream.reader());
-        log.warn("{s}", .{tzif_tz.footer.?});
+        _ = try TzZeroAlloc.parse(in_stream.reader());
+        //const tzif_tz = try TzZeroAlloc.parse(in_stream.reader());
+        // log.warn("{s}", .{tzif_tz.footer.?});
     }
 }
