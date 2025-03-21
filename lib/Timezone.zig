@@ -81,7 +81,7 @@ pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!
 
     if (tzdata.get(identifier)) |TZifBytes| {
         var in_stream = std.io.fixedBufferStream(TZifBytes);
-        const tzif_tz = tzif.Tz.parse(allocator, in_stream.reader()) catch
+        const tzif_tz = tzif.Tz.parseAlloc(allocator, in_stream.reader()) catch
             return TzError.TZifUnreadable;
 
         // ensure that there is a footer: requires v2+ TZif files.
@@ -113,7 +113,7 @@ pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: 
     const file = std.fs.openFileAbsolute(p, .{}) catch return TzError.TZifUnreadable;
     defer file.close();
 
-    const tzif_tz = tzif.Tz.parse(allocator, file.reader()) catch
+    const tzif_tz = tzif.Tz.parseAlloc(allocator, file.reader()) catch
         return TzError.TZifUnreadable;
 
     // ensure that there is a footer: requires v2+ TZif files.
