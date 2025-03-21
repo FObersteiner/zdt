@@ -24,9 +24,11 @@ pub const tzdb_prefix = @import("tzdb_prefix").tzdb_prefix;
 
 /// Where to comptime-load IANA tz database files from
 const comptime_tzdb_prefix = "./tzdata/zoneinfo/"; // IANA db as provided by the library
+//    ^^^⁻ TODO : is this used / useful at all?
 
 // longest tz name is 'America/Argentina/ComodRivadavia' --> 32 ASCII chars
 const cap_name_data: usize = 32;
+//    ^^^⁻ TODO : add a test/assertion that this is sufficient
 
 const ruleTypes = enum {
     tzif,

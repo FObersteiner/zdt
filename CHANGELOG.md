@@ -38,7 +38,7 @@ Types of changes
 
 ### Removed
 
-- support for version 0 TZif files
+- support for version 0 TZif files (legacy)
 
 ## 2025-03-08, v0.6.0
 
