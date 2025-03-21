@@ -13,6 +13,14 @@ Types of changes
 
 ## [Unreleased]
 
+### Added
+
+- allocator-free version of the TZif timezone (no heap memory required)
+
+### Fixed
+
+- tests in tzif.zig; were testing std lib tzif reader, now test this implementation
+
 ## 2025-03-20, v0.6.1
 
 ### Added
@@ -30,7 +38,7 @@ Types of changes
 
 ### Removed
 
-- support for version 0 TZif files
+- support for version 0 TZif files (legacy)
 
 ## 2025-03-08, v0.6.0
 
