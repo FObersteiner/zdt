@@ -121,6 +121,7 @@ pub fn fromTzdataZeroAlloc(identifier: []const u8) TzError!Timezone {
 /// To use the system's tzdata, use 'zdt.Timezone.tzdb_prefix'.
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned Timezone instance.
+// TODO : make the allocator an optional so that the method can be used by fromTzdataZeroAlloc as well? Does this still work comp-time?
 pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
