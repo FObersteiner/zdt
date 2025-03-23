@@ -1,6 +1,7 @@
 //! A set of rules to describe date and time somewhere on earth, relative to universal time (UTC).
 
 const std = @import("std");
+const assert = std.debug.assert;
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt__Timezone);
 
@@ -22,13 +23,8 @@ pub const tzdb_version = @import("./tzdata.zig").tzdb_version;
 // anonymous import; see build.zig
 pub const tzdb_prefix = @import("tzdb_prefix").tzdb_prefix;
 
-/// Where to comptime-load IANA tz database files from
-const comptime_tzdb_prefix = "./tzdata/zoneinfo/"; // IANA db as provided by the library
-//    ^^^⁻ TODO : is this used / useful at all?
-
 // longest tz name is 'America/Argentina/ComodRivadavia' --> 32 ASCII chars
 const cap_name_data: usize = 32;
-//    ^^^⁻ TODO : add a test/assertion that this is sufficient
 
 const ruleTypes = enum {
     tzif,
@@ -71,6 +67,7 @@ pub fn name(tz: *const Timezone) []const u8 {
 pub fn fromPosixTz(posixString: []const u8) !Timezone {
     const ptz = try psx.parsePosixTzString(posixString);
     var tz = Timezone{ .rules = .{ .posixtz = ptz } };
+    assert(posixString.len <= cap_name_data);
     tz.__name_data_len = if (posixString.len <= cap_name_data) posixString.len else cap_name_data;
     @memcpy(tz.__name_data[0..tz.__name_data_len], posixString[0..tz.__name_data_len]);
     return tz;
@@ -86,13 +83,31 @@ pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!
 
     if (tzdata.get(identifier)) |TZifBytes| {
         var in_stream = std.io.fixedBufferStream(TZifBytes);
-        const tzif_tz = tzif.TzAlloc.parse(allocator, in_stream.reader()) catch
+        const tzif_tz: tzif.TzAlloc = tzif.TzAlloc.parse(allocator, in_stream.reader()) catch
             return TzError.TZifUnreadable;
 
-        // ensure that there is a footer: requires v2+ TZif files.
-        _ = tzif_tz.footer orelse return TzError.BadTZifVersion;
-
         var tz = Timezone{ .rules = .{ .tzif = tzif_tz } };
+        tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
+        @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
+
+        return tz;
+    }
+    return TzError.TzUndefined;
+}
+
+/// Like fromTzdata, but read into a fixed-size data structure, therefore requiring no allocation.
+pub fn fromTzdataZeroAlloc(identifier: []const u8) TzError!Timezone {
+    if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
+
+    // TODO :
+    // if (std.mem.eql(u8, identifier, "localtime")) return tzLocal(allocator);
+
+    if (tzdata.get(identifier)) |TZifBytes| {
+        var in_stream = std.io.fixedBufferStream(TZifBytes);
+        const tzif_tz: tzif.Tz = tzif.Tz.parse(in_stream.reader()) catch
+            return TzError.TZifUnreadable;
+
+        var tz = Timezone{ .rules = .{ .tzif_fixedsize = tzif_tz } };
         tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
         @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
 
@@ -136,6 +151,7 @@ pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: 
         const part = pathname_iterator.next() orelse identifier;
         if (!std.mem.eql(u8, identifier, part)) {
             const tmp_name = pathname_iterator.next() orelse "?";
+            assert(tmp_name.len <= cap_name_data);
             // we might need to overwrite pre-defined data with zeros:
             var name_data = std.mem.zeroes([cap_name_data]u8);
             const len: usize = if (tmp_name.len <= cap_name_data) tmp_name.len else cap_name_data;
@@ -197,8 +213,8 @@ pub fn format(
 
 /// Time zone identifiers must only contain alpha-numeric characters
 /// as well as '+', '-', '_' and '/' (path separator).
-pub fn identifierValid(idf: []const u8) bool {
-    for (idf, 0..) |c, i| {
+pub fn identifierValid(id: []const u8) bool {
+    for (id, 0..) |c, i| {
         switch (c) {
             // OK cases:
             'A'...'Z',
@@ -213,8 +229,8 @@ pub fn identifierValid(idf: []const u8) bool {
             // - not last char
             // - next char is not a period
             '.' => {
-                if (i == idf.len - 1) return false;
-                if (idf[i + 1] == '.') return false;
+                if (i == id.len - 1) return false;
+                if (id[i + 1] == '.') return false;
                 continue;
             },
             else => return false,
@@ -224,7 +240,7 @@ pub fn identifierValid(idf: []const u8) bool {
 }
 
 test "embed TZif from lib dir" {
-    const tzfile = comptime_tzdb_prefix ++ "Europe/Berlin";
+    const tzfile = "./tzdata/zoneinfo/Europe/Berlin";
     const data = @embedFile(tzfile);
     var in_stream = std.io.fixedBufferStream(data);
     var tz = try std.Tz.parse(std.testing.allocator, in_stream.reader());
