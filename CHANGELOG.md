@@ -15,7 +15,7 @@ Types of changes
 
 ### Added
 
-- allocator-free version of the TZif timezone (no heap memory required)
+- fixed-size data structure for TZif timezone - loading 10x faster (no heap memory required), can be set up at comptime
 
 ### Fixed
 
