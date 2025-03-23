@@ -915,7 +915,7 @@ pub fn format(
     options: std.fmt.FormatOptions,
     writer: anytype,
 ) !void {
-    // TODO : if fmt is not 's' or empty, we could try to interpret fmt as a diractive
+    // TODO : if fmt is not ('s' or empty), we could try to interpret fmt as a directive
     // and return try str.tokenizeAndPrint(&dt, fmt, writer)
     // However, this requires to resolve the possible error set.
     _ = fmt;
