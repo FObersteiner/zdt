@@ -21,6 +21,12 @@ Types of changes
 
 - tests in tzif.zig; were testing std lib tzif reader, now test this implementation
 
+## 2025-03-23, v0.6.2
+
+### Changed
+
+- bump tzdb to 2025b ([release notes](https://github.com/eggert/tz/blob/2025b/NEWS))
+
 ## 2025-03-20, v0.6.1
 
 ### Added
@@ -31,7 +37,7 @@ Types of changes
 
 - development: build step for running tests is now `zig build test`
 - TZif reader:
-  - skip reading leapseconds / corrections since those are the same for all timezones and provided elsewhere by zdt
+  - skip reading leap seconds / corrections since those are the same for all time zones and provided elsewhere by zdt
   - tweak buffer sizes for reading textual data
   - use power-of-two size integers consistently (Unix time is provided as i64 by TZif files)
 - benchmark dependencies: versions bumped

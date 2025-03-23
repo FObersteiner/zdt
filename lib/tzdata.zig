@@ -3,7 +3,7 @@
 
 const std = @import("std");
 
-pub const tzdb_version = "2025a";
+pub const tzdb_version = "2025b";
 
 pub const tzdata = std.StaticStringMap([]const u8).initComptime(.{
     .{ "Africa/Abidjan", @embedFile("./tzdata/zoneinfo/Africa/Abidjan") },
@@ -105,6 +105,7 @@ pub const tzdata = std.StaticStringMap([]const u8).initComptime(.{
     .{ "America/Coral_Harbour", @embedFile("./tzdata/zoneinfo/America/Coral_Harbour") },
     .{ "America/Cordoba", @embedFile("./tzdata/zoneinfo/America/Cordoba") },
     .{ "America/Costa_Rica", @embedFile("./tzdata/zoneinfo/America/Costa_Rica") },
+    .{ "America/Coyhaique", @embedFile("./tzdata/zoneinfo/America/Coyhaique") },
     .{ "America/Creston", @embedFile("./tzdata/zoneinfo/America/Creston") },
     .{ "America/Cuiaba", @embedFile("./tzdata/zoneinfo/America/Cuiaba") },
     .{ "America/Curacao", @embedFile("./tzdata/zoneinfo/America/Curacao") },

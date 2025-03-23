@@ -91,7 +91,8 @@ This library is developed with Zig 'master' - this might sometimes introduce ver
 
 ## IANA timezone database version
 
-- `v0.4.5+`: `2025a` (current)
+- `v0.6.2+`: `2025b` (current)
+- `v0.4.5+`: `2025a`
 - `v0.2.2+`: `2024b`
 - `<= v0.2.1`: `2024a`
 
