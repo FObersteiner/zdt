@@ -32,16 +32,19 @@ const cap_name_data: usize = 32;
 
 const ruleTypes = enum {
     tzif,
+    tzif_fixedsize,
     posixtz,
     utc,
 };
 
 /// rule sources for a time zone
 rules: union(ruleTypes) {
-    /// IANA tz-db/tzdata TZif file;
+    /// IANA tzdb/tzdata TZif file;
     /// use Timezone.fromTzdata or Timezone.fromSystemTzdata to set as time zone of a datetime.
-    tzif: tzif.Tz,
-    /// Not implemented! - POSIX TZ string
+    tzif: tzif.TzAlloc,
+    /// IANA tzdb/tzdata TZif file in a fixed-size data structure - no allocator required!
+    tzif_fixedsize: tzif.Tz,
+    /// POSIX TZ string
     posixtz: psx.PosixTz,
     /// UTC placeholder;
     /// use Timezone.UTC constant to set UTC as time zone of a datetime.
@@ -83,7 +86,7 @@ pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!
 
     if (tzdata.get(identifier)) |TZifBytes| {
         var in_stream = std.io.fixedBufferStream(TZifBytes);
-        const tzif_tz = tzif.Tz.parseAlloc(allocator, in_stream.reader()) catch
+        const tzif_tz = tzif.TzAlloc.parse(allocator, in_stream.reader()) catch
             return TzError.TZifUnreadable;
 
         // ensure that there is a footer: requires v2+ TZif files.
@@ -115,7 +118,7 @@ pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: 
     const file = std.fs.openFileAbsolute(p, .{}) catch return TzError.TZifUnreadable;
     defer file.close();
 
-    const tzif_tz = tzif.Tz.parseAlloc(allocator, file.reader()) catch
+    const tzif_tz = tzif.TzAlloc.parse(allocator, file.reader()) catch
         return TzError.TZifUnreadable;
 
     // ensure that there is a footer: requires v2+ TZif files.
@@ -152,6 +155,7 @@ pub fn deinit(tz: *Timezone) void {
 
     switch (tz.rules) {
         .tzif => |*_tzif| _tzif.deinit(),
+        .tzif_fixedsize => return,
         .posixtz => return,
         .utc => return,
     }

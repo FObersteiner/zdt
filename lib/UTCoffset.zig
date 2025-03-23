@@ -67,7 +67,7 @@ pub fn fromSeconds(offset_sec_East: i32, name: []const u8, is_dst: bool) TzError
 /// Given time zone rules, get the UTC offset at a certain Unix time.
 pub fn atUnixtime(tz: *const Timezone, unixtime: i64) TzError!UTCoffset {
     switch (tz.rules) {
-        .tzif => {
+        .tzif, .tzif_fixedsize => {
             // if the tz only has one timetype (offset spec.), use this,
             // otherwise try to determine it from the defined transitions
             const idx = if (tz.rules.tzif.timetypes.len == 1) -1 else findTransition(tz.rules.tzif.transitions, unixtime);

@@ -9,8 +9,6 @@ const testing = std.testing;
 const assert = std.debug.assert;
 const log = std.log.scoped(.test_tzif);
 
-// TODO : make this file a type; 'TZif' ?
-
 // File header must start with this.
 const magic_cookie = "TZif";
 
@@ -70,15 +68,15 @@ const Header = extern struct {
 };
 
 /// A time zone specification to be loaded from a TZif file.
-/// Required dynamic allocation of heap memory.
-pub const Tz = struct {
+/// Requires dynamic allocation of heap memory.
+pub const TzAlloc = struct {
     allocator: std.mem.Allocator,
     transitions: []const Transition,
     timetypes: []const Timetype,
     footer: ?[]const u8,
 
-    /// Parse a IANA db TZif file. Only accepts version 2 or 3 files.
-    pub fn parseAlloc(allocator: std.mem.Allocator, reader: anytype) !Tz {
+    /// Parse a IANA db TZif file. Only accepts version 2+ files.
+    pub fn parse(allocator: std.mem.Allocator, reader: anytype) !TzAlloc {
         var legacy_header = try reader.readStruct(Header);
         if (!std.mem.eql(u8, &legacy_header.magic, "TZif")) return error.BadHeader;
 
@@ -105,11 +103,11 @@ pub const Tz = struct {
         if (builtin.target.cpu.arch.endian() != std.builtin.Endian.big)
             std.mem.byteSwapAllFields(@TypeOf(header.counts), &header.counts);
 
-        return parseBlockAlloc(allocator, reader, header);
+        return parseBlock(allocator, reader, header);
     }
 
     /// Load TZif data itself and make a Tz
-    fn parseBlockAlloc(allocator: std.mem.Allocator, reader: anytype, header: Header) !Tz {
+    fn parseBlock(allocator: std.mem.Allocator, reader: anytype, header: Header) !TzAlloc {
         // RFC 9636: isstdcnt [...] MUST either be zero or equal to "typecnt":
         if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt) return error.Malformed;
         // RFC 9636: isutcnt [...] MUST either be zero or equal to "typecnt":
@@ -208,7 +206,7 @@ pub const Tz = struct {
 
         errdefer if (footer) |ft| allocator.free(ft);
 
-        return Tz{
+        return TzAlloc{
             .allocator = allocator,
             .transitions = transitions,
             .timetypes = timetypes,
@@ -217,7 +215,7 @@ pub const Tz = struct {
         };
     }
 
-    pub fn deinit(tz: *Tz) void {
+    pub fn deinit(tz: *TzAlloc) void {
         if (tz.footer) |footer| {
             tz.allocator.free(footer);
             tz.footer = null;
@@ -234,7 +232,7 @@ pub const Tz = struct {
 //----------------------------------------------------------------------------------------------------
 
 /// TZif data structure that requires no heap memory allocation
-pub const TzZeroAlloc = struct {
+pub const Tz = struct {
     transitions: []const Transition, // slice just points to __transition_data
     timetypes: []const Timetype, //
     footer: ?[]const u8, //
@@ -243,7 +241,7 @@ pub const TzZeroAlloc = struct {
     __footer_data: [footer_buf_sz]u8 = std.mem.zeroes([footer_buf_sz]u8),
     // h: Header,
 
-    /// Parse a IANA db TZif file. Only accepts version 2 or 3 files.
+    /// Parse a IANA db TZif file, allocator-free. Only accepts version 2+ files.
     pub fn parse(reader: anytype) !Tz {
         var legacy_header = try reader.readStruct(Header);
         if (!std.mem.eql(u8, &legacy_header.magic, "TZif")) return error.BadHeader;
@@ -275,7 +273,7 @@ pub const TzZeroAlloc = struct {
     }
 
     /// Load TZif data itself and make a Tz
-    fn parseBlock(reader: anytype, header: Header) !TzZeroAlloc {
+    fn parseBlock(reader: anytype, header: Header) !Tz {
         // RFC 9636: isstdcnt [...] MUST either be zero or equal to "typecnt":
         if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt) return error.Malformed;
         // RFC 9636: isutcnt [...] MUST either be zero or equal to "typecnt":
@@ -381,7 +379,7 @@ pub const TzZeroAlloc = struct {
             footer = std.mem.sliceTo(__footer_data[0..], 0);
         }
 
-        return TzZeroAlloc{
+        return Tz{
             .transitions = transitions,
             .timetypes = timetypes,
             .footer = footer,
@@ -398,7 +396,7 @@ test "slim" {
     const data = @embedFile("./tzif_testdata/asia_tokyo.tzif");
     var in_stream = std.io.fixedBufferStream(data);
 
-    var tz = try Tz.parseAlloc(std.testing.allocator, in_stream.reader());
+    var tz = try TzAlloc.parse(std.testing.allocator, in_stream.reader());
     defer tz.deinit();
 
     try std.testing.expectEqual(tz.transitions.len, 9);
@@ -410,7 +408,7 @@ test "fat" {
     const data = @embedFile("./tzif_testdata/antarctica_davis.tzif");
     var in_stream = std.io.fixedBufferStream(data);
 
-    var tz = try Tz.parseAlloc(std.testing.allocator, in_stream.reader());
+    var tz = try TzAlloc.parse(std.testing.allocator, in_stream.reader());
     defer tz.deinit();
 
     try std.testing.expectEqual(tz.transitions.len, 8);
@@ -422,7 +420,7 @@ test "legacy fails" {
     const data = @embedFile("./tzif_testdata/europe_vatican.tzif");
     var in_stream = std.io.fixedBufferStream(data);
 
-    const err = Tz.parseAlloc(std.testing.allocator, in_stream.reader());
+    const err = TzAlloc.parse(std.testing.allocator, in_stream.reader());
     try testing.expectError(error.BadVersion, err);
 }
 
@@ -432,9 +430,13 @@ test "load a lot of TZif" {
     for (tzdata.keys()) |zone| {
         if (tzdata.get(zone)) |TZifBytes| {
             var in_stream = std.io.fixedBufferStream(TZifBytes);
-            var tzif_tz = try Tz.parseAlloc(testing.allocator, in_stream.reader());
+            var tzif_tz = try TzAlloc.parse(testing.allocator, in_stream.reader());
             if (tzif_tz.footer.?.len > sz_footer) sz_footer = tzif_tz.footer.?.len;
             tzif_tz.deinit();
+
+            try in_stream.seekTo(0);
+            const tzif_tz_noalloc = try Tz.parse(in_stream.reader());
+            _ = tzif_tz_noalloc;
         }
     }
     try testing.expect(sz_footer <= footer_buf_sz);

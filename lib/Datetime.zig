@@ -938,7 +938,7 @@ fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) ![3]?*
     var surrounding = [3]?*tzif.Timetype{ null, null, null };
     const dummy: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 };
     switch (_tz.rules) {
-        .tzif => {
+        .tzif, .tzif_fixedsize => {
             if (idx > 0) {
                 surrounding[1] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx))].timetype;
             }
