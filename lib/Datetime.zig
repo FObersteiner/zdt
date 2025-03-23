@@ -915,6 +915,9 @@ pub fn format(
     options: std.fmt.FormatOptions,
     writer: anytype,
 ) !void {
+    // TODO : if fmt is not 's' or empty, we could try to interpret fmt as a diractive
+    // and return try str.tokenizeAndPrint(&dt, fmt, writer)
+    // However, this requires to resolve the possible error set.
     _ = fmt;
     try writer.print(
         "{d:0>4}-{d:0>2}-{d:0>2}T{d:0>2}:{d:0>2}:{d:0>2}",
