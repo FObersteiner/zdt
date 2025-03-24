@@ -906,19 +906,30 @@ pub fn EasterDateJulian(year: u16) !Datetime {
     });
 }
 
-/// Formatted printing for Datetime. Defaults to ISO8601 / RFC3339nano.
-/// Nanoseconds are displayed if not zero. To get milli- or microsecond
-/// precision, use formatting directive 's:.3' (ms) or 's:.6' (us).
+/// Custom printing for the Datetime struct, to be used e.g. in std.debug.print.
+/// Defaults to ISO8601 / RFC3339nano format.
+///
+/// Nanoseconds are displayed if not zero. To get milli- or microsecond precision,
+/// use formatting directive '{s:.3}' (ms) or '{s:.6}' (us).
+///
+/// If a formatting directive other than 's' or empty is provided, the method
+/// tries to interpret it as regular datetime formatting directive(s), as the ones
+/// used in Datetime.toString.
+///
+/// EX:
+/// std.debug.print("{%Y-%m}", .{dt});
+/// // ...would for instance evaluate to
+/// >>> "2025-03"
+///
 pub fn format(
     dt: Datetime,
     comptime fmt: []const u8,
     options: std.fmt.FormatOptions,
     writer: anytype,
-) !void {
-    // TODO : if fmt is not ('s' or empty), we could try to interpret fmt as a directive
-    // and return try str.tokenizeAndPrint(&dt, fmt, writer)
-    // However, this requires to resolve the possible error set.
-    _ = fmt;
+) anyerror!void { // have to use 'anyerror' here due to the 'anytype' writer
+    if (!(std.mem.eql(u8, fmt, "s") or fmt.len == 0))
+        return try str.tokenizeAndPrint(&dt, fmt, writer);
+
     try writer.print(
         "{d:0>4}-{d:0>2}-{d:0>2}T{d:0>2}:{d:0>2}:{d:0>2}",
         .{ dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second },

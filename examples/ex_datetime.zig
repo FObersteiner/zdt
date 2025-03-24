@@ -24,7 +24,8 @@ pub fn main() !void {
     const now_s = try now.floorTo(Duration.Timespan.second);
     println("(nanos removed) : {s}", .{now_s});
     const now_date = try now.floorTo(Duration.Timespan.day);
-    println("         (date) : {s}", .{now_date});
+    println("           (date) : {s}", .{now_date});
+    println("(date, formatted) : {%Y-%m-%d}", .{now_date});
 }
 
 fn println(comptime fmt: []const u8, args: anytype) void {
