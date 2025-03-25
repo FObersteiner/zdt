@@ -65,7 +65,7 @@ fn benchZonedZdt(allocator: std.mem.Allocator) void {
 }
 
 fn benchZonedZdtZA(_: std.mem.Allocator) void {
-    var mytz: zdt_latest.Timezone = zdt_latest.Timezone.fromTzdataZeroAlloc("Europe/Berlin") catch unreachable;
+    var mytz: zdt_latest.Timezone = zdt_latest.Timezone.fromTzdata("Europe/Berlin", null) catch unreachable;
     _ = zdt_latest.Datetime.now(.{ .tz = &mytz }) catch unreachable;
 }
 

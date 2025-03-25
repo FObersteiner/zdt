@@ -76,38 +76,27 @@ pub fn fromPosixTz(posixString: []const u8) !Timezone {
 /// Make a time zone from IANA tz database TZif data, taken from the embedded tzdata.
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned TZ instance.
-pub fn fromTzdata(identifier: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
+///
+/// Note that the allocator is optional. If 'null' is provided instead of an allocator,
+/// a fixed-size structure will be used to holde the timezone rules, instead of doing this
+/// dynamically in heap memory. This is faster, but requires more memory overall.
+pub fn fromTzdata(identifier: []const u8, allocator: ?std.mem.Allocator) TzError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
 
     if (std.mem.eql(u8, identifier, "localtime")) return tzLocal(allocator);
 
     if (tzdata.get(identifier)) |TZifBytes| {
         var in_stream = std.io.fixedBufferStream(TZifBytes);
-        const tzif_tz: tzif.TzAlloc = tzif.TzAlloc.parse(allocator, in_stream.reader()) catch
-            return TzError.TZifUnreadable;
+        var tz = Timezone{ .rules = .{ .utc = .{} } };
 
-        var tz = Timezone{ .rules = .{ .tzif = tzif_tz } };
-        tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
-        @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
+        if (allocator) |alcr| {
+            const tzif_tz = tzif.TzAlloc.parse(alcr, in_stream.reader()) catch return TzError.TZifUnreadable;
+            tz = Timezone{ .rules = .{ .tzif = tzif_tz } };
+        } else {
+            const tzif_tz = tzif.Tz.parse(in_stream.reader()) catch return TzError.TZifUnreadable;
+            tz = Timezone{ .rules = .{ .tzif_fixedsize = tzif_tz } };
+        }
 
-        return tz;
-    }
-    return TzError.TzUndefined;
-}
-
-/// Like fromTzdata, but read into a fixed-size data structure, therefore requiring no allocation.
-pub fn fromTzdataZeroAlloc(identifier: []const u8) TzError!Timezone {
-    if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
-
-    // TODO :
-    // if (std.mem.eql(u8, identifier, "localtime")) return tzLocal(allocator);
-
-    if (tzdata.get(identifier)) |TZifBytes| {
-        var in_stream = std.io.fixedBufferStream(TZifBytes);
-        const tzif_tz: tzif.Tz = tzif.Tz.parse(in_stream.reader()) catch
-            return TzError.TZifUnreadable;
-
-        var tz = Timezone{ .rules = .{ .tzif_fixedsize = tzif_tz } };
         tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
         @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
 
@@ -121,8 +110,11 @@ pub fn fromTzdataZeroAlloc(identifier: []const u8) TzError!Timezone {
 /// To use the system's tzdata, use 'zdt.Timezone.tzdb_prefix'.
 /// The caller must make sure to de-allocate memory used for storing the TZif file's content
 /// by calling the deinit method of the returned Timezone instance.
-// TODO : make the allocator an optional so that the method can be used by fromTzdataZeroAlloc as well? Does this still work comp-time?
-pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: std.mem.Allocator) TzError!Timezone {
+///
+/// Note that the allocator is optional. If 'null' is provided instead of an allocator,
+/// a fixed-size structure will be used to holde the timezone rules, instead of doing this
+/// dynamically in heap memory. This is faster, but requires more memory overall.
+pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: ?std.mem.Allocator) TzError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&path_buffer);
@@ -134,13 +126,16 @@ pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: 
     const file = std.fs.openFileAbsolute(p, .{}) catch return TzError.TZifUnreadable;
     defer file.close();
 
-    const tzif_tz = tzif.TzAlloc.parse(allocator, file.reader()) catch
-        return TzError.TZifUnreadable;
+    var tz = Timezone{ .rules = .{ .utc = .{} } };
 
-    // ensure that there is a footer: requires v2+ TZif files.
-    _ = tzif_tz.footer orelse return TzError.BadTZifVersion;
+    if (allocator) |alcr| {
+        const tzif_tz = tzif.TzAlloc.parse(alcr, file.reader()) catch return TzError.TZifUnreadable;
+        tz = Timezone{ .rules = .{ .tzif = tzif_tz } };
+    } else {
+        const tzif_tz = tzif.Tz.parse(file.reader()) catch return TzError.TZifUnreadable;
+        tz = Timezone{ .rules = .{ .tzif_fixedsize = tzif_tz } };
+    }
 
-    var tz = Timezone{ .rules = .{ .tzif = tzif_tz } };
     // default: use identifier as name
     tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
     @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
@@ -183,7 +178,7 @@ pub fn deinit(tz: *Timezone) void {
 /// Note: Windows does not use the IANA time zone database;
 /// a mapping from Windows db to IANA db is prone to errors.
 /// Use with caution.
-pub fn tzLocal(allocator: std.mem.Allocator) TzError!Timezone {
+pub fn tzLocal(allocator: ?std.mem.Allocator) TzError!Timezone {
     switch (builtin.os.tag) {
         .linux, .macos => {
             const default_path = "/etc/localtime";
