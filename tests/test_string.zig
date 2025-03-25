@@ -19,6 +19,8 @@ const td = zdt.Duration;
 const Tz = zdt.Timezone;
 const UTCoffset = zdt.UTCoffset;
 
+const Error = error{ UnsupportedOS, OutOfMemory, InvalidFormat, InvalidDirective };
+
 const TestCase = struct {
     string: []const u8,
     dt: Datetime,
@@ -705,7 +707,7 @@ test "parse %I and am/pm errors" {
     try testing.expectError(error.InvalidFormat, err);
 
     err = Datetime.fromString("9 a", "%I %p"); // incomplete 'am'
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(Error.InvalidFormat, err);
 
     err = Datetime.fromString("0 am", "%I %p"); // invalid hour
     try testing.expectError(error.InvalidFormat, err);
@@ -823,7 +825,7 @@ test "parsing directives do not match fields in string" {
     try testing.expectError(error.InvalidFormat, err);
 
     err = Datetime.fromString("1970-01-01 00:00:00 +7", "%Y-%m-%d %H:%M:%S %z");
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(Error.InvalidFormat, err);
 }
 
 test "parse with literal characters" {
@@ -1126,8 +1128,8 @@ test "not ISO8601" {
     try testing.expectError(error.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-02-03T23:00:00..314"); // invlid fractional secs separator
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(Error.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-08-23T12:15:56+-0200"); // invalid offset
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(Error.InvalidFormat, err);
 }

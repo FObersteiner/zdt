@@ -15,6 +15,7 @@ Types of changes
 
 ### Added
 
+- ability for `Datetime.format` to ingest formatting directives like `Datetime.toString` can use (see #54)
 - fixed-size data structure for TZif timezone - loading 10x faster (no heap memory required), can be set up at comptime
 
 ### Fixed
