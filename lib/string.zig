@@ -16,6 +16,8 @@ const FormatError = @import("./errors.zig").FormatError;
 const unix_specific = @import("./unix/unix_mdnames.zig");
 const windows_specific = @import("./windows/windows_mdnames.zig");
 
+const Error = error{ UnsupportedOS, OutOfMemory, InvalidFormat, InvalidDirective };
+
 const TokenizerState = enum(u8) {
     ExpectChar,
     ExpectDirectiveOrModifier,
@@ -93,7 +95,11 @@ pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
 }
 
 /// Tokenize the formatting directives and print to the writer interface.
-pub fn tokenizeAndPrint(dt: *const Datetime, directives: []const u8, writer: anytype) !void {
+pub fn tokenizeAndPrint(
+    dt: *const Datetime,
+    directives: []const u8,
+    writer: anytype,
+) anyerror!void { // have to use 'anyerror' here due to the 'anytype' writer
     var fmt_idx: usize = 0;
     var modifier_count: u8 = 0;
 
@@ -251,7 +257,7 @@ fn printIntoWriter(
     directive: u8,
     modifier_count: u8,
     writer: anytype,
-) !void {
+) anyerror!void { // have to use 'anyerror' here due to the 'anytype' writer
     switch (directive) {
         'd' => try writer.print("{d:0>2}", .{dt.day}),
         'e' => try writer.print("{d: >2}", .{dt.day}),
@@ -362,9 +368,9 @@ fn printIntoWriter(
 
 /// Parse exactly nDigits to an integer.
 /// Return error.InvalidFormat if something goes wrong.
-fn parseExactNDigits(comptime T: type, string: []const u8, idx_ptr: *usize, nDigits: usize) !T {
+fn parseExactNDigits(comptime T: type, string: []const u8, idx_ptr: *usize, nDigits: usize) (std.fmt.ParseIntError || Error)!T {
     if ((string.len - idx_ptr.*) < nDigits) {
-        return error.InvalidFormat;
+        return Error.InvalidFormat;
     }
     idx_ptr.* += nDigits;
     return std.fmt.parseInt(T, string[idx_ptr.* - nDigits .. idx_ptr.*], 10);
@@ -372,7 +378,7 @@ fn parseExactNDigits(comptime T: type, string: []const u8, idx_ptr: *usize, nDig
 
 /// Parse up to  maxDigits to an integer.
 /// Return error.InvalidFormat if something goes wrong.
-fn parseDigits(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits: usize) !T {
+fn parseDigits(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits: usize) (std.fmt.ParseIntError || Error)!T {
     const start_idx = idx_ptr.*;
     // must start with a digit... otherwise format is invalid.
     if (std.ascii.isDigit(string[start_idx])) {
@@ -384,22 +390,22 @@ fn parseDigits(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits:
 
         return std.fmt.parseInt(T, string[start_idx..idx_ptr.*], 10);
     }
-    return error.InvalidFormat;
+    return Error.InvalidFormat;
 }
 
 // AM or PM string, no matter if upper or lower case.
-fn parseAmPm(string: []const u8, idx_ptr: *usize) !ParserFlags {
-    if (idx_ptr.* + 2 > string.len) return error.InvalidFormat;
+fn parseAmPm(string: []const u8, idx_ptr: *usize) Error!ParserFlags {
+    if (idx_ptr.* + 2 > string.len) return Error.InvalidFormat;
 
     var flag = ParserFlags.OK;
     flag = switch (std.ascii.toLower(string[idx_ptr.*])) {
         'a' => ParserFlags.AM,
         'p' => ParserFlags.PM,
-        else => return error.InvalidFormat,
+        else => return Error.InvalidFormat,
     };
 
     idx_ptr.* += 1;
-    if (std.ascii.toLower(string[idx_ptr.*]) != 'm') return error.InvalidFormat;
+    if (std.ascii.toLower(string[idx_ptr.*]) != 'm') return Error.InvalidFormat;
 
     idx_ptr.* += 1;
     return flag;
@@ -411,7 +417,7 @@ fn twelve_hour_format(hour: u8) u8 {
 }
 
 // Offset UTC in the from of (+|-)hh[:mm[:ss]] or Z.
-fn parseOffset(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits: usize) !T {
+fn parseOffset(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits: usize) (std.fmt.ParseIntError || Error)!T {
     const start_idx = idx_ptr.*;
 
     var sign: i2 = 1;
@@ -422,7 +428,7 @@ fn parseOffset(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits:
             idx_ptr.* += 1;
             return 0;
         },
-        else => return error.InvalidFormat, // must start with sign
+        else => return Error.InvalidFormat, // must start with sign
     }
 
     idx_ptr.* += 1;
@@ -441,7 +447,7 @@ fn parseOffset(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits:
         }
         if (index == 6) break;
     }
-    if (index < 2) return error.InvalidFormat; // offset must be at least 2 chars
+    if (index < 2) return Error.InvalidFormat; // offset must be at least 2 chars
 
     const i = try std.fmt.parseInt(T, &offset_chars, 10);
     const hours = @divFloor(i, 10000);
@@ -599,45 +605,45 @@ const sz_abbr: usize = 32;
 const sz_normal: usize = 64;
 
 // Get the abbreviated day name in the current locale
-fn getDayNameAbbr(n: u8) ![sz_abbr]u8 {
+fn getDayNameAbbr(n: u8) Error![sz_abbr]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getDayNameAbbr_(n),
         .windows => windows_specific.getDayNameAbbr_(n),
-        else => return error.OsUnsupported,
+        else => return Error.UnsupportedOS,
     };
 }
 
 // Get the day name in the current locale
-fn getDayName(n: u8) ![sz_normal]u8 {
+fn getDayName(n: u8) Error![sz_normal]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getDayName_(n),
         .windows => windows_specific.getDayName_(n),
-        else => return error.OsUnsupported,
+        else => return Error.UnsupportedOS,
     };
 }
 
 // Get the abbreviated month name in the current locale
-fn getMonthNameAbbr(n: u8) ![sz_abbr]u8 {
+fn getMonthNameAbbr(n: u8) Error![sz_abbr]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getMonthNameAbbr_(n),
         .windows => windows_specific.getMonthNameAbbr_(n),
-        else => return error.OsUnsupported,
+        else => return Error.UnsupportedOS,
     };
 }
 
 // Get the month name in the current locale
-fn getMonthName(n: u8) ![sz_normal]u8 {
+fn getMonthName(n: u8) Error![sz_normal]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getMonthName_(n),
         .windows => windows_specific.getMonthName_(n),
-        else => return error.OsUnsupported,
+        else => return Error.UnsupportedOS,
     };
 }
 
 // since locale-specific names might change at runtime,
 // we need to obtain them at runtime.
 
-fn allDayNames() ![7][sz_normal]u8 {
+fn allDayNames() Error![7][sz_normal]u8 {
     var result: [7][sz_normal]u8 = undefined;
     for (result, 0..) |_, i| result[i] = try getDayName(@truncate(i));
     return result;
@@ -655,7 +661,7 @@ fn allDayNamesEng() [7][sz_normal]u8 {
     };
 }
 
-fn allDayNamesShort() ![7][sz_abbr]u8 {
+fn allDayNamesShort() Error![7][sz_abbr]u8 {
     var result: [7][sz_abbr]u8 = undefined;
     for (result, 0..) |_, i| result[i] = try getDayNameAbbr(@truncate(i));
     return result;
@@ -673,7 +679,7 @@ fn allDayNamesShortEng() [7][sz_abbr]u8 {
     };
 }
 
-fn allMonthNames() ![12][sz_normal]u8 {
+fn allMonthNames() Error![12][sz_normal]u8 {
     var result: [12][sz_normal]u8 = undefined;
     for (result, 0..) |_, i| result[i] = try getMonthName(@truncate(i));
     return result;
@@ -696,7 +702,7 @@ fn allMonthNamesEng() [12][sz_normal]u8 {
     };
 }
 
-fn allMonthNamesShort() ![12][sz_abbr]u8 {
+fn allMonthNamesShort() Error![12][sz_abbr]u8 {
     var result: [12][sz_abbr]u8 = undefined;
     for (result, 0..) |_, i| result[i] = try getMonthNameAbbr(@truncate(i));
     return result;
@@ -742,40 +748,40 @@ test "all names" {
     }
 }
 
-fn parseDayName(string: []const u8, idx_ptr: *usize, allNames: *const [7][sz_normal]u8) !u8 {
+fn parseDayName(string: []const u8, idx_ptr: *usize, allNames: *const [7][sz_normal]u8) Error!u8 {
     var daynum: u8 = 0;
     while (daynum < 7) : (daynum += 1) {
         if (strStartswith(string, idx_ptr, std.mem.sliceTo(&allNames[daynum], 0)))
             return daynum;
     }
-    return error.InvalidFormat;
+    return Error.InvalidFormat;
 }
 
-fn parseDayNameAbbr(string: []const u8, idx_ptr: *usize, allNames: *const [7][sz_abbr]u8) !u8 {
+fn parseDayNameAbbr(string: []const u8, idx_ptr: *usize, allNames: *const [7][sz_abbr]u8) Error!u8 {
     var daynum: u8 = 0;
     while (daynum < 7) : (daynum += 1) {
         if (strStartswith(string, idx_ptr, std.mem.sliceTo(&allNames[daynum], 0)))
             return daynum;
     }
-    return error.InvalidFormat;
+    return Error.InvalidFormat;
 }
 
-fn parseMonthName(string: []const u8, idx_ptr: *usize, allNames: *const [12][sz_normal]u8) !u8 {
+fn parseMonthName(string: []const u8, idx_ptr: *usize, allNames: *const [12][sz_normal]u8) Error!u8 {
     var monthnum: u8 = 0;
     while (monthnum < 12) : (monthnum += 1) {
         if (strStartswith(string, idx_ptr, std.mem.sliceTo(&allNames[monthnum], 0)))
             return monthnum + 1;
     }
-    return error.InvalidFormat;
+    return Error.InvalidFormat;
 }
 
-fn parseMonthNameAbbr(string: []const u8, idx_ptr: *usize, allNames: *const [12][sz_abbr]u8) !u8 {
+fn parseMonthNameAbbr(string: []const u8, idx_ptr: *usize, allNames: *const [12][sz_abbr]u8) Error!u8 {
     var monthnum: u8 = 0;
     while (monthnum < 12) : (monthnum += 1) {
         if (strStartswith(string, idx_ptr, std.mem.sliceTo(&allNames[monthnum], 0)))
             return monthnum + 1;
     }
-    return error.InvalidFormat;
+    return Error.InvalidFormat;
 }
 
 test "day / month name in string to day / month number" {
