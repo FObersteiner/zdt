@@ -45,7 +45,7 @@ if s_c.count(":") < 4:
 content.append(
     f"""
     var tz_a = try Tz.fromTzdata("{za}", std.testing.allocator);
-    var tz_b = try Tz.fromTzdata("{zb}", std.testing.allocator);
+    var tz_b = try Tz.fromTzdata("{zb}", null);
 
     var dt_a = try Datetime.fromUnix({ta}, Duration.Resolution.second, .{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
     var dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second,  .{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
@@ -82,7 +82,7 @@ for _ in range(N):
     content.append(
         f"""
     tz_a = try Tz.fromTzdata("{za}", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("{zb}", std.testing.allocator);
+    tz_b = try Tz.fromTzdata("{zb}", null);
 
     dt_a = try Datetime.fromUnix({ta}, Duration.Resolution.second, .{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
     dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second,  .{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
