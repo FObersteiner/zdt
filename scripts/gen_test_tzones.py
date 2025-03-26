@@ -83,14 +83,17 @@ for _ in range(N):
         f"""
     tz_a = try Tz.fromTzdata("{za}", std.testing.allocator);
     tz_b = try Tz.fromTzdata("{zb}", std.testing.allocator);
+
     dt_a = try Datetime.fromUnix({ta}, Duration.Resolution.second, .{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
     dt_b = try Datetime.fromUnix({tb}, Duration.Resolution.second,  .{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
     dt_c = try dt_a.tzConvert(.{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
     dt_b = try dt_b.tzConvert(.{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
+
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
     try testing.expectEqualStrings("{s_b}", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
     try testing.expectEqualStrings("{s_c}", s_c.items);
+
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
