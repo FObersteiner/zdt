@@ -952,7 +952,7 @@ fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) ![3]?*
     var surrounding = [3]?*tzif.Timetype{ null, null, null };
     const dummy: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 };
     switch (_tz.rules) {
-        .tzif, .tzif_fixedsize => {
+        .tzif => {
             if (idx > 0) {
                 surrounding[1] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx))].timetype;
             }
@@ -961,6 +961,18 @@ fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) ![3]?*
             }
             if (idx > 0 and idx < _tz.rules.tzif.transitions.len - 1) {
                 surrounding[2] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx + 1))].timetype;
+            }
+            return surrounding;
+        },
+        .tzif_fixedsize => {
+            if (idx > 0) {
+                surrounding[1] = _tz.rules.tzif_fixedsize.transitions[@as(u64, @intCast(idx))].timetype;
+            }
+            if (idx >= 1) {
+                surrounding[0] = _tz.rules.tzif_fixedsize.transitions[@as(u64, @intCast(idx - 1))].timetype;
+            }
+            if (idx > 0 and idx < _tz.rules.tzif_fixedsize.transitions.len - 1) {
+                surrounding[2] = _tz.rules.tzif_fixedsize.transitions[@as(u64, @intCast(idx + 1))].timetype;
             }
             return surrounding;
         },
