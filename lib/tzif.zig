@@ -376,7 +376,7 @@ pub const Tz = struct {
             else => return err,
         };
         if (footer_mem.len != 0) {
-            footer = std.mem.sliceTo(__footer_data[0..], 0);
+            footer = std.mem.sliceTo(__footer_data[0..], '\n');
         }
 
         return Tz{
@@ -431,12 +431,16 @@ test "load a lot of TZif" {
         if (tzdata.get(zone)) |TZifBytes| {
             var in_stream = std.io.fixedBufferStream(TZifBytes);
             var tzif_tz = try TzAlloc.parse(testing.allocator, in_stream.reader());
+            defer tzif_tz.deinit();
+
             if (tzif_tz.footer.?.len > sz_footer) sz_footer = tzif_tz.footer.?.len;
-            tzif_tz.deinit();
 
             try in_stream.seekTo(0);
             const tzif_tz_noalloc = try Tz.parse(in_stream.reader());
-            _ = tzif_tz_noalloc;
+
+            try testing.expectEqual(tzif_tz_noalloc.footer.?.len, tzif_tz.footer.?.len);
+            try testing.expectEqual(tzif_tz_noalloc.transitions.len, tzif_tz.transitions.len);
+            try testing.expectEqual(tzif_tz_noalloc.timetypes.len, tzif_tz.timetypes.len);
         }
     }
     try testing.expect(sz_footer <= footer_buf_sz);
