@@ -14,7 +14,7 @@ pub const ZdtError = @import("./lib/errors.zig").ZdtError;
 
 // make sure 'internal' tests are also executed:
 const calendar = @import("./lib/calendar.zig");
-const posix = @import("./lib/posixtz.zig");
+const psx = @import("./lib/posixtz.zig");
 const str = @import("./lib/string.zig");
 const tzif = @import("./lib/tzif.zig");
 
@@ -24,7 +24,7 @@ test {
     _ = Timezone;
     _ = Duration;
     _ = calendar;
-    _ = posix;
+    _ = psx;
     _ = str;
     _ = tzif;
 }

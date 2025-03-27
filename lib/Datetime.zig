@@ -964,6 +964,18 @@ fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) ![3]?*
             }
             return surrounding;
         },
+        .tzif_fixedsize => {
+            if (idx > 0) {
+                surrounding[1] = _tz.rules.tzif_fixedsize.transitions[@as(u64, @intCast(idx))].timetype;
+            }
+            if (idx >= 1) {
+                surrounding[0] = _tz.rules.tzif_fixedsize.transitions[@as(u64, @intCast(idx - 1))].timetype;
+            }
+            if (idx > 0 and idx < _tz.rules.tzif_fixedsize.transitions.len - 1) {
+                surrounding[2] = _tz.rules.tzif_fixedsize.transitions[@as(u64, @intCast(idx + 1))].timetype;
+            }
+            return surrounding;
+        },
         .posixtz => {
             if (_tz.rules.posixtz.dst_offset) |dst_offset| { // do we have DST at all ?
                 if (local_offset.is_dst) {

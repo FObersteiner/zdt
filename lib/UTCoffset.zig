@@ -100,6 +100,39 @@ pub fn atUnixtime(tz: *const Timezone, unixtime: i64) TzError!UTCoffset {
                 .__transition_index = idx,
             };
         },
+        .tzif_fixedsize => {
+            // if the tz only has one timetype (offset spec.), use this,
+            // otherwise try to determine it from the defined transitions
+            const idx = if (tz.rules.tzif_fixedsize.timetypes.len == 1) -1 else findTransition(tz.rules.tzif_fixedsize.transitions, unixtime);
+
+            const timet = switch (idx) {
+                -1 => blk: {
+                    assert(tz.rules.tzif_fixedsize.timetypes.len == 1);
+                    break :blk tz.rules.tzif_fixedsize.timetypes[0];
+                },
+
+                // Unix time exceeds defined range of transitions => use POSIX from tzif footer
+                -2 => blk: {
+                    // check the POSIX TZ from the footer.
+                    const psxtz = psx.parsePosixTzString(tz.rules.tzif_fixedsize.footer.?) catch return TzError.InvalidPosixTz;
+                    // If it has DST, make a UTC offset directly
+                    if (psxtz.dst_offset) |_| return psxtz.utcOffsetAt(unixtime);
+                    // ...otherwise use existing timetype
+                    break :blk tz.rules.tzif_fixedsize.transitions[tz.rules.tzif_fixedsize.transitions.len - 1].timetype.*;
+                },
+
+                // Unix time precedes defined range of transitions => use first entry in timetypes (likely a LMT)
+                -3 => tz.rules.tzif_fixedsize.timetypes[0],
+                else => tz.rules.tzif_fixedsize.transitions[@intCast(idx)].timetype.*,
+            };
+
+            return .{
+                .seconds_east = @intCast(timet.offset),
+                .is_dst = timet.isDst(),
+                .__designation_data = timet.name_data,
+                .__transition_index = idx,
+            };
+        },
         .posixtz => return tz.rules.posixtz.utcOffsetAt(unixtime),
         .utc => return UTC,
     }

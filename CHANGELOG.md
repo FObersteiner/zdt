@@ -15,7 +15,12 @@ Types of changes
 
 ### Added
 
-- ability for `Datetime.format` to ingest formatting directives like `Datetime.toString` can use
+- ability for `Datetime.format` to ingest formatting directives like `Datetime.toString` can use (see #54)
+- fixed-size data structure for TZif timezone - loading 10x faster (no heap memory required), can be set up at comptime
+
+### Fixed
+
+- tests in tzif.zig; were testing std lib tzif reader, now test this implementation
 
 ## 2025-03-23, v0.6.2
 
@@ -40,7 +45,7 @@ Types of changes
 
 ### Removed
 
-- support for version 0 TZif files
+- support for version 0 TZif files (legacy)
 
 ## 2025-03-08, v0.6.0
 

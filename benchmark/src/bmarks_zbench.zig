@@ -64,6 +64,11 @@ fn benchZonedZdt(allocator: std.mem.Allocator) void {
     _ = zdt_latest.Datetime.now(.{ .tz = &mytz }) catch unreachable;
 }
 
+fn benchZonedZdtZA(_: std.mem.Allocator) void {
+    var mytz: zdt_latest.Timezone = zdt_latest.Timezone.fromTzdata("Europe/Berlin", null) catch unreachable;
+    _ = zdt_latest.Datetime.now(.{ .tz = &mytz }) catch unreachable;
+}
+
 fn benchZonedZeit(allocator: std.mem.Allocator) void {
     const now = zeit.instant(.{}) catch unreachable;
     const zone = zeit.loadTimeZone(allocator, .@"Europe/Berlin", null) catch unreachable;
@@ -102,6 +107,8 @@ pub fn run() !void {
     try bench.add("\nZoned local, v0.4.5", benchZonedZdt045, .{ .iterations = 1000 });
     try bench.add("Zoned local, zdt lt", benchZonedZdt, .{ .iterations = 1000 });
     try bench.add("Zoned local, zdt lt", benchZonedZdt, .{ .iterations = 1000, .track_allocations = true });
+    try bench.add("(Zero-Alloc) zdt lt", benchZonedZdtZA, .{ .iterations = 1000 });
+
     try bench.add("\nZoned local, zeit", benchZonedZeit, .{ .iterations = 1000 });
     try bench.add("Zoned local, zeit", benchZonedZeit, .{ .iterations = 1000, .track_allocations = true });
 
