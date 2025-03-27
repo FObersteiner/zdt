@@ -22,8 +22,7 @@ with open(dst, "w") as fp:
 
     print('const std = @import("std");\n', file=fp)
     print(
-        """
-pub fn sizeOftzdata() usize {
+        """pub fn sizeOftzdata() usize {
     var s: usize = 0;
     for (tzdata.keys()) |zone| {
         if (tzdata.get(zone)) |TZifBytes| s += TZifBytes.len;
@@ -40,6 +39,6 @@ pub fn sizeOftzdata() usize {
         if z in skip_zones:
             continue
         print(f'    .{{ "{z}", @embedFile("{zoneinfo_path}/{z}") }},', file=fp)
-    print(" });\n", end="", file=fp)
+    print("});\n", end="", file=fp)
 
 print(f"{dst.resolve().as_posix()} updated.")
