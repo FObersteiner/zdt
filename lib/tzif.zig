@@ -20,8 +20,8 @@ const desgnation_buf_sz: usize = 64;
 
 // Constants for fixed array sizes of transitions and timetypes.
 // The sizes need to be verified for each new version of the tzdb.
-const transitions_buf_sz: usize = 310;
 const timetypes_buf_sz: usize = 18;
+const transitions_buf_sz: usize = 310;
 
 /// A transition to a new timetype
 pub const Transition = struct {
@@ -282,12 +282,14 @@ pub const Tz = struct {
         if (header.counts.charcnt == 0) return error.Malformed; // RFC 9636: charcnt [...] MUST NOT be zero
         if (header.counts.charcnt > 256 + 6) return error.Malformed; // Not explicitly banned by RFC 9636 but nonsensical
 
-        // transitions: []const Transition,
-        // timetypes: []const Timetype, //
-        var footer: ?[]const u8 = undefined;
-        var __transitions_data: [transitions_buf_sz]Transition = undefined;
-        var __timetypes_data: [timetypes_buf_sz]Timetype = undefined;
         var __footer_data: [footer_buf_sz]u8 = std.mem.zeroes([footer_buf_sz]u8);
+        var footer: ?[]const u8 = undefined;
+
+        // var dummy_tt = [1]Timetype{Timetype{ .offset = 0, .flags = 0, .name_data = [6:0]u8{ 0, 0, 0, 0, 0, 0 } }};
+        var __timetypes_data: [timetypes_buf_sz]Timetype = undefined; // dummy_tt ** timetypes_buf_sz;
+
+        // const dummy_tr = [1]Transition{Transition{ .ts = 0, .timetype = &dummy_tt[0] }};
+        var __transitions_data: [transitions_buf_sz]Transition = undefined; // dummy_tr ** transitions_buf_sz;
 
         // Parse transitions
         assert(header.counts.timecnt <= transitions_buf_sz);
@@ -371,13 +373,8 @@ pub const Tz = struct {
 
         // Footer / POSIX TZ string
         if ((try reader.readByte()) != '\n') return error.Malformed; // An RFC 9636 footer must start with a newline
-        const footer_mem = reader.readUntilDelimiter(&__footer_data, '\n') catch |err| switch (err) {
-            error.StreamTooLong => return error.OverlargeFooter, // Read more than 128 bytes, much larger than any reasonable POSIX TZ string
-            else => return err,
-        };
-        if (footer_mem.len != 0) {
-            footer = std.mem.sliceTo(__footer_data[0..], '\n');
-        }
+        _ = try reader.readUntilDelimiter(&__footer_data, '\n');
+        footer = std.mem.sliceTo(__footer_data[0..], '\n');
 
         return Tz{
             .transitions = transitions,
