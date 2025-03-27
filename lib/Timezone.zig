@@ -16,6 +16,7 @@ const Timezone = @This();
 
 /// embedded IANA time zone database (eggert/tz)
 pub const tzdata = @import("./tzdata.zig").tzdata;
+pub const sizeOftzdata = @import("./tzdata.zig").sizeOftzdata;
 
 pub const tzdb_version = @import("./tzdata.zig").tzdb_version;
 
@@ -204,7 +205,13 @@ pub fn format(
 ) !void {
     _ = fmt;
     _ = options;
-    try writer.print("Time zone, name: {c}", .{tz.name()});
+    try writer.print("Time zone, name: {s}. ", .{tz.name()});
+    switch (tz.rules) {
+        .tzif => try writer.print("Source: TZif. Memory: dynamic.", .{}),
+        .tzif_fixedsize => try writer.print("Source: TZif. Memory: static.", .{}),
+        .posixtz => try writer.print("Source: POSIX string.", .{}),
+        else => return,
+    }
 }
 
 /// Time zone identifiers must only contain alpha-numeric characters
