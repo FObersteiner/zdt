@@ -15,6 +15,7 @@ pub fn main() !void {
     println("IANA time zone database version: {s}", .{Timezone.tzdb_version});
     println("path to local tz database: {s}\n", .{Timezone.tzdb_prefix});
 
+    println("load timezone, dynamically allocated memory:", .{});
     var tz_berlin: Timezone = try Timezone.fromTzdata("Europe/Berlin", allocator);
     defer tz_berlin.deinit();
     var now_berlin: Datetime = try Datetime.now(.{ .tz = &tz_berlin });
@@ -22,6 +23,12 @@ pub fn main() !void {
     println("Now, UTC time    : {s}", .{now_utc});
     println("Now, Berlin time : {s} ({s})", .{ now_berlin, now_berlin.tzAbbreviation() });
     println("Datetimes have UTC offset / time zone? : {}, {}\n", .{ now_utc.isAware(), now_berlin.isAware() });
+
+    println("load timezone, static memory:", .{});
+    const tz_berlin_: Timezone = try Timezone.fromTzdata("Europe/Berlin", null);
+    println("Info: {any}", .{tz_berlin_});
+    const now_berlin_: Datetime = try Datetime.now(.{ .tz = &tz_berlin_ });
+    println("Now, Berlin time : {s} ({s})\n", .{ now_berlin_, now_berlin_.tzAbbreviation() });
 
     var my_tz: Timezone = try Timezone.tzLocal(allocator);
     defer my_tz.deinit();
