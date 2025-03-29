@@ -13,6 +13,8 @@ Types of changes
 
 ## [Unreleased]
 
+## 2025-03-29, v0.6.3
+
 ### Added
 
 - ability for `Datetime.format` to ingest formatting directives like `Datetime.toString` can use (see #54)
