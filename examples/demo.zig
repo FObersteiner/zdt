@@ -4,16 +4,17 @@ const builtin = @import("builtin");
 const zdt = @import("zdt");
 
 pub fn main() !void {
-    // need an allocator for the time zones since the size of the rule-files varies.
+    // Can use an allocator for the time zones as the size of the rule-files varies.
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // zdt embeds the IANA tz database:
+    // zdt embeds the IANA tz database (about 700k of raw data).
+    // If you pass null instead of the allocator, a fixed-size structure will be used - faster, but more mem required.
     var tz_LA = try zdt.Timezone.fromTzdata("America/Los_Angeles", allocator);
     defer tz_LA.deinit();
 
-    // you can also use your system's tz data at runtime;
+    // You can also use your system's tz data at runtime;
     // this will very likely not work on Windows, so we use the embedded version here as well.
     var tz_Paris = switch (builtin.os.tag) {
         .windows => try zdt.Timezone.fromTzdata("Europe/Paris", allocator),
