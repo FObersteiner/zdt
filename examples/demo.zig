@@ -49,10 +49,9 @@ pub fn main() !void {
     // Absolute time difference: PT0S
 
     // Easteregg:
-    const now = zdt.Datetime.nowUTC();
-    const easter_date = try zdt.Datetime.EasterDate(now.year);
-    buf.clearAndFree();
-    try easter_date.toString("%B %d, %Y", buf.writer());
-    std.debug.print("Easter this year is on {s}\n", .{buf.items});
+    std.debug.print(
+        "Easter this year is on {%B %d, %Y}\n",
+        .{try zdt.Datetime.EasterDate(zdt.Datetime.nowUTC().year)},
+    );
     // Easter this year is on April 20, 2025
 }
