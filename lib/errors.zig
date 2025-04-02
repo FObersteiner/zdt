@@ -3,12 +3,16 @@
 pub const ZdtError = FormatError || RangeError || TzError || WinTzError;
 
 pub const FormatError = error{
-    InvalidFormat,
+    InvalidCharacter,
     InvalidDirective,
+    InvalidFormat,
     InvalidFraction,
-    ParseIntError,
-    WriterError,
     OutOfMemory,
+    Overflow,
+    ParseIntError,
+    Underflow,
+    UnsupportedOS,
+    WriterError,
 };
 
 pub const RangeError = error{
