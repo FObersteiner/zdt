@@ -13,6 +13,11 @@ Types of changes
 
 ## [Unreleased]
 
+### Changed
+
+- revised error return values for all functions
+- `Datetime.fromString`: return an error if an empty string is passed as input
+
 ## 2025-03-29, v0.6.3
 
 ### Added
