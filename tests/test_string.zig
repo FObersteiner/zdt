@@ -537,7 +537,11 @@ test "format isocalendar, %t" {
 // ---- String to Datetime ----
 
 test "parse empty" {
-    const err = Datetime.fromString("", "");
+    var err = Datetime.fromString("", "x");
+    try testing.expectError(ZdtError.EmptyString, err);
+    err = Datetime.fromString("x", "");
+    try testing.expectError(ZdtError.EmptyString, err);
+    err = Datetime.fromString("", "");
     try testing.expectError(ZdtError.EmptyString, err);
 }
 

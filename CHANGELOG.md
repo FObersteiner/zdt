@@ -16,7 +16,7 @@ Types of changes
 ### Changed
 
 - revised error return values for all functions
-- `Datetime.fromString`: return an error if an empty string is passed as input
+- `Datetime.fromString`: return an error if an empty string is passed as input or directive
 
 ## 2025-03-29, v0.6.3
 
