@@ -844,6 +844,7 @@ pub fn toISOCalendar(dt: Datetime) ISOCalendar {
 
 /// Parse a string to a datetime.
 pub fn fromString(string: []const u8, directives: []const u8) ZdtError!Datetime {
+    if (string.len == 0) return ZdtError.EmptyString;
     return try str.tokenizeAndParse(string, directives);
 }
 
