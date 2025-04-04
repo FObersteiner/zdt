@@ -2,7 +2,7 @@
 
 const std = @import("std");
 const assert = std.debug.assert;
-const cal = @import("calendar.zig");
+const cal = @import("./calendar.zig");
 const UTCoffset = @import("./UTCoffset.zig");
 const TzError = @import("./errors.zig").TzError;
 
