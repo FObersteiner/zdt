@@ -3,6 +3,7 @@
 pub const ZdtError = FormatError || RangeError || TzError || WinTzError;
 
 pub const FormatError = error{
+    EmptyString,
     InvalidCharacter,
     InvalidDirective,
     InvalidFormat,

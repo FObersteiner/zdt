@@ -183,7 +183,7 @@ test "posix TZ invalid offset seconds" {
 
 test "posix TZ completely invalid dates" {
     try std.testing.expectError(error.InvalidFormat, psx.parsePosixTzString("AAA4BBB,M1443339,M11.1.0/3"));
-    try std.testing.expectError(error.InvalidFormat, psx.parsePosixTzString("AAA4BBB,M3.2.0/2,0349309483959c"));
+    try std.testing.expectError(error.Overflow, psx.parsePosixTzString("AAA4BBB,M3.2.0/2,0349309483959c"));
     try std.testing.expectError(error.InvalidFormat, psx.parsePosixTzString("AAA4BBB,,J300/2"));
     try std.testing.expectError(error.InvalidFormat, psx.parsePosixTzString("AAA4BBB,z,J300/2"));
     try std.testing.expectError(error.InvalidFormat, psx.parsePosixTzString("AAA4BBB,J60/2,"));

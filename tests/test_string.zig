@@ -18,8 +18,7 @@ const Formats = zdt.Formats;
 const td = zdt.Duration;
 const Tz = zdt.Timezone;
 const UTCoffset = zdt.UTCoffset;
-
-const Error = error{ UnsupportedOS, OutOfMemory, InvalidFormat, InvalidDirective };
+const ZdtError = zdt.ZdtError;
 
 const TestCase = struct {
     string: []const u8,
@@ -704,25 +703,25 @@ test "parse with month name and day, user-defined locale" {
 
 test "parse %I and am/pm errors" {
     var err = Datetime.fromString("19 am", "%I %p"); // invalid hour
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromString("9 a", "%I %p"); // incomplete 'am'
-    try testing.expectError(Error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromString("0 am", "%I %p"); // invalid hour
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromString("20 pm", "%I %p"); // invalid hour
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromString("7", "%I"); // %I but no %p
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromString("7 am", "%H %p"); // %H cannot be combined with %p
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromString("2007 am", "%Y %p"); // %p only is ...strange?
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 }
 
 test "comptime parse with fractional part" {
@@ -816,16 +815,16 @@ test "parse day of year with %j" {
 
 test "parsing directives do not match fields in string" {
     var err = Datetime.fromString("1970-01-01 00:00:00", "%Y-%m-%d %H%%%M%%%S");
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromString("1970-01-01 00:00:00", "%Y-%m-%dT%H:%M:%S");
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromString("1970-01-01 00:00:00", "%");
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromString("1970-01-01 00:00:00 +7", "%Y-%m-%d %H:%M:%S %z");
-    try testing.expectError(Error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 }
 
 test "parse with literal characters" {
@@ -1128,8 +1127,8 @@ test "not ISO8601" {
     try testing.expectError(error.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-02-03T23:00:00..314"); // invlid fractional secs separator
-    try testing.expectError(Error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-08-23T12:15:56+-0200"); // invalid offset
-    try testing.expectError(Error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 }
