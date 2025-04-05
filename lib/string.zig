@@ -16,8 +16,6 @@ const FormatError = @import("./errors.zig").FormatError;
 const unix_specific = @import("./unix/unix_mdnames.zig");
 const windows_specific = @import("./windows/windows_mdnames.zig");
 
-const Error = error{ UnsupportedOS, OutOfMemory, InvalidFormat, InvalidDirective };
-
 const TokenizerState = enum(u8) {
     ExpectChar,
     ExpectDirectiveOrModifier,
@@ -37,7 +35,7 @@ const ParserFlags = enum(u32) {
 };
 
 /// Tokenize the parsing directives and parse the datetime string accordingly.
-pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
+pub fn tokenizeAndParse(data: []const u8, directives: []const u8) ZdtError!Datetime {
     var fmt_idx: usize = 0;
     var data_idx: usize = 0;
     var flags: u32 = 0;
@@ -48,7 +46,7 @@ pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
         TokenizerState.ExpectChar => {
             if (directives[fmt_idx] == token_start) {
                 fmt_idx += 1;
-                if (fmt_idx >= directives.len) return error.InvalidFormat;
+                if (fmt_idx >= directives.len) return FormatError.InvalidFormat;
                 continue :tokenize .ExpectDirectiveOrModifier;
             }
             continue :tokenize .ProcessChar;
@@ -65,7 +63,7 @@ pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
             continue :tokenize .ProcessDirective;
         },
         TokenizerState.ProcessChar => {
-            if (data[data_idx] != directives[fmt_idx]) return error.InvalidFormat;
+            if (data[data_idx] != directives[fmt_idx]) return FormatError.InvalidFormat;
             data_idx += 1;
             fmt_idx += 1;
             if ((data_idx >= data.len) or (fmt_idx >= directives.len)) continue :tokenize .Finalize;
@@ -79,13 +77,13 @@ pub fn tokenizeAndParse(data: []const u8, directives: []const u8) !Datetime {
             continue :tokenize .ExpectChar;
         },
         TokenizerState.Finalize => {
-            if (fmt_idx != directives.len) return error.InvalidDirective;
-            if (data_idx != data.len) return error.InvalidFormat;
+            if (fmt_idx != directives.len) return FormatError.InvalidDirective;
+            if (data_idx != data.len) return FormatError.InvalidFormat;
             switch (flags) {
                 0b000 => {}, // neither %I nor am/pm in input string
                 0b101 => fields.hour = fields.hour % 12, //  %I and 'am'
                 0b110 => fields.hour = fields.hour % 12 + 12, //  %I and 'pm'
-                else => return error.InvalidFormat, // might be %I but no %p or vice versa
+                else => return FormatError.InvalidFormat, // might be %I but no %p or vice versa
             }
             break :tokenize;
         },
@@ -107,7 +105,7 @@ pub fn tokenizeAndPrint(
         TokenizerState.ExpectChar => {
             if (directives[fmt_idx] == token_start) {
                 fmt_idx += 1;
-                if (fmt_idx >= directives.len) return error.InvalidFormat;
+                if (fmt_idx >= directives.len) return FormatError.InvalidFormat;
                 continue :tokenize .ExpectDirectiveOrModifier;
             }
             continue :tokenize .ProcessChar;
@@ -135,7 +133,7 @@ pub fn tokenizeAndPrint(
             continue :tokenize .ExpectChar;
         },
         TokenizerState.Finalize => {
-            if (fmt_idx != directives.len) return error.InvalidDirective;
+            if (fmt_idx != directives.len) return FormatError.InvalidDirective;
             break :tokenize;
         },
     }
@@ -149,7 +147,7 @@ fn parseIntoFields(
     idx_ptr: *usize,
     flags: *u32,
     modifier_count: u8,
-) !void {
+) ZdtError!void {
     switch (directive) {
         'd' => fields.day = try parseDigits(u8, string, idx_ptr, 2),
         // 'e' - use 'd'
@@ -157,7 +155,7 @@ fn parseIntoFields(
             const names = switch (modifier_count) {
                 0 => try allDayNamesShort(),
                 1 => allDayNamesShortEng(),
-                else => return error.InvalidFormat,
+                else => return FormatError.InvalidFormat,
             };
             _ = try parseDayNameAbbr(string, idx_ptr, &names);
         },
@@ -165,7 +163,7 @@ fn parseIntoFields(
             const names = switch (modifier_count) {
                 0 => try allDayNames(),
                 1 => allDayNamesEng(),
-                else => return error.InvalidFormat,
+                else => return FormatError.InvalidFormat,
             };
             _ = try parseDayName(string, idx_ptr, &names);
         },
@@ -174,7 +172,7 @@ fn parseIntoFields(
             const names = switch (modifier_count) {
                 0 => try allMonthNamesShort(),
                 1 => allMonthNamesShortEng(),
-                else => return error.InvalidFormat,
+                else => return FormatError.InvalidFormat,
             };
             fields.month = try parseMonthNameAbbr(string, idx_ptr, &names);
         },
@@ -182,7 +180,7 @@ fn parseIntoFields(
             const names = switch (modifier_count) {
                 0 => try allMonthNames(),
                 1 => allMonthNamesEng(),
-                else => return error.InvalidFormat,
+                else => return FormatError.InvalidFormat,
             };
             fields.month = try parseMonthName(string, idx_ptr, &names);
         },
@@ -196,7 +194,7 @@ fn parseIntoFields(
         'I' => fields.hour = blk: { // must be in [1..12]
             const h = try parseDigits(u8, string, idx_ptr, 2);
             flags.* |= @intFromEnum(ParserFlags.clock_12h);
-            if (h >= 1 and h <= 12) break :blk h else return error.InvalidFormat;
+            if (h >= 1 and h <= 12) break :blk h else return FormatError.InvalidFormat;
         },
         'P' => flags.* |= @intFromEnum(try parseAmPm(string, idx_ptr)),
         'p' => flags.* |= @intFromEnum(try parseAmPm(string, idx_ptr)),
@@ -222,8 +220,8 @@ fn parseIntoFields(
         // 'i', - IANA identifier; would require allocator
         'j' => {
             const doy = try parseDigits(u16, string, idx_ptr, 3);
-            if (doy == 0) return error.InvalidFormat;
-            if (doy > 365 + @as(u16, @intFromBool(cal.isLeapYear(fields.year)))) return error.InvalidFormat;
+            if (doy == 0) return FormatError.InvalidFormat;
+            if (doy > 365 + @as(u16, @intFromBool(cal.isLeapYear(fields.year)))) return FormatError.InvalidFormat;
             const date = cal.rdToDate(cal.dateToRD([3]u16{ fields.year, 1, 1 }) + doy - 1);
             fields.month = @truncate(date[1]);
             fields.day = @truncate(date[2]);
@@ -247,7 +245,7 @@ fn parseIntoFields(
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
         // 'c', // locale-specific, datetime
-        else => return error.InvalidDirective,
+        else => return FormatError.InvalidDirective,
     }
 }
 
@@ -268,7 +266,7 @@ fn printIntoWriter(
                     try writer.print("{s}", .{std.mem.sliceTo(&name, 0)});
                 },
                 1 => try writer.print("{s}", .{dt.weekday().shortName()}), // English default
-                else => return error.InvalidFormat,
+                else => return FormatError.InvalidFormat,
             }
         },
         'A' => {
@@ -278,7 +276,7 @@ fn printIntoWriter(
                     try writer.print("{s}", .{std.mem.sliceTo(&name, 0)});
                 },
                 1 => try writer.print("{s}", .{dt.weekday().longName()}), // English default
-                else => return error.InvalidFormat,
+                else => return FormatError.InvalidFormat,
             }
         },
         'm' => try writer.print("{d:0>2}", .{dt.month}),
@@ -289,7 +287,7 @@ fn printIntoWriter(
                     try writer.print("{s}", .{std.mem.sliceTo(&name, 0)});
                 },
                 1 => try writer.print("{s}", .{dt.monthEnum().shortName()}), // English default
-                else => return error.InvalidFormat,
+                else => return FormatError.InvalidFormat,
             }
         },
         'B' => {
@@ -299,7 +297,7 @@ fn printIntoWriter(
                     try writer.print("{s}", .{std.mem.sliceTo(&name, 0)});
                 },
                 1 => try writer.print("{s}", .{dt.monthEnum().longName()}), // English default
-                else => return error.InvalidFormat,
+                else => return FormatError.InvalidFormat,
             }
         },
         'Y' => try writer.print("{d:0>4}", .{dt.year}),
@@ -318,7 +316,7 @@ fn printIntoWriter(
                 0 => try writer.print("{d:0>9}", .{dt.nanosecond}), // 'f' 123456789
                 1 => try writer.print("{d:0>3}", .{dt.nanosecond / 1000000}), // 'f:' 123
                 2 => try writer.print("{d:0>6}", .{dt.nanosecond / 1000}), // 'f::' 123456
-                else => return error.InvalidFormat,
+                else => return FormatError.InvalidFormat,
             }
         },
         'z' => blk: {
@@ -328,7 +326,7 @@ fn printIntoWriter(
                 1 => try dt.formatOffset(.{ .fill = ':', .precision = 1 }, writer), // 'z:' +01:00
                 2 => try dt.formatOffset(.{ .fill = ':', .precision = 2 }, writer), // 'z::' +01:00:00
                 3 => try dt.formatOffset(.{ .fill = ':', .precision = 0 }, writer), // 'z:::' +01
-                else => return error.InvalidFormat,
+                else => return FormatError.InvalidFormat,
             }
         },
         'Z' => blk: {
@@ -342,7 +340,7 @@ fn printIntoWriter(
                     else
                         try writer.print("{s}", .{offset.designation()});
                 },
-                else => return error.InvalidFormat,
+                else => return FormatError.InvalidFormat,
             }
         },
         'i' => blk: {
@@ -362,15 +360,15 @@ fn printIntoWriter(
         // 'c', // locale-specific, datetime
         's' => try writer.print("{d}", .{dt.unix_sec}),
         '%' => try writer.print("%", .{}),
-        else => return error.InvalidDirective,
+        else => return FormatError.InvalidDirective,
     }
 }
 
 /// Parse exactly nDigits to an integer.
 /// Return error.InvalidFormat if something goes wrong.
-fn parseExactNDigits(comptime T: type, string: []const u8, idx_ptr: *usize, nDigits: usize) (std.fmt.ParseIntError || Error)!T {
+fn parseExactNDigits(comptime T: type, string: []const u8, idx_ptr: *usize, nDigits: usize) FormatError!T {
     if ((string.len - idx_ptr.*) < nDigits) {
-        return Error.InvalidFormat;
+        return FormatError.InvalidFormat;
     }
     idx_ptr.* += nDigits;
     return std.fmt.parseInt(T, string[idx_ptr.* - nDigits .. idx_ptr.*], 10);
@@ -378,7 +376,7 @@ fn parseExactNDigits(comptime T: type, string: []const u8, idx_ptr: *usize, nDig
 
 /// Parse up to  maxDigits to an integer.
 /// Return error.InvalidFormat if something goes wrong.
-fn parseDigits(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits: usize) (std.fmt.ParseIntError || Error)!T {
+fn parseDigits(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits: usize) FormatError!T {
     const start_idx = idx_ptr.*;
     // must start with a digit... otherwise format is invalid.
     if (std.ascii.isDigit(string[start_idx])) {
@@ -390,22 +388,22 @@ fn parseDigits(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits:
 
         return std.fmt.parseInt(T, string[start_idx..idx_ptr.*], 10);
     }
-    return Error.InvalidFormat;
+    return FormatError.InvalidFormat;
 }
 
 // AM or PM string, no matter if upper or lower case.
-fn parseAmPm(string: []const u8, idx_ptr: *usize) Error!ParserFlags {
-    if (idx_ptr.* + 2 > string.len) return Error.InvalidFormat;
+fn parseAmPm(string: []const u8, idx_ptr: *usize) FormatError!ParserFlags {
+    if (idx_ptr.* + 2 > string.len) return FormatError.InvalidFormat;
 
     var flag = ParserFlags.OK;
     flag = switch (std.ascii.toLower(string[idx_ptr.*])) {
         'a' => ParserFlags.AM,
         'p' => ParserFlags.PM,
-        else => return Error.InvalidFormat,
+        else => return FormatError.InvalidFormat,
     };
 
     idx_ptr.* += 1;
-    if (std.ascii.toLower(string[idx_ptr.*]) != 'm') return Error.InvalidFormat;
+    if (std.ascii.toLower(string[idx_ptr.*]) != 'm') return FormatError.InvalidFormat;
 
     idx_ptr.* += 1;
     return flag;
@@ -417,7 +415,7 @@ fn twelve_hour_format(hour: u8) u8 {
 }
 
 // Offset UTC in the from of (+|-)hh[:mm[:ss]] or Z.
-fn parseOffset(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits: usize) (std.fmt.ParseIntError || Error)!T {
+fn parseOffset(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits: usize) FormatError!T {
     const start_idx = idx_ptr.*;
 
     var sign: i2 = 1;
@@ -428,7 +426,7 @@ fn parseOffset(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits:
             idx_ptr.* += 1;
             return 0;
         },
-        else => return Error.InvalidFormat, // must start with sign
+        else => return FormatError.InvalidCharacter, // must start with sign
     }
 
     idx_ptr.* += 1;
@@ -447,7 +445,7 @@ fn parseOffset(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits:
         }
         if (index == 6) break;
     }
-    if (index < 2) return Error.InvalidFormat; // offset must be at least 2 chars
+    if (index < 2) return FormatError.InvalidFormat; // offset must be at least 2 chars
 
     const i = try std.fmt.parseInt(T, &offset_chars, 10);
     const hours = @divFloor(i, 10000);
@@ -486,21 +484,21 @@ const ISOParserState = enum(u8) {
 /// 2014-08-23 12:15:56+01         22   2014-08-23T12:15:56+01:00
 /// 2014-08-23T12:15:56-0530       24   2014-08-23T12:15:56-05:30
 /// 2014-08-23T12:15:56+02:15:30   28   2014-08-23T12:15:56+02:15:30
-pub fn parseISO8601(string: []const u8, idx_ptr: *usize) !Datetime.Fields {
+pub fn parseISO8601(string: []const u8, idx_ptr: *usize) ZdtError!Datetime.Fields {
     var fields = Datetime.Fields{};
 
     parsing: switch (ISOParserState.Year) {
         .Year => {
             fields.year = try parseExactNDigits(u16, string, idx_ptr, 4);
-            if (idx_ptr.* == string.len) return error.InvalidFormat; // year-only not allowed
+            if (idx_ptr.* == string.len) return FormatError.InvalidFormat; // year-only not allowed
             if (string[idx_ptr.*] == '-') idx_ptr.* += 1; // opt. y-m separator
             if (idx_ptr.* >= string.len) break :parsing;
             if (string[idx_ptr.*..].len == 3) continue :parsing .Ordinal else continue :parsing .Month;
         },
         .Ordinal => {
             const doy = try parseExactNDigits(u16, string, idx_ptr, 3);
-            if (doy == 0) return error.InvalidFormat;
-            if (doy > 365 + @as(u16, @intFromBool(cal.isLeapYear(fields.year)))) return error.InvalidFormat;
+            if (doy == 0) return FormatError.InvalidFormat;
+            if (doy > 365 + @as(u16, @intFromBool(cal.isLeapYear(fields.year)))) return FormatError.InvalidFormat;
             const date = cal.rdToDate(cal.dateToRD([3]u16{ fields.year, 1, 1 }) + doy - 1);
             fields.month = @truncate(date[1]);
             fields.day = @truncate(date[2]);
@@ -519,7 +517,7 @@ pub fn parseISO8601(string: []const u8, idx_ptr: *usize) !Datetime.Fields {
         },
         .DateTimeSep => {
             if (!(string[idx_ptr.*] == 'T' or string[idx_ptr.*] == ' ')) {
-                return error.InvalidFormat;
+                return FormatError.InvalidFormat;
             }
             idx_ptr.* += 1;
             if (idx_ptr.* >= string.len) break :parsing;
@@ -605,45 +603,45 @@ const sz_abbr: usize = 32;
 const sz_normal: usize = 64;
 
 // Get the abbreviated day name in the current locale
-fn getDayNameAbbr(n: u8) Error![sz_abbr]u8 {
+fn getDayNameAbbr(n: u8) FormatError![sz_abbr]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getDayNameAbbr_(n),
         .windows => windows_specific.getDayNameAbbr_(n),
-        else => return Error.UnsupportedOS,
+        else => return FormatError.UnsupportedOS,
     };
 }
 
 // Get the day name in the current locale
-fn getDayName(n: u8) Error![sz_normal]u8 {
+fn getDayName(n: u8) FormatError![sz_normal]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getDayName_(n),
         .windows => windows_specific.getDayName_(n),
-        else => return Error.UnsupportedOS,
+        else => return FormatError.UnsupportedOS,
     };
 }
 
 // Get the abbreviated month name in the current locale
-fn getMonthNameAbbr(n: u8) Error![sz_abbr]u8 {
+fn getMonthNameAbbr(n: u8) FormatError![sz_abbr]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getMonthNameAbbr_(n),
         .windows => windows_specific.getMonthNameAbbr_(n),
-        else => return Error.UnsupportedOS,
+        else => return FormatError.UnsupportedOS,
     };
 }
 
 // Get the month name in the current locale
-fn getMonthName(n: u8) Error![sz_normal]u8 {
+fn getMonthName(n: u8) FormatError![sz_normal]u8 {
     return switch (builtin.os.tag) {
         .linux, .macos => unix_specific.getMonthName_(n),
         .windows => windows_specific.getMonthName_(n),
-        else => return Error.UnsupportedOS,
+        else => return FormatError.UnsupportedOS,
     };
 }
 
 // since locale-specific names might change at runtime,
 // we need to obtain them at runtime.
 
-fn allDayNames() Error![7][sz_normal]u8 {
+fn allDayNames() FormatError![7][sz_normal]u8 {
     var result: [7][sz_normal]u8 = undefined;
     for (result, 0..) |_, i| result[i] = try getDayName(@truncate(i));
     return result;
@@ -661,7 +659,7 @@ fn allDayNamesEng() [7][sz_normal]u8 {
     };
 }
 
-fn allDayNamesShort() Error![7][sz_abbr]u8 {
+fn allDayNamesShort() FormatError![7][sz_abbr]u8 {
     var result: [7][sz_abbr]u8 = undefined;
     for (result, 0..) |_, i| result[i] = try getDayNameAbbr(@truncate(i));
     return result;
@@ -679,7 +677,7 @@ fn allDayNamesShortEng() [7][sz_abbr]u8 {
     };
 }
 
-fn allMonthNames() Error![12][sz_normal]u8 {
+fn allMonthNames() FormatError![12][sz_normal]u8 {
     var result: [12][sz_normal]u8 = undefined;
     for (result, 0..) |_, i| result[i] = try getMonthName(@truncate(i));
     return result;
@@ -702,7 +700,7 @@ fn allMonthNamesEng() [12][sz_normal]u8 {
     };
 }
 
-fn allMonthNamesShort() Error![12][sz_abbr]u8 {
+fn allMonthNamesShort() FormatError![12][sz_abbr]u8 {
     var result: [12][sz_abbr]u8 = undefined;
     for (result, 0..) |_, i| result[i] = try getMonthNameAbbr(@truncate(i));
     return result;
@@ -748,40 +746,40 @@ test "all names" {
     }
 }
 
-fn parseDayName(string: []const u8, idx_ptr: *usize, allNames: *const [7][sz_normal]u8) Error!u8 {
+fn parseDayName(string: []const u8, idx_ptr: *usize, allNames: *const [7][sz_normal]u8) FormatError!u8 {
     var daynum: u8 = 0;
     while (daynum < 7) : (daynum += 1) {
         if (strStartswith(string, idx_ptr, std.mem.sliceTo(&allNames[daynum], 0)))
             return daynum;
     }
-    return Error.InvalidFormat;
+    return FormatError.InvalidFormat;
 }
 
-fn parseDayNameAbbr(string: []const u8, idx_ptr: *usize, allNames: *const [7][sz_abbr]u8) Error!u8 {
+fn parseDayNameAbbr(string: []const u8, idx_ptr: *usize, allNames: *const [7][sz_abbr]u8) FormatError!u8 {
     var daynum: u8 = 0;
     while (daynum < 7) : (daynum += 1) {
         if (strStartswith(string, idx_ptr, std.mem.sliceTo(&allNames[daynum], 0)))
             return daynum;
     }
-    return Error.InvalidFormat;
+    return FormatError.InvalidFormat;
 }
 
-fn parseMonthName(string: []const u8, idx_ptr: *usize, allNames: *const [12][sz_normal]u8) Error!u8 {
+fn parseMonthName(string: []const u8, idx_ptr: *usize, allNames: *const [12][sz_normal]u8) FormatError!u8 {
     var monthnum: u8 = 0;
     while (monthnum < 12) : (monthnum += 1) {
         if (strStartswith(string, idx_ptr, std.mem.sliceTo(&allNames[monthnum], 0)))
             return monthnum + 1;
     }
-    return Error.InvalidFormat;
+    return FormatError.InvalidFormat;
 }
 
-fn parseMonthNameAbbr(string: []const u8, idx_ptr: *usize, allNames: *const [12][sz_abbr]u8) Error!u8 {
+fn parseMonthNameAbbr(string: []const u8, idx_ptr: *usize, allNames: *const [12][sz_abbr]u8) FormatError!u8 {
     var monthnum: u8 = 0;
     while (monthnum < 12) : (monthnum += 1) {
         if (strStartswith(string, idx_ptr, std.mem.sliceTo(&allNames[monthnum], 0)))
             return monthnum + 1;
     }
-    return Error.InvalidFormat;
+    return FormatError.InvalidFormat;
 }
 
 test "day / month name in string to day / month number" {

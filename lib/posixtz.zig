@@ -2,8 +2,9 @@
 
 const std = @import("std");
 const assert = std.debug.assert;
-const cal = @import("calendar.zig");
+const cal = @import("./calendar.zig");
 const UTCoffset = @import("./UTCoffset.zig");
+const FormatError = @import("./errors.zig").FormatError;
 const TzError = @import("./errors.zig").TzError;
 
 /// The default DST transition time is 2 am local time
@@ -155,7 +156,7 @@ pub const PosixTz = struct {
 
 /// Parse a POSIX TZ string like 'PST8PDT,M3.2.0,M11.1.0' to a set of rules and
 /// offsets from UTC.
-pub fn parsePosixTzString(string: []const u8) !PosixTz {
+pub fn parsePosixTzString(string: []const u8) FormatError!PosixTz {
     var result = PosixTz{ .std_designation = undefined, .std_offset = undefined };
     var idx: usize = 0;
 
@@ -188,14 +189,14 @@ pub fn parsePosixTzString(string: []const u8) !PosixTz {
             .end = try parseRule(string[end_of_start_rule + 1 ..]),
         };
     } else {
-        return error.InvalidFormat;
+        return FormatError.InvalidFormat;
     }
 
     return result;
 }
 
 /// Parse a POSIX TZ designation such as 'PST' in 'PST8PDT,M3.2.0,M11.1.0'
-fn parseDesignation(string: []const u8, idx: *usize) ![]const u8 {
+fn parseDesignation(string: []const u8, idx: *usize) FormatError![]const u8 {
     const quoted = string[idx.*] == '<';
     if (quoted) idx.* += 1;
     const start = idx.*;
@@ -206,20 +207,20 @@ fn parseDesignation(string: []const u8, idx: *usize) ![]const u8 {
             const designation = string[start..idx.*];
 
             // The designation must be at least one character long!
-            if (designation.len == 0) return error.InvalidFormat;
+            if (designation.len == 0) return FormatError.InvalidFormat;
 
             if (quoted) idx.* += 1;
             return designation;
         }
     }
-    return error.InvalidFormat;
+    return FormatError.InvalidFormat;
 }
 
 /// Parse a POSIX TZ rule such as 'M3.2.0' in 'PST8PDT,M3.2.0,M11.1.0'
 /// to machine-readable representation of 'DST starts second Sunday in March'
-fn parseRule(_string: []const u8) !PosixTz.Rule {
+fn parseRule(_string: []const u8) FormatError!PosixTz.Rule {
     var string = _string;
-    if (string.len < 2) return error.InvalidFormat;
+    if (string.len < 2) return FormatError.InvalidFormat;
 
     const time: i32 = if (std.mem.indexOf(u8, string, "/")) |start_of_time| parse_time: {
         const time_string = string[start_of_time + 1 ..];
@@ -227,41 +228,41 @@ fn parseRule(_string: []const u8) !PosixTz.Rule {
         const time = try parseHHmmss(time_string, &i);
         // The time at the end of the rule should be the last thing in the string. Fixes the parsing to return
         // an error in cases like "/2/3", where they have some extra characters.
-        if (i != time_string.len) return error.InvalidFormat;
+        if (i != time_string.len) return FormatError.InvalidFormat;
         string = string[0..start_of_time];
         break :parse_time time;
     } else default_transition_time;
 
     switch (string[0]) {
         'J' => {
-            const julian_day1 = std.fmt.parseInt(u16, string[1..], 10) catch return error.InvalidFormat;
-            if (julian_day1 < 1 or julian_day1 > 365) return error.InvalidFormat;
+            const julian_day1 = try std.fmt.parseInt(u16, string[1..], 10);
+            if (julian_day1 < 1 or julian_day1 > 365) return FormatError.InvalidFormat;
             return PosixTz.Rule{ .JulianDay = .{ .day = julian_day1, .time = time } };
         },
         '0'...'9' => {
-            const julian_day0 = std.fmt.parseInt(u16, string[0..], 10) catch return error.InvalidFormat;
+            const julian_day0 = try std.fmt.parseInt(u16, string[0..], 10);
             if (julian_day0 > 365) return error.InvalidFormat;
             return PosixTz.Rule{ .JulianDayZero = .{ .day = julian_day0, .time = time } };
         },
         'M' => {
             var split_iter = std.mem.splitScalar(u8, string[1..], '.');
-            const m_str = split_iter.next() orelse return error.InvalidFormat;
-            const n_str = split_iter.next() orelse return error.InvalidFormat;
-            const d_str = split_iter.next() orelse return error.InvalidFormat;
-            const m = std.fmt.parseInt(u8, m_str, 10) catch return error.InvalidFormat;
-            const n = std.fmt.parseInt(u8, n_str, 10) catch return error.InvalidFormat;
-            const d = std.fmt.parseInt(u8, d_str, 10) catch return error.InvalidFormat;
-            if (m < 1 or m > 12) return error.InvalidFormat;
-            if (n < 1 or n > 5) return error.InvalidFormat;
-            if (d > 6) return error.InvalidFormat;
+            const m_str = split_iter.next() orelse return FormatError.InvalidFormat;
+            const n_str = split_iter.next() orelse return FormatError.InvalidFormat;
+            const d_str = split_iter.next() orelse return FormatError.InvalidFormat;
+            const m = try std.fmt.parseInt(u8, m_str, 10);
+            const n = try std.fmt.parseInt(u8, n_str, 10);
+            const d = try std.fmt.parseInt(u8, d_str, 10);
+            if (m < 1 or m > 12) return FormatError.InvalidFormat;
+            if (n < 1 or n > 5) return FormatError.InvalidFormat;
+            if (d > 6) return FormatError.InvalidFormat;
             return PosixTz.Rule{ .MonthNthWeekDay = .{ .month = m, .n = n, .day = d, .time = time } };
         },
-        else => return error.InvalidFormat,
+        else => return FormatError.InvalidFormat,
     }
 }
 
 /// Parses hh[:mm[:ss]] to number of seconds. Hours may be one digit long. Minutes and seconds must be two digits.
-fn parseHHmmss(string: []const u8, idx_ptr: *usize) !i32 {
+fn parseHHmmss(string: []const u8, idx_ptr: *usize) FormatError!i32 {
     var _string = string;
     var sign: i2 = 1;
     if (_string[0] == '+') {
@@ -284,26 +285,26 @@ fn parseHHmmss(string: []const u8, idx_ptr: *usize) !i32 {
     var result: i32 = 0;
 
     var segment_iter = std.mem.splitScalar(u8, _string, ':');
-    const hour_string = segment_iter.next() orelse return error.EmptyString;
-    const hours = std.fmt.parseInt(u32, hour_string, 10) catch return error.InvalidFormat;
-    if (hours > 167) return error.InvalidFormat;
+    const hour_string = segment_iter.next() orelse return FormatError.EmptyString;
+    const hours = std.fmt.parseInt(u32, hour_string, 10) catch return FormatError.InvalidFormat;
+    if (hours > 167) return FormatError.InvalidFormat;
     result += std.time.s_per_hour * @as(i32, @intCast(hours));
 
     if (segment_iter.next()) |minute_string| {
         if (minute_string.len != 2) {
-            return error.InvalidFormat;
+            return FormatError.InvalidFormat;
         }
         const minutes = try std.fmt.parseInt(u32, minute_string, 10);
-        if (minutes > 59) return error.InvalidFormat;
+        if (minutes > 59) return FormatError.InvalidFormat;
         result += std.time.s_per_min * @as(i32, @intCast(minutes));
     }
 
     if (segment_iter.next()) |second_string| {
         if (second_string.len != 2) {
-            return error.InvalidFormat;
+            return FormatError.InvalidFormat;
         }
         const seconds = try std.fmt.parseInt(u8, second_string, 10);
-        if (seconds > 59) return error.InvalidFormat;
+        if (seconds > 59) return FormatError.InvalidFormat;
         result += seconds;
     }
 

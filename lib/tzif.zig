@@ -9,6 +9,8 @@ const testing = std.testing;
 const assert = std.debug.assert;
 const log = std.log.scoped(.test_tzif);
 
+const TZifReadError = @import("./errors.zig").TZifReadError;
+
 // File header must start with this.
 const magic_cookie = "TZif";
 
@@ -76,15 +78,15 @@ pub const TzAlloc = struct {
     footer: ?[]const u8,
 
     /// Parse a IANA db TZif file. Only accepts version 2+ files.
-    pub fn parse(allocator: std.mem.Allocator, reader: anytype) !TzAlloc {
+    pub fn parse(allocator: std.mem.Allocator, reader: anytype) TZifReadError!TzAlloc {
         var legacy_header = try reader.readStruct(Header);
-        if (!std.mem.eql(u8, &legacy_header.magic, "TZif")) return error.BadHeader;
+        if (!std.mem.eql(u8, &legacy_header.magic, "TZif")) return TZifReadError.BadHeader;
 
-        if (legacy_header.version != '2' and legacy_header.version != '3') return error.BadVersion;
+        if (legacy_header.version != '2' and legacy_header.version != '3')
+            return TZifReadError.BadVersion;
 
-        if (builtin.target.cpu.arch.endian() != std.builtin.Endian.big) {
+        if (builtin.target.cpu.arch.endian() != std.builtin.Endian.big)
             std.mem.byteSwapAllFields(@TypeOf(legacy_header.counts), &legacy_header.counts);
-        }
 
         // If the format is modern, just skip over the legacy data
         const skipv = (legacy_header.counts.timecnt * 5 +
@@ -97,8 +99,8 @@ pub const TzAlloc = struct {
         try reader.skipBytes(skipv, .{});
 
         var header = try reader.readStruct(Header);
-        if (!std.mem.eql(u8, &header.magic, magic_cookie)) return error.BadHeader;
-        if (header.version != '2' and header.version != '3') return error.BadVersion;
+        if (!std.mem.eql(u8, &header.magic, magic_cookie)) return TZifReadError.BadHeader;
+        if (header.version != '2' and header.version != '3') return TZifReadError.BadVersion;
 
         if (builtin.target.cpu.arch.endian() != std.builtin.Endian.big)
             std.mem.byteSwapAllFields(@TypeOf(header.counts), &header.counts);
@@ -107,14 +109,16 @@ pub const TzAlloc = struct {
     }
 
     /// Load TZif data itself and make a Tz
-    fn parseBlock(allocator: std.mem.Allocator, reader: anytype, header: Header) !TzAlloc {
+    fn parseBlock(allocator: std.mem.Allocator, reader: anytype, header: Header) TZifReadError!TzAlloc {
         // RFC 9636: isstdcnt [...] MUST either be zero or equal to "typecnt":
-        if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt) return error.Malformed;
+        if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt)
+            return TZifReadError.Malformed;
         // RFC 9636: isutcnt [...] MUST either be zero or equal to "typecnt":
-        if (header.counts.isutcnt != 0 and header.counts.isutcnt != header.counts.typecnt) return error.Malformed;
-        if (header.counts.typecnt == 0) return error.Malformed; // RFC 9636: typecnt [...] MUST NOT be zero
-        if (header.counts.charcnt == 0) return error.Malformed; // RFC 9636: charcnt [...] MUST NOT be zero
-        if (header.counts.charcnt > 256 + 6) return error.Malformed; // Not explicitly banned by RFC 9636 but nonsensical
+        if (header.counts.isutcnt != 0 and header.counts.isutcnt != header.counts.typecnt)
+            return TZifReadError.Malformed;
+        if (header.counts.typecnt == 0) return TZifReadError.Malformed; // RFC 9636: typecnt [...] MUST NOT be zero
+        if (header.counts.charcnt == 0) return TZifReadError.Malformed; // RFC 9636: charcnt [...] MUST NOT be zero
+        if (header.counts.charcnt > 256 + 6) return TZifReadError.Malformed; // Not explicitly banned by RFC 9636 but nonsensical
 
         var transitions = try allocator.alloc(Transition, header.counts.timecnt);
         errdefer allocator.free(transitions);
@@ -131,7 +135,7 @@ pub const TzAlloc = struct {
         i = 0;
         while (i < header.counts.timecnt) : (i += 1) {
             const tt = try reader.readByte();
-            if (tt >= timetypes.len) return error.Malformed; // RFC 9636: Each type index MUST be in the range [0, "typecnt" - 1]
+            if (tt >= timetypes.len) return TZifReadError.Malformed; // RFC 9636: Each type index MUST be in the range [0, "typecnt" - 1]
             transitions[i].timetype = &timetypes[tt];
         }
 
@@ -140,11 +144,11 @@ pub const TzAlloc = struct {
         i = 0;
         while (i < header.counts.typecnt) : (i += 1) {
             const offset = try reader.readInt(i32, .big);
-            if (offset < -2147483648) return error.Malformed; // RFC 9636: utoff [...] MUST NOT be -2**31
+            if (offset < -2147483648) return TZifReadError.Malformed; // RFC 9636: utoff [...] MUST NOT be -2**31
             const dst = try reader.readByte();
-            if (dst != 0 and dst != 1) return error.Malformed; // RFC 9636: (is)dst [...] The value MUST be 0 or 1.
+            if (dst != 0 and dst != 1) return TZifReadError.Malformed; // RFC 9636: (is)dst [...] The value MUST be 0 or 1.
             const idx = try reader.readByte();
-            if (idx > header.counts.charcnt - 1) return error.Malformed; // RFC 9636: (desig)idx [...] Each index MUST be in the range [0, "charcnt" - 1]
+            if (idx > header.counts.charcnt - 1) return TZifReadError.Malformed; // RFC 9636: (desig)idx [...] Each index MUST be in the range [0, "charcnt" - 1]
             timetypes[i] = .{ .offset = offset, .flags = dst, .name_data = undefined };
 
             // Temporarily cache idx in name_data to be processed after we've read the designator names below
@@ -155,14 +159,14 @@ pub const TzAlloc = struct {
         var designators_data: [desgnation_buf_sz]u8 = undefined;
         try reader.readNoEof(designators_data[0..header.counts.charcnt]);
         const designators = designators_data[0..header.counts.charcnt];
-        if (designators[designators.len - 1] != 0) return error.Malformed; // RFC 9636: charcnt [...] includes the trailing NUL (0x00) octet
+        if (designators[designators.len - 1] != 0) return TZifReadError.Malformed; // RFC 9636: charcnt [...] includes the trailing NUL (0x00) octet
 
         // Iterate through the timetypes again, setting the designator names
         for (timetypes) |*tt| {
             const name = std.mem.sliceTo(designators[tt.name_data[0]..], 0);
             // We are mandating the "SHOULD" 6-character limit so we can pack the struct better, and to conform to POSIX.
             // RFC 9636: Time zone designations SHOULD consist of at least three (3) and no more than six (6) ASCII characters:
-            if (name.len > 6) return error.Malformed;
+            if (name.len > 6) return TZifReadError.Malformed;
             @memcpy(tt.name_data[0..name.len], name);
             tt.name_data[name.len] = 0;
         }
@@ -188,19 +192,16 @@ pub const TzAlloc = struct {
             if (ut == 1) {
                 timetypes[i].flags |= 0x04;
                 // RFC 9636: standard/wall value MUST be one (1) if the UT/local value is one (1):
-                if (!timetypes[i].standardTimeIndicator()) return error.Malformed;
+                if (!timetypes[i].standardTimeIndicator()) return TZifReadError.Malformed;
             }
         }
 
         // Footer / POSIX TZ string
         var footer: ?[]u8 = null;
 
-        if ((try reader.readByte()) != '\n') return error.Malformed; // An RFC 9636 footer must start with a newline
+        if ((try reader.readByte()) != '\n') return TZifReadError.Malformed; // An RFC 9636 footer must start with a newline
         var footerdata_buf: [footer_buf_sz]u8 = undefined;
-        const footer_mem = reader.readUntilDelimiter(&footerdata_buf, '\n') catch |err| switch (err) {
-            error.StreamTooLong => return error.OverlargeFooter, // Read more than 128 bytes, much larger than any reasonable POSIX TZ string
-            else => return err,
-        };
+        const footer_mem = try reader.readUntilDelimiter(&footerdata_buf, '\n');
         if (footer_mem.len != 0)
             footer = try allocator.dupe(u8, footer_mem);
 
@@ -242,11 +243,11 @@ pub const Tz = struct {
     // h: Header,
 
     /// Parse a IANA db TZif file, allocator-free. Only accepts version 2+ files.
-    pub fn parse(reader: anytype) !Tz {
+    pub fn parse(reader: anytype) TZifReadError!Tz {
         var legacy_header = try reader.readStruct(Header);
-        if (!std.mem.eql(u8, &legacy_header.magic, "TZif")) return error.BadHeader;
+        if (!std.mem.eql(u8, &legacy_header.magic, "TZif")) return TZifReadError.BadHeader;
 
-        if (legacy_header.version != '2' and legacy_header.version != '3') return error.BadVersion;
+        if (legacy_header.version != '2' and legacy_header.version != '3') return TZifReadError.BadVersion;
 
         if (builtin.target.cpu.arch.endian() != std.builtin.Endian.big) {
             std.mem.byteSwapAllFields(@TypeOf(legacy_header.counts), &legacy_header.counts);
@@ -263,8 +264,8 @@ pub const Tz = struct {
         try reader.skipBytes(skipv, .{});
 
         var header = try reader.readStruct(Header);
-        if (!std.mem.eql(u8, &header.magic, magic_cookie)) return error.BadHeader;
-        if (header.version != '2' and header.version != '3') return error.BadVersion;
+        if (!std.mem.eql(u8, &header.magic, magic_cookie)) return TZifReadError.BadHeader;
+        if (header.version != '2' and header.version != '3') return TZifReadError.BadVersion;
 
         if (builtin.target.cpu.arch.endian() != std.builtin.Endian.big)
             std.mem.byteSwapAllFields(@TypeOf(header.counts), &header.counts);
@@ -273,14 +274,16 @@ pub const Tz = struct {
     }
 
     /// Load TZif data itself and make a Tz
-    fn parseBlock(reader: anytype, header: Header) !Tz {
+    fn parseBlock(reader: anytype, header: Header) TZifReadError!Tz {
         // RFC 9636: isstdcnt [...] MUST either be zero or equal to "typecnt":
-        if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt) return error.Malformed;
+        if (header.counts.isstdcnt != 0 and header.counts.isstdcnt != header.counts.typecnt)
+            return TZifReadError.Malformed;
         // RFC 9636: isutcnt [...] MUST either be zero or equal to "typecnt":
-        if (header.counts.isutcnt != 0 and header.counts.isutcnt != header.counts.typecnt) return error.Malformed;
-        if (header.counts.typecnt == 0) return error.Malformed; // RFC 9636: typecnt [...] MUST NOT be zero
-        if (header.counts.charcnt == 0) return error.Malformed; // RFC 9636: charcnt [...] MUST NOT be zero
-        if (header.counts.charcnt > 256 + 6) return error.Malformed; // Not explicitly banned by RFC 9636 but nonsensical
+        if (header.counts.isutcnt != 0 and header.counts.isutcnt != header.counts.typecnt)
+            return TZifReadError.Malformed;
+        if (header.counts.typecnt == 0) return TZifReadError.Malformed; // RFC 9636: typecnt [...] MUST NOT be zero
+        if (header.counts.charcnt == 0) return TZifReadError.Malformed; // RFC 9636: charcnt [...] MUST NOT be zero
+        if (header.counts.charcnt > 256 + 6) return TZifReadError.Malformed; // Not explicitly banned by RFC 9636 but nonsensical
 
         var __footer_data: [footer_buf_sz]u8 = std.mem.zeroes([footer_buf_sz]u8);
         var footer: ?[]const u8 = undefined;
@@ -310,11 +313,11 @@ pub const Tz = struct {
         i = 0;
         while (i < header.counts.typecnt) : (i += 1) {
             const offset = try reader.readInt(i32, .big);
-            if (offset < -2147483648) return error.Malformed; // RFC 9636: utoff [...] MUST NOT be -2**31
+            if (offset < -2147483648) return TZifReadError.Malformed; // RFC 9636: utoff [...] MUST NOT be -2**31
             const dst = try reader.readByte();
-            if (dst != 0 and dst != 1) return error.Malformed; // RFC 9636: (is)dst [...] The value MUST be 0 or 1.
+            if (dst != 0 and dst != 1) return TZifReadError.Malformed; // RFC 9636: (is)dst [...] The value MUST be 0 or 1.
             const idx = try reader.readByte();
-            if (idx > header.counts.charcnt - 1) return error.Malformed; // RFC 9636: (desig)idx [...] Each index MUST be in the range [0, "charcnt" - 1]
+            if (idx > header.counts.charcnt - 1) return TZifReadError.Malformed; // RFC 9636: (desig)idx [...] Each index MUST be in the range [0, "charcnt" - 1]
             __timetypes_data[i] = .{ .offset = offset, .flags = dst, .name_data = undefined };
 
             // Temporarily cache idx in name_data to be processed after we've read the designator names below
@@ -325,7 +328,7 @@ pub const Tz = struct {
         var designators_data: [desgnation_buf_sz]u8 = undefined;
         try reader.readNoEof(designators_data[0..header.counts.charcnt]);
         const designators = designators_data[0..header.counts.charcnt];
-        if (designators[designators.len - 1] != 0) return error.Malformed; // RFC 9636: charcnt [...] includes the trailing NUL (0x00) octet
+        if (designators[designators.len - 1] != 0) return TZifReadError.Malformed; // RFC 9636: charcnt [...] includes the trailing NUL (0x00) octet
 
         const transitions = __transitions_data[0..header.counts.timecnt];
         const timetypes = __timetypes_data[0..header.counts.typecnt];
@@ -341,7 +344,7 @@ pub const Tz = struct {
             const name = std.mem.sliceTo(designators[tt.name_data[0]..], 0);
             // We are mandating the "SHOULD" 6-character limit so we can pack the struct better, and to conform to POSIX.
             // RFC 9636: Time zone designations SHOULD consist of at least three (3) and no more than six (6) ASCII characters:
-            if (name.len > 6) return error.Malformed;
+            if (name.len > 6) return TZifReadError.Malformed;
             @memcpy(tt.name_data[0..name.len], name);
             tt.name_data[name.len] = 0;
         }
@@ -367,12 +370,12 @@ pub const Tz = struct {
             if (ut == 1) {
                 timetypes[i].flags |= 0x04;
                 // RFC 9636: standard/wall value MUST be one (1) if the UT/local value is one (1):
-                if (!timetypes[i].standardTimeIndicator()) return error.Malformed;
+                if (!timetypes[i].standardTimeIndicator()) return TZifReadError.Malformed;
             }
         }
 
         // Footer / POSIX TZ string
-        if ((try reader.readByte()) != '\n') return error.Malformed; // An RFC 9636 footer must start with a newline
+        if ((try reader.readByte()) != '\n') return TZifReadError.Malformed; // An RFC 9636 footer must start with a newline
         _ = try reader.readUntilDelimiter(&__footer_data, '\n');
         footer = std.mem.sliceTo(__footer_data[0..], '\n');
 
@@ -418,7 +421,7 @@ test "legacy fails" {
     var in_stream = std.io.fixedBufferStream(data);
 
     const err = TzAlloc.parse(std.testing.allocator, in_stream.reader());
-    try testing.expectError(error.BadVersion, err);
+    try testing.expectError(TZifReadError.BadVersion, err);
 }
 
 test "load a lot of TZif" {

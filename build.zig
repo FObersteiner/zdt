@@ -10,7 +10,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 6, .patch = 3 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 6, .patch = 4 };
 
 const tzdb_tag = "2025b";
 
@@ -27,12 +27,12 @@ const example_files = [_][]const u8{
 
 const test_files = [_][]const u8{
     "test_calendar",
-    "test_datetime",
-    "test_duration",
-    "test_formats",
+    "test_Datetime",
+    "test_Duration",
+    "test_Formats",
     "test_posixtz",
     "test_string",
-    "test_timezone",
+    "test_Timezone",
 };
 
 const tzdb_prefix_default = "/usr/share/zoneinfo/";

@@ -55,7 +55,7 @@ test "offset from seconds" {
 test "mem error" {
     const allocator = testing.failing_allocator;
     const err = Tz.fromTzdata("UTC", allocator);
-    try testing.expectError(ZdtError.TZifUnreadable, err);
+    try testing.expectError(ZdtError.OutOfMemory, err);
 }
 
 test "tz deinit is mem-safe" {

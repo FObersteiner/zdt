@@ -143,7 +143,7 @@ pub fn format(
     comptime fmt: []const u8,
     options: std.fmt.FormatOptions,
     writer: anytype,
-) !void {
+) anyerror!void {
     _ = fmt;
     const off = offset.seconds_east;
     const absoff: u32 = if (off < 0) @intCast(off * -1) else @intCast(off);

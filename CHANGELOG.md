@@ -13,6 +13,16 @@ Types of changes
 
 ## [Unreleased]
 
+## 2025-04-05, v0.6.4
+
+### Changed
+
+- revised error return values for all functions: specify returned error sets whenever possible (exceptions: `anyerror` if there is an `anytype` input parameter)
+
+### Fixed
+
+- `Datetime.fromString`: return an error if an empty string is passed for input or directive
+
 ## 2025-03-29, v0.6.3
 
 ### Added
