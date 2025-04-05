@@ -173,7 +173,7 @@ pub const ISOCalendar = struct {
     }
 
     pub fn fromString(string: []const u8) FormatError!ISOCalendar {
-        if (string.len < 10) return error.InvalidFormat;
+        if (string.len < 10) return FormatError.InvalidFormat;
         if (string[4] != '-' or std.ascii.toLower(string[5]) != 'w' or string[8] != '-') return FormatError.InvalidFormat;
         return .{
             .isoyear = try std.fmt.parseInt(u16, string[0..4], 10),
@@ -852,13 +852,13 @@ pub fn fromString(string: []const u8, directives: []const u8) ZdtError!Datetime 
 pub fn fromISO8601(string: []const u8) ZdtError!Datetime {
     // 9 digits of fractional seconds and ±hh:mm:ss UTC offset: 38 characters
     if (string.len > 38)
-        return error.InvalidFormat;
+        return FormatError.InvalidFormat;
     // last character must be Z (UTC) or a digit, otherwise the input is not ISO8601-compatible
     if (string[string.len - 1] == 'Z' or std.ascii.isDigit(string[string.len - 1])) {
         var idx: usize = 0; // assume datetime starts at beginning of string
         return try Datetime.fromFields(try str.parseISO8601(string, &idx));
     }
-    return error.InvalidFormat;
+    return FormatError.InvalidFormat;
 }
 
 /// Format a datetime into a string
