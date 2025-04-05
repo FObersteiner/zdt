@@ -7,7 +7,10 @@ const log = std.log.scoped(.zdt__Timezone);
 
 const Datetime = @import("./Datetime.zig");
 const UTCoffset = @import("./UTCoffset.zig");
+const FormatError = @import("./errors.zig").FormatError;
 const TzError = @import("./errors.zig").TzError;
+const TZifReadError = @import("./errors.zig").TZifReadError;
+const ZdtError = @import("./errors.zig").ZdtError;
 const tzif = @import("./tzif.zig");
 const psx = @import("./posixtz.zig");
 const tzwin = @import("./windows/windows_tz.zig");
@@ -65,7 +68,7 @@ pub fn name(tz: *const Timezone) []const u8 {
 
 /// Make a time zone from a POSIX TZ string like
 /// 'AEST-10AEDT,M10.1.0/2,M4.1.0/3'
-pub fn fromPosixTz(posixString: []const u8) !Timezone {
+pub fn fromPosixTz(posixString: []const u8) FormatError!Timezone {
     const ptz = try psx.parsePosixTzString(posixString);
     var tz = Timezone{ .rules = .{ .posixtz = ptz } };
     assert(posixString.len <= cap_name_data);
@@ -81,7 +84,7 @@ pub fn fromPosixTz(posixString: []const u8) !Timezone {
 /// Note that the allocator is optional. If 'null' is provided instead of an allocator,
 /// a fixed-size structure will be used to holde the timezone rules, instead of doing this
 /// dynamically in heap memory. This is faster, but requires more memory overall.
-pub fn fromTzdata(identifier: []const u8, allocator: ?std.mem.Allocator) TzError!Timezone {
+pub fn fromTzdata(identifier: []const u8, allocator: ?std.mem.Allocator) ZdtError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
 
     if (std.mem.eql(u8, identifier, "localtime")) return tzLocal(allocator);
@@ -91,10 +94,10 @@ pub fn fromTzdata(identifier: []const u8, allocator: ?std.mem.Allocator) TzError
         var tz = Timezone{ .rules = .{ .utc = .{} } };
 
         if (allocator) |alcr| {
-            const tzif_tz = tzif.TzAlloc.parse(alcr, in_stream.reader()) catch return TzError.TZifUnreadable;
+            const tzif_tz = try tzif.TzAlloc.parse(alcr, in_stream.reader());
             tz = Timezone{ .rules = .{ .tzif = tzif_tz } };
         } else {
-            const tzif_tz = tzif.Tz.parse(in_stream.reader()) catch return TzError.TZifUnreadable;
+            const tzif_tz = try tzif.Tz.parse(in_stream.reader());
             tz = Timezone{ .rules = .{ .tzif_fixedsize = tzif_tz } };
         }
 
@@ -115,25 +118,22 @@ pub fn fromTzdata(identifier: []const u8, allocator: ?std.mem.Allocator) TzError
 /// Note that the allocator is optional. If 'null' is provided instead of an allocator,
 /// a fixed-size structure will be used to holde the timezone rules, instead of doing this
 /// dynamically in heap memory. This is faster, but requires more memory overall.
-pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: ?std.mem.Allocator) TzError!Timezone {
+pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: ?std.mem.Allocator) ZdtError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&path_buffer);
     const fb_alloc = fba.allocator();
-
-    const p = std.fs.path.join(fb_alloc, &[_][]const u8{ db_path, identifier }) catch
-        return TzError.InvalidIdentifier;
-
-    const file = std.fs.openFileAbsolute(p, .{}) catch return TzError.TZifUnreadable;
+    const p = try std.fs.path.join(fb_alloc, &[_][]const u8{ db_path, identifier });
+    const file = try std.fs.openFileAbsolute(p, .{});
     defer file.close();
 
     var tz = Timezone{ .rules = .{ .utc = .{} } };
 
     if (allocator) |alcr| {
-        const tzif_tz = tzif.TzAlloc.parse(alcr, file.reader()) catch return TzError.TZifUnreadable;
+        const tzif_tz = try tzif.TzAlloc.parse(alcr, file.reader());
         tz = Timezone{ .rules = .{ .tzif = tzif_tz } };
     } else {
-        const tzif_tz = tzif.Tz.parse(file.reader()) catch return TzError.TZifUnreadable;
+        const tzif_tz = try tzif.Tz.parse(file.reader());
         tz = Timezone{ .rules = .{ .tzif_fixedsize = tzif_tz } };
     }
 
@@ -179,18 +179,16 @@ pub fn deinit(tz: *Timezone) void {
 /// Note: Windows does not use the IANA time zone database;
 /// a mapping from Windows db to IANA db is prone to errors.
 /// Use with caution.
-pub fn tzLocal(allocator: ?std.mem.Allocator) TzError!Timezone {
+pub fn tzLocal(allocator: ?std.mem.Allocator) ZdtError!Timezone {
     switch (builtin.os.tag) {
         .linux, .macos => {
             const default_path = "/etc/localtime";
             var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
-            const path = std.fs.realpath(default_path, &path_buffer) catch
-                return TzError.TZifUnreadable;
+            const path = try std.fs.realpath(default_path, &path_buffer);
             return try Timezone.fromSystemTzdata(path, "", allocator);
         },
         .windows => {
-            const win_name = tzwin.getTzName() catch
-                return TzError.InvalidIdentifier;
+            const win_name = try tzwin.getTzName();
             return try Timezone.fromTzdata(win_name, allocator);
         },
         else => return TzError.NotImplemented,
@@ -202,7 +200,7 @@ pub fn format(
     comptime fmt: []const u8,
     options: std.fmt.FormatOptions,
     writer: anytype,
-) !void {
+) anyerror!void {
     _ = fmt;
     _ = options;
     try writer.print("Time zone, name: {s}. ", .{tz.name()});
