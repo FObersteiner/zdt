@@ -6,11 +6,6 @@ const testing = std.testing;
 const log = std.log.scoped(.zdt_test_string);
 
 const c_locale = @cImport(@cInclude("locale.h"));
-const time_mask = switch (builtin.os.tag) {
-    .linux => c_locale.LC_ALL,
-    // .linux => c_locale.LC_TIME_MASK, // does not suffice, not sure why
-    else => c_locale.LC_TIME,
-};
 
 const zdt = @import("zdt");
 const Datetime = zdt.Datetime;
@@ -20,16 +15,26 @@ const Tz = zdt.Timezone;
 const UTCoffset = zdt.UTCoffset;
 const ZdtError = zdt.ZdtError;
 
-const TestCase = struct {
-    string: []const u8,
-    dt: Datetime,
-    directive: []const u8 = "",
-    prc: ?usize = null,
+// ----
+
+const masks_to_try = [_]c_int{
+    c_locale.LC_TIME,
+    c_locale.LC_TIME_MASK,
+    c_locale.LC_ALL,
 };
 
 // locale-specific tests only for English
 fn locale_ok() bool {
-    const loc = c_locale.setlocale(time_mask, "");
+    var loc: [*c]u8 = undefined;
+    for (masks_to_try) |mask| {
+        loc = c_locale.setlocale(mask, "");
+        if (loc != null) break;
+    }
+    if (loc == null) {
+        log.warn("failed to obtain locale, cannot run locale-specific tests", .{});
+        return false;
+    }
+
     const env_locale: [:0]const u8 = std.mem.span(loc);
     // log.warn("got locale: {s}\n", .{env_locale});
     if (!(std.mem.eql(u8, env_locale, "en_US.UTF-8") or
@@ -44,6 +49,15 @@ fn locale_ok() bool {
     }
     return true;
 }
+
+// ----
+
+const TestCase = struct {
+    string: []const u8,
+    dt: Datetime,
+    directive: []const u8 = "",
+    prc: ?usize = null,
+};
 
 // ---- Datetime to String ----
 
@@ -655,7 +669,12 @@ test "parse with month name and day, user-defined locale" {
 
     // Try to set a different locale. This might fail if the locale is not installed.
     const loc = "de_DE.UTF-8";
-    const new_loc = c_locale.setlocale(time_mask, loc);
+    var new_loc: [*c]u8 = undefined;
+    for (masks_to_try) |mask| {
+        new_loc = c_locale.setlocale(mask, loc);
+        if (new_loc != null) break;
+    }
+
     if (new_loc == null) {
         log.warn("skip test (locale is null)", .{});
         return error.SkipZigTest;

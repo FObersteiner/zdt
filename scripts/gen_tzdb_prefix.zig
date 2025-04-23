@@ -44,7 +44,7 @@ pub fn main() !void {
         \\// This file is auto-generated. Do not edit!
         \\//
     );
-    try writer.print("\npub const tzdb_prefix = \"{s}\";", .{prefix});
+    try writer.print("\npub const tzdb_prefix = \"{s}\";\n", .{prefix});
 
     try bw.flush();
 

@@ -10,7 +10,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 6, .patch = 4 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 6, .patch = 5 };
 
 const tzdb_tag = "2025b";
 
@@ -63,15 +63,16 @@ pub fn build(b: *std.Build) !void {
             "The default is '/usr/share/zoneinfo/'."),
     ) orelse tzdb_prefix_default;
 
-    const zdt_module = b.addModule("zdt", .{
-        .root_source_file = b.path("zdt.zig"),
-    });
+    const zdt_module = b.addModule("zdt", .{ .root_source_file = b.path("lib/root.zig") });
 
-    const zdt = b.addStaticLibrary(.{
+    const zdt = b.addLibrary(.{
         .name = "zdt",
-        .root_source_file = b.path("zdt.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("lib/root.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+        .linkage = .static,
         .version = zdt_version,
     });
 
@@ -144,7 +145,7 @@ pub fn build(b: *std.Build) !void {
         // unit tests in lib/*.zig files
         const root_test = b.addTest(.{
             .name = "zdt_root",
-            .root_source_file = b.path("zdt.zig"),
+            .root_source_file = b.path("lib/root.zig"),
             .target = target,
             .optimize = optimize,
             // .test_runner = "./test_runner.zig",
@@ -198,11 +199,10 @@ pub fn build(b: *std.Build) !void {
     // run on a local server e.g. via
     // python -m http.server -b 127.0.0.1 [some-unused-port] -d [your-docs-dir]
     const generate_docs = b.step("docs", "auto-generate documentation");
-
     {
         const install_docs = b.addInstallDirectory(.{
             .source_dir = zdt.getEmittedDocs(),
-            .install_dir = std.Build.InstallDir{ .custom = "../autodoc" },
+            .install_dir = std.Build.InstallDir{ .custom = "../docs/autodoc" },
             .install_subdir = "",
         });
         generate_docs.dependOn(&install_docs.step);

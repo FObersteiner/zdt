@@ -4,12 +4,12 @@
     .version = "0.0.1",
     .dependencies = .{
         .zdt_023 = .{ // modified version in branch 'legacy-v0.2.3' that runs with zig-014
-            .url = "https://github.com/FObersteiner/zdt/archive/5905158b1bc5c72e68af5268d13d0b116b63aa8d.tar.gz",
-            .hash = "12202e5d349ac802def6af5a85bc591abcbb8b718a22c209e8b07689a96cd59464ae",
+            .url = "https://codeberg.org/FObersteiner/zdt/archive/v0.2.3-legacy-zig014.tar.gz",
+            .hash = "zdt-0.2.3-_Jkc96nsDwCAOb9CsCg3-MA6QHvikLtaJRR06TBmAQcc",
         },
         .zdt_045 = .{
-            .url = "https://github.com/FObersteiner/zdt/archive/refs/tags/v0.4.5.tar.gz",
-            .hash = "1220770d2ef9e42764b080adc3024cc7833c8d5e9e025e7f1241b7d53b0a905589c6",
+            .url = "https://codeberg.org/FObersteiner/zdt/archive/v0.4.5.tar.gz",
+            .hash = "zdt-0.4.5-AAAAAMZ_EAB3DS755CdksICtwwJMx4M8jV6eAl5_EkG3",
         },
         .zdt_latest = .{
             .path = "../",

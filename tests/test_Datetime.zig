@@ -356,7 +356,7 @@ test "next weekday" {
 }
 
 test "prev weekday" {
-    const dt = try Datetime.fromFields(.{ .year = 1970 });
+    const dt = try Datetime.fromFields(.{ .year = 1970 }); // a Thu
     const prevThu = dt.previousWeekday(Datetime.Weekday.Thursday);
     try testing.expectEqualStrings("Thursday", prevThu.weekday().longName());
     try testing.expectEqual(@as(u8, 25), prevThu.day);

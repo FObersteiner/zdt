@@ -73,7 +73,7 @@ dst_fold: ?u1 = null,
 // ----------------------------------------------------------------------------
 
 /// Enum-representation of a weekday, with Sunday being 0.
-/// Mainly used to get locale-independent English names.
+/// Can for instance be used to get locale-independent English names.
 pub const Weekday = enum(u8) {
     Sunday = 0,
     Monday = 1,
@@ -107,7 +107,7 @@ pub const Weekday = enum(u8) {
 };
 
 /// Enum-representation of a month, with January being 1.
-/// Mainly used to get locale-independent English names.
+/// Can for instance be used to get locale-independent English names.
 pub const Month = enum(u8) {
     January = 1,
     February = 2,
@@ -145,6 +145,7 @@ pub const Month = enum(u8) {
     }
 };
 
+/// Implementation of the ISO8601 leap week calendar system.
 pub const ISOCalendar = struct {
     isoyear: u16, // [1, 9999]
     isoweek: u8, // [1, 53]
@@ -174,7 +175,8 @@ pub const ISOCalendar = struct {
 
     pub fn fromString(string: []const u8) FormatError!ISOCalendar {
         if (string.len < 10) return FormatError.InvalidFormat;
-        if (string[4] != '-' or std.ascii.toLower(string[5]) != 'w' or string[8] != '-') return FormatError.InvalidFormat;
+        if (string[4] != '-' or std.ascii.toLower(string[5]) != 'w' or string[8] != '-')
+            return FormatError.InvalidFormat;
         return .{
             .isoyear = try std.fmt.parseInt(u16, string[0..4], 10),
             .isoweek = try std.fmt.parseInt(u8, string[6..8], 10),
@@ -197,12 +199,13 @@ pub const ISOCalendar = struct {
     }
 };
 
+// Helper for the helper...
 const tzOpts = enum {
     tz,
     utc_offset,
 };
 
-/// helper to specify either a time zone (from TZif or POSIX TZ) or a UTC offset:
+/// Helper to specify either a time zone (from TZif or POSIX TZ) or a UTC offset
 pub const tz_options = union(tzOpts) {
     tz: *const Timezone,
     utc_offset: UTCoffset,
@@ -220,20 +223,20 @@ pub const Fields = struct {
     dst_fold: ?u1 = null,
     tz_options: ?tz_options = null,
 
-    pub fn validate(fields: Fields) ZdtError!void {
-        if (fields.year > max_year or fields.year < min_year) return ZdtError.YearOutOfRange;
-        if (fields.month > 12 or fields.month < 1) return ZdtError.MonthOutOfRange;
+    pub fn validate(fields: Fields) RangeError!void {
+        if (fields.year > max_year or fields.year < min_year) return RangeError.YearOutOfRange;
+        if (fields.month > 12 or fields.month < 1) return RangeError.MonthOutOfRange;
         const max_days = cal.daysInMonth(@truncate(fields.month), cal.isLeapYear(fields.year));
-        if (fields.day > max_days or fields.day < 1) return ZdtError.DayOutOfRange;
-        if (fields.hour > 23) return ZdtError.HourOutOfRange;
-        if (fields.minute > 59) return ZdtError.MinuteOutOfRange;
-        if (fields.second > 60) return ZdtError.SecondOutOfRange;
-        if (fields.nanosecond > 999999999) return ZdtError.NanosecondOutOfRange;
+        if (fields.day > max_days or fields.day < 1) return RangeError.DayOutOfRange;
+        if (fields.hour > 23) return RangeError.HourOutOfRange;
+        if (fields.minute > 59) return RangeError.MinuteOutOfRange;
+        if (fields.second > 60) return RangeError.SecondOutOfRange;
+        if (fields.nanosecond > 999999999) return RangeError.NanosecondOutOfRange;
     }
 };
 
 /// Datetime fields without timezone and UTC offset. All fields optional and undefined by default.
-/// Helper for Datetime.replace().
+/// Helper for `Datetime.replace()`.
 pub const OptFields = struct {
     year: ?u16 = null,
     month: ?u8 = null,
@@ -245,6 +248,7 @@ pub const OptFields = struct {
 };
 
 /// Make a valid datetime from fields.
+/// Full validation is always performed, not just in debug builds.
 pub fn fromFields(fields: Fields) ZdtError!Datetime {
     _ = try fields.validate();
 
@@ -414,7 +418,7 @@ fn __equalFields(this: Datetime, other: Datetime) bool {
 }
 
 /// Construct a datetime from Unix time with a specific precision (time unit).
-/// tz_opts allows to optionally specify a UTC offset or a time zone.
+/// `tz_opts` allows to optionally specify a UTC offset or a time zone.
 pub fn fromUnix(
     quantity: i128,
     resolution: Duration.Resolution,
@@ -448,7 +452,7 @@ pub fn fromUnix(
         },
     }
 
-    try _dt.normalizeToUnix();
+    try _dt.normalizeToUnix(); // in-place update!
     return _dt;
 }
 
@@ -506,7 +510,7 @@ pub fn isDST(dt: *const Datetime) bool {
 
 /// Make a datetime local to a given time zone.
 ///
-/// 'null' can be supplied to make an aware datetime naive.
+/// `null` can be supplied to make an aware datetime naive.
 pub fn tzLocalize(dt: Datetime, opts: ?tz_options) ZdtError!Datetime {
     return Datetime.fromFields(.{
         .year = dt.year,
@@ -629,7 +633,7 @@ pub fn sub(dt: *const Datetime, td: Duration) ZdtError!Datetime {
 /// would not change the hour of the resulting datetime.
 ///
 /// Returns an error if the resulting datetime would be a non-existent datetime (DST gap).
-/// A resulting ambiguous datetime (DST fold) is resolved if the 'dst_fold' attribute
+/// A resulting ambiguous datetime (DST fold) is resolved if the `dst_fold` attribute
 /// is set. If not (= null), this function will also return an error.
 pub fn addRelative(dt: *const Datetime, rel_delta: Duration.RelativeDelta) ZdtError!Datetime {
     const nrd = rel_delta.normalize();
@@ -680,7 +684,7 @@ pub fn addRelative(dt: *const Datetime, rel_delta: Duration.RelativeDelta) ZdtEr
 
 /// Calculate the absolute difference between two datetimes, independent of the time zone.
 /// Excludes leap seconds.
-/// To get the difference in leap seconds, see Datetime.diffLeap().
+/// To get the difference in leap seconds, see `Datetime.diffLeap()`.
 ///
 /// Result is (this - other) as a Duration.
 pub fn diff(this: Datetime, other: Datetime) Duration {
@@ -696,7 +700,7 @@ pub fn diff(this: Datetime, other: Datetime) Duration {
 /// Calculate wall time difference between two aware datetimes.
 /// If one of the datetimes is naive (no time zone specified), this is considered an error.
 ///
-/// Result is ('this' wall time - 'other' wall time) as a Duration.
+/// Result is (`this` wall time - `other` wall time) as a Duration.
 pub fn diffWall(this: Datetime, other: Datetime) TzError!Duration {
     if (this.isNaive() or other.isNaive()) return TzError.TzUndefined;
     if (this.utc_offset == null or other.utc_offset == null) return TzError.TzUndefined;
@@ -713,20 +717,20 @@ pub fn diffWall(this: Datetime, other: Datetime) TzError!Duration {
 }
 
 /// Validate a datetime in terms of leap seconds;
-/// Returns an error if the datetime has seconds == 60 but is NOT a leap second datetime.
+/// Returns an error if the datetime has seconds >= 60 but is NOT a leap second datetime.
 pub fn validateLeap(this: *const Datetime) RangeError!void {
-    if (this.second != 60) return;
+    if (this.second < 60) return;
     if (cal.mightBeLeap(this.unix_sec)) return;
     return RangeError.SecondOutOfRange;
 }
 
 /// Difference in leap seconds between two datetimes.
 /// To get the absolute time difference between two datetimes including leap seconds,
-/// add the result of diffleap() to that of diff().
+/// add the result of `diffLeap()` to that of `diff()`.
 ///
 /// UTC is assumed for naive datetime.
 ///
-/// Result is (leap seconds of 'this' - leap seconds of 'other') as a Duration.
+/// Result is (leap seconds of `this` - leap seconds of `other`) as a Duration.
 pub fn diffLeap(this: Datetime, other: Datetime) Duration {
     const this_leap: i16 = @as(i16, cal.leapCorrection(this.unix_sec));
     const other_leap: i16 = @as(i16, cal.leapCorrection(other.unix_sec));
@@ -736,17 +740,17 @@ pub fn diffLeap(this: Datetime, other: Datetime) Duration {
     );
 }
 
-/// Day of the year starting with 1 == yyyy-01-01 (strftime/strptime: %j).
+/// Day of the year starting with `1 == yyyy-01-01` (strftime/strptime: `%j`).
 pub fn dayOfYear(dt: Datetime) u16 {
     return cal.dayOfYear(dt.year, dt.month, dt.day);
 }
 
-/// Number of ISO weeks per year, same as weeksPerYear but taking a datetime instance
+/// Number of ISO weeks per year, same as weeksPerYear but taking a datetime instance.
 pub fn weeksInYear(dt: Datetime) u8 {
     return cal.weeksPerYear(dt.year);
 }
 
-/// Day of the week as an enum value; Sun as first day of the week
+/// Day of the week as an enum value; Sun as first day of the week.
 pub fn weekday(dt: Datetime) Weekday {
     return std.meta.intToEnum(Weekday, dt.weekdayNumber()) catch unreachable;
 }
@@ -755,13 +759,13 @@ pub fn monthEnum(dt: Datetime) Month {
     return std.meta.intToEnum(Month, dt.month) catch unreachable;
 }
 
-/// Number of the weekday starting at 0 == Sunday (strftime/strptime: %w).
+/// Number of the weekday starting at 0 == Sunday (strftime/strptime: `%w`).
 pub fn weekdayNumber(dt: Datetime) u8 {
     const days = cal.dateToRD([3]u16{ dt.year, dt.month, dt.day });
     return cal.weekdayFromUnixdays(days);
 }
 
-/// ISO-number of the weekday, starting at 1 == Monday (strftime/strptime: %u).
+/// ISO-number of the weekday, starting at 1 == Monday (strftime/strptime: `%u`).
 pub fn weekdayIsoNumber(dt: Datetime) u8 {
     const days = cal.dateToRD([3]u16{ dt.year, dt.month, dt.day });
     return cal.ISOweekdayFromUnixdays(days);
@@ -777,7 +781,7 @@ pub fn nextWeekday(dt: Datetime, d: Weekday) Datetime {
         if (daysdiff < 0) daysdiff += 7; // ensure a positive shift since we want 'next'
     }
     const offset = Duration.fromTimespanMultiple(daysdiff, Duration.Timespan.day);
-    return dt.add(offset) catch dt; // return unmodified copy on error
+    return dt.add(offset) catch unreachable; // might fail on weird corner-cases!
 }
 
 /// Roll datetime backward to the specified previous weekday.
@@ -790,7 +794,7 @@ pub fn previousWeekday(dt: Datetime, d: Weekday) Datetime {
         if (daysdiff > 0) daysdiff -= 7;
     }
     const offset = Duration.fromTimespanMultiple(daysdiff, Duration.Timespan.day);
-    return dt.add(offset) catch dt; // return unmodified copy on error
+    return dt.add(offset) catch unreachable; // might fail on weird corner-cases!
 }
 
 /// nth weekday of given month and year, returned as a Datetime.
@@ -806,7 +810,7 @@ pub fn nthWeekday(year: u16, month: u8, wd: Weekday, nth: u8) ZdtError!Datetime 
 }
 
 /// Week number of the year (Sunday as the first day of the week) as returned from
-/// strftime's %U
+/// strftime's `%U`
 pub fn weekOfYearSun(dt: Datetime) u8 {
     const doy = dt.dayOfYear() - 1; // [0..365]
     const dow = dt.weekdayNumber();
@@ -814,7 +818,7 @@ pub fn weekOfYearSun(dt: Datetime) u8 {
 }
 
 /// Week number of the year (Monday as the first day of the week) as returned from
-/// strftime's %W
+/// strftime's `%W`
 pub fn weekOfYearMon(dt: Datetime) u8 {
     const doy = dt.dayOfYear(); // [1..366]
     const dow = dt.weekdayNumber();
@@ -844,7 +848,7 @@ pub fn toISOCalendar(dt: Datetime) ISOCalendar {
 
 /// Parse a string to a datetime.
 pub fn fromString(string: []const u8, directives: []const u8) ZdtError!Datetime {
-    if (string.len == 0 or directives.len == 0) return ZdtError.EmptyString;
+    if (string.len == 0 or directives.len == 0) return FormatError.EmptyString;
     return try str.tokenizeAndParse(string, directives);
 }
 
@@ -861,12 +865,12 @@ pub fn fromISO8601(string: []const u8) ZdtError!Datetime {
     return FormatError.InvalidFormat;
 }
 
-/// Format a datetime into a string
+/// Format a datetime into a string.
 pub fn toString(dt: Datetime, directives: []const u8, writer: anytype) anyerror!void {
     return try str.tokenizeAndPrint(&dt, directives, writer);
 }
 
-/// IANA identifier or POSIX string, empty string if undefined
+/// IANA identifier or POSIX string, empty string if undefined.
 pub fn tzName(dt: *const Datetime) []const u8 {
     if (dt.tz) |tz_ptr| return tz_ptr.name();
     if (dt.utc_offset) |*off| {
@@ -875,7 +879,8 @@ pub fn tzName(dt: *const Datetime) []const u8 {
     return "";
 }
 
-/// Time zone abbreviation, such as 'CET' for Europe/Berlin zone in winter
+/// Time zone abbreviation, such as 'CET' for Europe/Berlin zone in winter.
+/// Empty string if undefined.
 pub fn tzAbbreviation(dt: *const Datetime) []const u8 {
     if (dt.utc_offset) |*off| {
         return if (std.mem.eql(u8, off.designation(), "UTC")) "Z" else off.designation();
@@ -883,7 +888,7 @@ pub fn tzAbbreviation(dt: *const Datetime) []const u8 {
     return "";
 }
 
-/// Formatted printing for UTC offset
+/// Formatted printing for UTC offset.
 pub fn formatOffset(
     dt: Datetime,
     options: std.fmt.FormatOptions,
@@ -892,7 +897,7 @@ pub fn formatOffset(
     return if (dt.isAware()) dt.utc_offset.?.format("", options, writer);
 }
 
-/// Calculate the date of Easter (Gregorian calendar)
+/// Calculate the date of Easter (Gregorian calendar).
 pub fn EasterDate(year: u16) ZdtError!Datetime {
     const ymd = cal.gregorianEaster(year);
     return try Datetime.fromFields(.{
@@ -903,6 +908,7 @@ pub fn EasterDate(year: u16) ZdtError!Datetime {
 }
 
 /// Julian calendar easter date.
+///
 /// Note that from year 1900 to 2099, 13 days must be added to the Julian
 /// calendar date to get the equivalent Gregorian calendar date.
 pub fn EasterDateJulian(year: u16) ZdtError!Datetime {
@@ -918,17 +924,18 @@ pub fn EasterDateJulian(year: u16) ZdtError!Datetime {
 /// Defaults to ISO8601 / RFC3339nano format.
 ///
 /// Nanoseconds are displayed if not zero. To get milli- or microsecond precision,
-/// use formatting directive '{s:.3}' (ms) or '{s:.6}' (us).
+/// use formatting directive `{s:.3}` (ms) or `{s:.6}` (us).
 ///
-/// If a formatting directive other than 's' or empty is provided, the method
-/// tries to interpret it as regular datetime formatting directive(s), as the ones
-/// used in Datetime.toString.
+/// If a formatting directive other than 's' or none is provided, the method
+/// tries to interpret it as regular datetime formatting directive, like the ones
+/// used in `Datetime.toString`.
 ///
-/// EX:
+/// For example
+/// ```
 /// std.debug.print("{%Y-%m}", .{dt});
-/// // ...would for instance evaluate to
-/// >>> "2025-03"
-///
+///   ...would evaluate to
+/// "2025-03"
+/// ```
 pub fn format(
     dt: Datetime,
     comptime fmt: []const u8,
@@ -961,39 +968,57 @@ fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) TzErro
     const dummy: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 };
     switch (_tz.rules) {
         .tzif => {
-            if (idx > 0) {
+            if (idx > 0)
                 surrounding[1] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx))].timetype;
-            }
-            if (idx >= 1) {
+            if (idx >= 1)
                 surrounding[0] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx - 1))].timetype;
-            }
-            if (idx > 0 and idx < _tz.rules.tzif.transitions.len - 1) {
+            if (idx > 0 and idx < _tz.rules.tzif.transitions.len - 1)
                 surrounding[2] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx + 1))].timetype;
-            }
             return surrounding;
         },
         .tzif_fixedsize => {
-            if (idx > 0) {
+            if (idx > 0)
                 surrounding[1] = _tz.rules.tzif_fixedsize.transitions[@as(u64, @intCast(idx))].timetype;
-            }
-            if (idx >= 1) {
+            if (idx >= 1)
                 surrounding[0] = _tz.rules.tzif_fixedsize.transitions[@as(u64, @intCast(idx - 1))].timetype;
-            }
-            if (idx > 0 and idx < _tz.rules.tzif_fixedsize.transitions.len - 1) {
+            if (idx > 0 and idx < _tz.rules.tzif_fixedsize.transitions.len - 1)
                 surrounding[2] = _tz.rules.tzif_fixedsize.transitions[@as(u64, @intCast(idx + 1))].timetype;
-            }
             return surrounding;
         },
         .posixtz => {
             if (_tz.rules.posixtz.dst_offset) |dst_offset| { // do we have DST at all ?
                 if (local_offset.is_dst) {
-                    surrounding[0] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
-                    surrounding[1] = @constCast(&tzif.Timetype{ .offset = dst_offset, .flags = 1, .name_data = dummy });
-                    surrounding[2] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
+                    surrounding[0] = @constCast(&tzif.Timetype{
+                        .offset = _tz.rules.posixtz.std_offset,
+                        .flags = 2,
+                        .name_data = dummy,
+                    });
+                    surrounding[1] = @constCast(&tzif.Timetype{
+                        .offset = dst_offset,
+                        .flags = 1,
+                        .name_data = dummy,
+                    });
+                    surrounding[2] = @constCast(&tzif.Timetype{
+                        .offset = _tz.rules.posixtz.std_offset,
+                        .flags = 2,
+                        .name_data = dummy,
+                    });
                 } else {
-                    surrounding[0] = @constCast(&tzif.Timetype{ .offset = dst_offset, .flags = 1, .name_data = dummy });
-                    surrounding[1] = @constCast(&tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
-                    surrounding[2] = @constCast(&tzif.Timetype{ .offset = dst_offset, .flags = 1, .name_data = dummy });
+                    surrounding[0] = @constCast(&tzif.Timetype{
+                        .offset = dst_offset,
+                        .flags = 1,
+                        .name_data = dummy,
+                    });
+                    surrounding[1] = @constCast(&tzif.Timetype{
+                        .offset = _tz.rules.posixtz.std_offset,
+                        .flags = 2,
+                        .name_data = dummy,
+                    });
+                    surrounding[2] = @constCast(&tzif.Timetype{
+                        .offset = dst_offset,
+                        .flags = 1,
+                        .name_data = dummy,
+                    });
                 }
             }
             // implicid 'else':

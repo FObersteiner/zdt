@@ -13,6 +13,20 @@ Types of changes
 
 ## [Unreleased]
 
+## 2025-04-23, v0.6.5
+
+### Added
+
+- Duration type methods totalMinutes, totalHours and totalDays
+
+### Changed
+
+- moved to Codeberg
+- revised docstrings
+- moved github wiki content to `./docs`
+- make locale-specific tests more robust by testing different masks when trying to obtain/set the locale
+- more tests for Duration methods (total...())
+
 ## 2025-04-05, v0.6.4
 
 ### Changed

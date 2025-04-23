@@ -20,11 +20,10 @@ const Timezone = @This();
 /// embedded IANA time zone database (eggert/tz)
 pub const tzdata = @import("./tzdata.zig").tzdata;
 pub const sizeOftzdata = @import("./tzdata.zig").sizeOftzdata;
-
 pub const tzdb_version = @import("./tzdata.zig").tzdb_version;
 
-/// auto-generated prefix / path of the current eggert/tz database, as shipped with zdt
-// anonymous import; see build.zig
+/// auto-generated prefix / path of the current eggert/tz database, as shipped with zdt;
+// anonymous import; see `build.zig`.
 pub const tzdb_prefix = @import("tzdb_prefix").tzdb_prefix;
 
 // longest tz name is 'America/Argentina/ComodRivadavia' --> 32 ASCII chars
@@ -62,12 +61,12 @@ pub const UTC: Timezone = .{
 };
 
 /// A time zone's identifier name.
+/// Example: `"America/Denver"`. Not to be confused with abbreviations like "MST".
 pub fn name(tz: *const Timezone) []const u8 {
     return std.mem.sliceTo(&tz.__name_data, 0);
 }
 
-/// Make a time zone from a POSIX TZ string like
-/// 'AEST-10AEDT,M10.1.0/2,M4.1.0/3'
+/// Make a time zone from a POSIX TZ string like `"AEST-10AEDT,M10.1.0/2,M4.1.0/3"`.
 pub fn fromPosixTz(posixString: []const u8) FormatError!Timezone {
     const ptz = try psx.parsePosixTzString(posixString);
     var tz = Timezone{ .rules = .{ .posixtz = ptz } };
@@ -84,6 +83,10 @@ pub fn fromPosixTz(posixString: []const u8) FormatError!Timezone {
 /// Note that the allocator is optional. If 'null' is provided instead of an allocator,
 /// a fixed-size structure will be used to holde the timezone rules, instead of doing this
 /// dynamically in heap memory. This is faster, but requires more memory overall.
+///
+/// If an allocator is used, the caller must make sure to de-allocate memory used for
+/// storing the TZif file's content by calling the deinit method of the returned
+/// `Timezone` instance.
 pub fn fromTzdata(identifier: []const u8, allocator: ?std.mem.Allocator) ZdtError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
 
@@ -111,13 +114,15 @@ pub fn fromTzdata(identifier: []const u8, allocator: ?std.mem.Allocator) ZdtErro
 
 /// Make a time zone from a IANA tz database TZif file.
 /// This method allows the usage of a user-supplied tzdata; the path has to be specified.
-/// To use the system's tzdata, use 'zdt.Timezone.tzdb_prefix'.
-/// The caller must make sure to de-allocate memory used for storing the TZif file's content
-/// by calling the deinit method of the returned Timezone instance.
+/// To use the system's tzdata, use `zdt.Timezone.tzdb_prefix`.
 ///
 /// Note that the allocator is optional. If 'null' is provided instead of an allocator,
 /// a fixed-size structure will be used to holde the timezone rules, instead of doing this
 /// dynamically in heap memory. This is faster, but requires more memory overall.
+///
+/// If an allocator is used, the caller must make sure to de-allocate memory used for
+/// storing the TZif file's content by calling the deinit method of the returned
+/// `Timezone` instance.
 pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: ?std.mem.Allocator) ZdtError!Timezone {
     if (!identifierValid(identifier)) return TzError.InvalidIdentifier;
     var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
@@ -141,8 +146,8 @@ pub fn fromSystemTzdata(identifier: []const u8, db_path: []const u8, allocator: 
     tz.__name_data_len = if (identifier.len <= cap_name_data) identifier.len else cap_name_data;
     @memcpy(tz.__name_data[0..tz.__name_data_len], identifier[0..tz.__name_data_len]);
 
-    // if db_path is empty: assume identifier is a path
-    // --> look for 'zoneinfo' substring in identifier, remove if found
+    // if db_path is empty: assume `identifier` is a path,
+    // and look for 'zoneinfo' substring in identifier, remove if found
     if (std.mem.eql(u8, db_path, "")) {
         var pathname_iterator = std.mem.splitSequence(u8, p, "zoneinfo" ++ std.fs.path.sep_str);
         const part = pathname_iterator.next() orelse identifier;
@@ -177,7 +182,7 @@ pub fn deinit(tz: *Timezone) void {
 /// Try to obtain the system's local time zone.
 ///
 /// Note: Windows does not use the IANA time zone database;
-/// a mapping from Windows db to IANA db is prone to errors.
+/// a mapping from Windows db to IANA db exists but is prone to errors.
 /// Use with caution.
 pub fn tzLocal(allocator: ?std.mem.Allocator) ZdtError!Timezone {
     switch (builtin.os.tag) {

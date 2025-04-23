@@ -42,8 +42,63 @@ test "to timespan" {
 }
 
 test "total seconds" {
+    // Regular case
     const td = Duration.fromTimespanMultiple(3141592653, Duration.Timespan.nanosecond);
     try testing.expectEqual(3.141592653, td.totalSeconds());
+
+    // Test large positive value
+    const large_td = Duration.fromTimespanMultiple(9223372036854775807, Duration.Timespan.second);
+    try testing.expectEqual(9223372036854775807.0, large_td.totalSeconds());
+
+    // Test large negative value
+    const neg_td = Duration.fromTimespanMultiple(-9223372036854775807, Duration.Timespan.second);
+    try testing.expectEqual(-9223372036854775807.0, neg_td.totalSeconds());
+}
+
+test "total minutes" {
+    // Regular case
+    const td = Duration.fromTimespanMultiple(185, Duration.Timespan.second);
+    try testing.expectEqual(3.0833333333333335, td.totalMinutes());
+
+    // Test large positive value
+    const large_td = Duration.fromTimespanMultiple(9223372036854775807, Duration.Timespan.second);
+    try testing.expectEqual(9223372036854775807.0 / 60.0, large_td.totalMinutes());
+
+    // Test large negative value
+    const neg_td = Duration.fromTimespanMultiple(-9223372036854775807, Duration.Timespan.second);
+    try testing.expectEqual(-9223372036854775807.0 / 60.0, neg_td.totalMinutes());
+}
+
+test "total hours" {
+    // Regular case
+    const td = Duration.fromTimespanMultiple(6300, Duration.Timespan.second);
+    try testing.expectEqual(1.75, td.totalHours());
+
+    // Test large positive value
+    const large_td = Duration.fromTimespanMultiple(9223372036854775807, Duration.Timespan.second);
+    try testing.expectEqual(9223372036854775807.0 / 3600.0, large_td.totalHours());
+
+    // Test large negative value
+    const neg_td = Duration.fromTimespanMultiple(-9223372036854775807, Duration.Timespan.second);
+    try testing.expectEqual(-9223372036854775807.0 / 3600.0, neg_td.totalHours());
+}
+
+test "total days" {
+    // Regular case
+    const td = Duration.fromTimespanMultiple(3, Duration.Timespan.day);
+    try testing.expectEqual(3.0, td.totalDays());
+
+    // Test large positive value
+    const large_td = Duration.fromTimespanMultiple(9223372036854775807, Duration.Timespan.second);
+    try testing.expectEqual(9223372036854775807.0 / 86400.0, large_td.totalDays());
+
+    // Test large negative value
+    const neg_td = Duration.fromTimespanMultiple(-9223372036854775807, Duration.Timespan.second);
+    try testing.expectEqual(-9223372036854775807.0 / 86400.0, neg_td.totalDays());
+
+    // Test with nanosecond precision
+    const precise_td = Duration{ .__sec = 86400, .__nsec = 123456789 };
+    try testing.expectEqual(1.0 + 123456789.0 / 86400000000000.0, precise_td.totalDays());
 }
 
 test "add durations" {
