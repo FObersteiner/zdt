@@ -43,4 +43,4 @@ jobs:
     steps:
       - uses: actions/checkout@main
       - uses: mlugg/setup-zig@v1
-      - run: zig fmt --check build.zig zdt.zig lib/**/*.zig tests/*.zig
+      - run: zig fmt --check build.zig lib/**/*.zig tests/*.zig
