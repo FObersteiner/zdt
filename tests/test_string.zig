@@ -17,10 +17,14 @@ const ZdtError = zdt.ZdtError;
 
 // ----
 
-const masks_to_try = [_]c_int{
-    c_locale.LC_TIME,
-    c_locale.LC_TIME_MASK,
-    c_locale.LC_ALL,
+const masks_to_try = switch (builtin.os.tag) {
+    // TODO : verify that this works on different platforms...
+    .linux => [_]c_int{
+        c_locale.LC_ALL,
+        c_locale.LC_TIME,
+        c_locale.LC_TIME_MASK,
+    },
+    else => c_locale.LC_ALL,
 };
 
 // locale-specific tests only for English
