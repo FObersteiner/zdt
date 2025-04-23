@@ -24,7 +24,9 @@ const masks_to_try = switch (builtin.os.tag) {
         c_locale.LC_TIME,
         c_locale.LC_TIME_MASK,
     },
-    else => c_locale.LC_ALL,
+    else => [_]c_int{
+        c_locale.LC_ALL,
+    },
 };
 
 // locale-specific tests only for English
