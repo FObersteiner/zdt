@@ -37,7 +37,10 @@ Types of changes
 
 ### Added
 
-- Duration type methods totalMinutes, totalHours and totalDays
+- Duration type methods
+  - `Duration.totalMinutes()`
+  - `Duration.totalHours()`
+  - `Duration.totalDays()`
 
 ### Changed
 
