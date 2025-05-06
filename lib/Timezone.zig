@@ -27,7 +27,7 @@ pub const tzdb_version = @import("./tzdata.zig").tzdb_version;
 pub const tzdb_prefix = @import("tzdb_prefix").tzdb_prefix;
 
 // longest tz name is 'America/Argentina/ComodRivadavia' --> 32 ASCII chars
-const cap_name_data: usize = 32;
+const cap_name_data: usize = 48;
 
 const ruleTypes = enum {
     tzif,
@@ -70,7 +70,7 @@ pub fn name(tz: *const Timezone) []const u8 {
 pub fn fromPosixTz(posixString: []const u8) FormatError!Timezone {
     const ptz = try psx.parsePosixTzString(posixString);
     var tz = Timezone{ .rules = .{ .posixtz = ptz } };
-    assert(posixString.len <= cap_name_data);
+    assert(posixString.len <= psx.max_string_len);
     tz.__name_data_len = if (posixString.len <= cap_name_data) posixString.len else cap_name_data;
     @memcpy(tz.__name_data[0..tz.__name_data_len], posixString[0..tz.__name_data_len]);
     return tz;
