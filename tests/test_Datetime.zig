@@ -31,10 +31,6 @@ test "validate datetime fields" {
     err = fields.validate();
     try testing.expectError(ZdtError.MonthOutOfRange, err);
 
-    fields = Datetime.Fields{ .year = 10000, .month = 1, .day = 1 };
-    err = fields.validate();
-    try testing.expectError(ZdtError.YearOutOfRange, err);
-
     fields = Datetime.Fields{ .hour = 99 };
     err = fields.validate();
     try testing.expectError(ZdtError.HourOutOfRange, err);
@@ -46,21 +42,25 @@ test "validate datetime fields" {
     fields = Datetime.Fields{ .second = 99 };
     err = fields.validate();
     try testing.expectError(ZdtError.SecondOutOfRange, err);
+
+    fields = Datetime.Fields{ .nanosecond = 1_000_000_001 };
+    err = fields.validate();
+    try testing.expectError(ZdtError.NanosecondOutOfRange, err);
 }
 
 test "Datetime from empty field struct" {
     const dt = try Datetime.fromFields(.{});
-    try testing.expectEqual(@as(u16, 1), dt.year);
+    try testing.expectEqual(@as(i16, 1), dt.year);
     try testing.expectEqual(@as(u8, 1), dt.month);
-    try testing.expectEqual(@as(u5, 1), dt.day);
+    try testing.expectEqual(@as(u8, 1), dt.day);
     try testing.expect(dt.tz == null);
 }
 
 test "Datetime from populated field struct" {
     const dt = try Datetime.fromFields(.{ .year = 2023, .month = 12 });
-    try testing.expectEqual(@as(u16, 2023), dt.year);
+    try testing.expectEqual(@as(i16, 2023), dt.year);
     try testing.expectEqual(@as(u8, 12), dt.month);
-    try testing.expectEqual(@as(u5, 1), dt.day);
+    try testing.expectEqual(@as(u8, 1), dt.day);
     try testing.expect(dt.tz == null);
     try testing.expectEqual(false, dt.isAware());
     try testing.expectEqual(true, dt.isNaive());
@@ -119,34 +119,61 @@ test "Dateime from invalid fields" {
 }
 
 test "Datetime Min Max from fields" {
-    var fields = Datetime.Fields{ .year = Datetime.min_year, .month = 1, .day = 1 };
+    var fields = Datetime.Fields{
+        .year = Datetime.min_year,
+        .month = 1,
+        .day = 1,
+    };
     var dt = try Datetime.fromFields(fields);
-    try testing.expect(dt.year == Datetime.min_year);
-    try testing.expect(dt.unix_sec == Datetime.unix_s_min);
+    try testing.expectEqual(dt.year, Datetime.min_year);
+    try testing.expectEqual(dt.unix_sec, Datetime.unix_s_min);
 
-    fields = Datetime.Fields{ .year = Datetime.max_year, .month = 12, .day = 31, .hour = 23, .minute = 59, .second = 59, .nanosecond = 999999999 };
+    fields = Datetime.Fields{
+        .year = Datetime.max_year,
+        .month = 12,
+        .day = 31,
+        .hour = 23,
+        .minute = 59,
+        .second = 59,
+        .nanosecond = 999999999,
+    };
     dt = try Datetime.fromFields(fields);
-    try testing.expect(dt.year == Datetime.max_year);
-    try testing.expect(dt.hour == 23);
+    try testing.expectEqual(dt.year, Datetime.max_year);
+    try testing.expectEqual(dt.hour, 23);
     try testing.expectEqual(Datetime.unix_s_max, dt.unix_sec);
 }
 
 test "Datetime Min Max fields vs seconds roundtrip" {
     const max_from_seconds = try Datetime.fromUnix(Datetime.unix_s_max, Duration.Resolution.second, null);
-    const max_from_fields = try Datetime.fromFields(.{ .year = Datetime.max_year, .month = 12, .day = 31, .hour = 23, .minute = 59, .second = 59 });
+    const max_from_fields = try Datetime.fromFields(.{
+        .year = Datetime.max_year,
+        .month = 12,
+        .day = 31,
+        .hour = 23,
+        .minute = 59,
+        .second = 59,
+    });
     try testing.expect(std.meta.eql(max_from_fields, max_from_seconds));
 
-    const min_from_fields = try Datetime.fromFields(.{ .year = 1 });
+    const min_from_fields = try Datetime.fromFields(.{ .year = Datetime.min_year });
     const min_from_seconds = try Datetime.fromUnix(Datetime.unix_s_min, Duration.Resolution.second, null);
     try testing.expect(std.meta.eql(min_from_fields, min_from_seconds));
 
     const too_large_s = Datetime.fromUnix(Datetime.unix_s_max + 1, Duration.Resolution.second, null);
     try testing.expectError(ZdtError.UnixOutOfRange, too_large_s);
-    const too_large_ns = Datetime.fromUnix(@as(i128, Datetime.unix_s_max + 1) * std.time.ns_per_s, Duration.Resolution.second, null);
+    const too_large_ns = Datetime.fromUnix(
+        @as(i128, Datetime.unix_s_max + 1) * std.time.ns_per_s,
+        Duration.Resolution.second,
+        null,
+    );
     try testing.expectError(ZdtError.UnixOutOfRange, too_large_ns);
     const too_small_s = Datetime.fromUnix(Datetime.unix_s_min - 1, Duration.Resolution.second, null);
     try testing.expectError(ZdtError.UnixOutOfRange, too_small_s);
-    const too_small_ns = Datetime.fromUnix(@as(i128, Datetime.unix_s_min - 1) * std.time.ns_per_s, Duration.Resolution.second, null);
+    const too_small_ns = Datetime.fromUnix(
+        @as(i128, Datetime.unix_s_min - 1) * std.time.ns_per_s,
+        Duration.Resolution.second,
+        null,
+    );
     try testing.expectError(ZdtError.UnixOutOfRange, too_small_ns);
 }
 
@@ -160,6 +187,21 @@ test "Epoch" {
     try testing.expectEqual(false, epoch.isNaive());
     try testing.expectEqualStrings(epoch.tzAbbreviation(), "Z");
     try testing.expectEqualStrings(epoch.tzName(), "UTC");
+}
+
+test "leap year and month" {
+    var dt = try Datetime.fromFields(.{ .year = 2000 });
+    try testing.expect(dt.isLeapYear());
+    try testing.expectEqual(false, dt.isLeapMonth());
+    dt = try Datetime.fromFields(.{ .year = 2000, .month = 2 });
+    try testing.expect(dt.isLeapMonth());
+
+    dt = try Datetime.fromFields(.{ .year = 2021, .month = 2 });
+    try testing.expectEqual(false, dt.isLeapYear());
+    try testing.expectEqual(false, dt.isLeapMonth());
+
+    dt = try Datetime.fromFields(.{ .year = 2100 });
+    try testing.expectEqual(false, dt.isLeapYear());
 }
 
 test "default format ISO8601, naive" {
@@ -178,7 +220,13 @@ test "default format ISO8601, naive" {
 
 test "format offset" {
     var offset = try UTCoffset.fromSeconds(3600, "", false);
-    var dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tz_options = .{ .utc_offset = offset } });
+    var dt = try Datetime.fromFields(.{
+        .year = 2021,
+        .month = 2,
+        .day = 18,
+        .hour = 17,
+        .tz_options = .{ .utc_offset = offset },
+    });
 
     var str = std.ArrayList(u8).init(testing.allocator);
     try dt.formatOffset(.{ .fill = ':' }, str.writer());

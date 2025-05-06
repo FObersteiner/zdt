@@ -185,8 +185,8 @@ fn parseIntoFields(
             fields.month = try parseMonthName(string, idx_ptr, &names);
         },
 
-        'Y' => fields.year = try parseDigits(u16, string, idx_ptr, 4),
-        'y' => fields.year = try parseDigits(u16, string, idx_ptr, 2) + Datetime.century,
+        'Y' => fields.year = try parseDigits(i16, string, idx_ptr, 4),
+        'y' => fields.year = try parseDigits(i16, string, idx_ptr, 2) + Datetime.century,
         // 'C', - formatting-only
         // 'G',
         'H' => fields.hour = try parseDigits(u8, string, idx_ptr, 2),
@@ -222,18 +222,19 @@ fn parseIntoFields(
             const doy = try parseDigits(u16, string, idx_ptr, 3);
             if (doy == 0) return FormatError.InvalidFormat;
             if (doy > 365 + @as(u16, @intFromBool(cal.isLeapYear(fields.year)))) return FormatError.InvalidFormat;
-            const date = cal.rdToDate(cal.dateToRD([3]u16{ fields.year, 1, 1 }) + doy - 1);
-            fields.month = @truncate(date[1]);
-            fields.day = @truncate(date[2]);
+            const date = cal.rdToDate(cal.dateToRD(.{ .year = fields.year, .month = 1, .day = 1 }) + doy - 1);
+            fields.month = @truncate(date.month);
+            fields.day = @truncate(date.day);
         },
         // 'w',
         // 'u',
         // 'W',
         // 'U',
         // 'V',
-        'T' => {
+        'T' => { // T: full ISO format
             fields.* = try parseISO8601(string, idx_ptr);
         },
+        // 'F' => ISO date only?
         't' => {
             const ical = try Datetime.ISOCalendar.fromString(string[idx_ptr.*..]);
             const tmp_dt = try ical.toDatetime();
@@ -300,10 +301,10 @@ fn printIntoWriter(
                 else => return FormatError.InvalidFormat,
             }
         },
-        'Y' => try writer.print("{d:0>4}", .{dt.year}),
-        'y' => try writer.print("{d:0>2}", .{dt.year % 100}),
-        'C' => try writer.print("{d:0>2}", .{dt.year / 100}),
-        'G' => try writer.print("{d:0>4}", .{dt.toISOCalendar().isoyear}),
+        'Y' => try writer.print("{s}{d:0>4}", .{ if (dt.year < 0) "-" else "", @abs(dt.year) }),
+        'y' => try writer.print("{s}{d:0>2}", .{ if (dt.year < 0) "-" else "", @abs(@mod(dt.year, 100)) }),
+        'C' => try writer.print("{s}{d:0>2}", .{ if (dt.year < 0) "-" else "", @abs(@divFloor(dt.year, 100)) }),
+        'G' => try writer.print("{s}{d:0>4}", .{ if (dt.toISOCalendar().isoyear < 0) "-" else "", dt.toISOCalendar().isoyear }),
         'H' => try writer.print("{d:0>2}", .{dt.hour}),
         'k' => try writer.print("{d: >2}", .{dt.hour}),
         'I' => try writer.print("{d:0>2}", .{twelve_hour_format(dt.hour)}),
@@ -353,7 +354,8 @@ fn printIntoWriter(
         'W' => try writer.print("{d:0>2}", .{dt.weekOfYearMon()}),
         'U' => try writer.print("{d:0>2}", .{dt.weekOfYearSun()}),
         'V' => try writer.print("{d:0>2}", .{dt.toISOCalendar().isoweek}),
-        'T' => try dt.format("", .{}, writer),
+        'T' => try dt.format("", .{}, writer), // ISO format
+        // 'F' => try dt.format("", .{}, writer) // ISO format, date only
         't' => try writer.print("{s}", .{dt.toISOCalendar()}),
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
@@ -367,10 +369,10 @@ fn printIntoWriter(
 /// Parse exactly nDigits to an integer.
 /// Return error.InvalidFormat if something goes wrong.
 fn parseExactNDigits(comptime T: type, string: []const u8, idx_ptr: *usize, nDigits: usize) FormatError!T {
-    if ((string.len - idx_ptr.*) < nDigits) {
+    if ((string.len - idx_ptr.*) < nDigits)
         return FormatError.InvalidFormat;
-    }
     idx_ptr.* += nDigits;
+
     return std.fmt.parseInt(T, string[idx_ptr.* - nDigits .. idx_ptr.*], 10);
 }
 
@@ -378,25 +380,20 @@ fn parseExactNDigits(comptime T: type, string: []const u8, idx_ptr: *usize, nDig
 /// Return error.InvalidFormat if something goes wrong.
 fn parseDigits(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits: usize) FormatError!T {
     const start_idx = idx_ptr.*;
-    // must start with a digit... otherwise format is invalid.
-    if (std.ascii.isDigit(string[start_idx])) {
-        idx_ptr.* += 1;
-        while (idx_ptr.* < string.len and // check first if string depleted
-            idx_ptr.* < start_idx + maxDigits and
-            std.ascii.isDigit(string[idx_ptr.*])) : (idx_ptr.* += 1)
-        {}
+    idx_ptr.* += 1;
+    while (idx_ptr.* < string.len and // check first if string depleted
+        idx_ptr.* < start_idx + maxDigits and
+        std.ascii.isDigit(string[idx_ptr.*])) : (idx_ptr.* += 1)
+    {}
 
-        return std.fmt.parseInt(T, string[start_idx..idx_ptr.*], 10);
-    }
-    return FormatError.InvalidFormat;
+    return std.fmt.parseInt(T, string[start_idx..idx_ptr.*], 10);
 }
 
 // AM or PM string, no matter if upper or lower case.
 fn parseAmPm(string: []const u8, idx_ptr: *usize) FormatError!ParserFlags {
     if (idx_ptr.* + 2 > string.len) return FormatError.InvalidFormat;
 
-    var flag = ParserFlags.OK;
-    flag = switch (std.ascii.toLower(string[idx_ptr.*])) {
+    const flag = switch (std.ascii.toLower(string[idx_ptr.*])) {
         'a' => ParserFlags.AM,
         'p' => ParserFlags.PM,
         else => return FormatError.InvalidFormat,
@@ -404,8 +401,8 @@ fn parseAmPm(string: []const u8, idx_ptr: *usize) FormatError!ParserFlags {
 
     idx_ptr.* += 1;
     if (std.ascii.toLower(string[idx_ptr.*]) != 'm') return FormatError.InvalidFormat;
-
     idx_ptr.* += 1;
+
     return flag;
 }
 
@@ -426,7 +423,7 @@ fn parseOffset(comptime T: type, string: []const u8, idx_ptr: *usize, maxDigits:
             idx_ptr.* += 1;
             return 0;
         },
-        else => return FormatError.InvalidCharacter, // must start with sign
+        else => return FormatError.InvalidCharacter, // must start with sign or UTC indicator
     }
 
     idx_ptr.* += 1;
@@ -489,7 +486,7 @@ pub fn parseISO8601(string: []const u8, idx_ptr: *usize) ZdtError!Datetime.Field
 
     parsing: switch (ISOParserState.Year) {
         .Year => {
-            fields.year = try parseExactNDigits(u16, string, idx_ptr, 4);
+            fields.year = try parseExactNDigits(i16, string, idx_ptr, 4);
             if (idx_ptr.* == string.len) return FormatError.InvalidFormat; // year-only not allowed
             if (string[idx_ptr.*] == '-') idx_ptr.* += 1; // opt. y-m separator
             if (idx_ptr.* >= string.len) break :parsing;
@@ -499,9 +496,9 @@ pub fn parseISO8601(string: []const u8, idx_ptr: *usize) ZdtError!Datetime.Field
             const doy = try parseExactNDigits(u16, string, idx_ptr, 3);
             if (doy == 0) return FormatError.InvalidFormat;
             if (doy > 365 + @as(u16, @intFromBool(cal.isLeapYear(fields.year)))) return FormatError.InvalidFormat;
-            const date = cal.rdToDate(cal.dateToRD([3]u16{ fields.year, 1, 1 }) + doy - 1);
-            fields.month = @truncate(date[1]);
-            fields.day = @truncate(date[2]);
+            const date = cal.rdToDate(cal.dateToRD(.{ .year = fields.year, .month = 1, .day = 1 }) + doy - 1);
+            fields.month = @truncate(date.month);
+            fields.day = @truncate(date.day);
             break :parsing;
         },
         .Month => {

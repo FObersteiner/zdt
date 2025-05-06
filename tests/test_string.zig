@@ -575,6 +575,10 @@ test "comptime parse with comptime format string #1" {
             .string = "1970-01-01 00:00:00",
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
         },
+        // .{
+        //     .string = "-1970-01-01 00:00:00",
+        //     .dt = try Datetime.fromFields(.{ .year = -1970 }),
+        // },
     };
 
     inline for (cases) |case| {
@@ -1125,43 +1129,43 @@ test "parse ISO with %T" {
 
 test "not ISO8601" {
     var err = Datetime.fromISO8601("2014000");
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014366"); // ordinal invald: 2014 is not a leap year
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2024367"); // ordinal invald: 2024 is a leap year but this has 366 days
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014"); // year-only not allowed
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-12-32"); // invalid day
-    try testing.expectError(error.DayOutOfRange, err);
+    try testing.expectError(ZdtError.DayOutOfRange, err);
 
     err = Datetime.fromISO8601("2014-12-31Z"); // date cannot have tz
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-12-31-12:15"); // - is not a date/time separator
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-2-03"); // 1-digit fields not allowed
-    try testing.expectError(error.InvalidCharacter, err);
+    try testing.expectError(ZdtError.InvalidCharacter, err);
 
     err = Datetime.fromISO8601("14-02-03"); // 2-digit year not allowed
-    try testing.expectError(error.InvalidCharacter, err);
+    try testing.expectError(ZdtError.InvalidCharacter, err);
 
     err = Datetime.fromISO8601("2014-02-03T13:60"); // invlid minute
-    try testing.expectError(error.MinuteOutOfRange, err);
+    try testing.expectError(ZdtError.MinuteOutOfRange, err);
 
     err = Datetime.fromISO8601("2014-02-03T24:00"); // invlid hour
-    try testing.expectError(error.HourOutOfRange, err);
+    try testing.expectError(ZdtError.HourOutOfRange, err);
 
     err = Datetime.fromISO8601("2014-02-03T23:00:00."); // ends with non-numeric
-    try testing.expectError(error.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidFormat, err);
 
     err = Datetime.fromISO8601("2014-02-03T23:00:00..314"); // invlid fractional secs separator
-    try testing.expectError(ZdtError.InvalidFormat, err);
+    try testing.expectError(ZdtError.InvalidCharacter, err);
 
     err = Datetime.fromISO8601("2014-08-23T12:15:56+-0200"); // invalid offset
     try testing.expectError(ZdtError.InvalidFormat, err);

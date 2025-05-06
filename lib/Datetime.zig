@@ -17,12 +17,19 @@ const RangeError = @import("./errors.zig").RangeError;
 const TzError = @import("./errors.zig").TzError;
 const ZdtError = @import("./errors.zig").ZdtError;
 
-pub const min_year: u16 = 1; // r.d.; 0001-01-01
-pub const max_year: u16 = 9999;
-pub const unix_s_min: i64 = -62135596800;
-pub const unix_s_max: i64 = 253402300799;
+/// Minimum year that can be represented. The value must be positive to
+/// avoid ambiguities when parsing datetime strings.
+pub const min_year: i16 = 0;
+
+/// Maximum year that can be represented. The value is limited to 4 digits
+/// to avoid ambiguities when parsing datetime strings.
+pub const max_year: i16 = 9999;
+
+pub const unix_s_min: i64 = -719528 * @as(i64, s_per_day); // 0000-01-01 00:00:00
+pub const unix_s_max: i64 = (2932897 * @as(i64, s_per_day)) - 1; // 9999-12-31 23:59:59
+
 pub const epoch = Datetime{ .year = 1970, .unix_sec = 0, .utc_offset = UTCoffset.UTC };
-pub const century: u16 = 2000;
+pub const century: i16 = 2000;
 
 const s_per_minute: u8 = 60;
 const s_per_hour: u16 = 3600;
@@ -34,7 +41,7 @@ const ns_per_s: u32 = 1_000_000_000;
 const Datetime = @This();
 
 /// Year. Do not modify directly.
-year: u16 = 1, // [1, 9999]
+year: i16 = 1, // [-32768, 32676]
 
 /// Month. Do not modify directly.
 month: u8 = 1, // [1, 12]
@@ -147,12 +154,12 @@ pub const Month = enum(u8) {
 
 /// Implementation of the ISO8601 leap week calendar system.
 pub const ISOCalendar = struct {
-    isoyear: u16, // [1, 9999]
+    isoyear: i16,
     isoweek: u8, // [1, 53]
     isoweekday: u8, // [1, 7]
 
     // Date of the first day of given ISO year
-    fn yearStartDate(iso_year: u16) ZdtError!Datetime {
+    fn yearStartDate(iso_year: i16) ZdtError!Datetime {
         const fourth_jan = try Datetime.fromFields(.{ .year = iso_year, .month = 1, .day = 4 });
         return fourth_jan.sub(
             Duration.fromTimespanMultiple(
@@ -178,7 +185,7 @@ pub const ISOCalendar = struct {
         if (string[4] != '-' or std.ascii.toLower(string[5]) != 'w' or string[8] != '-')
             return FormatError.InvalidFormat;
         return .{
-            .isoyear = try std.fmt.parseInt(u16, string[0..4], 10),
+            .isoyear = try std.fmt.parseInt(i16, string[0..4], 10),
             .isoweek = try std.fmt.parseInt(u8, string[6..8], 10),
             .isoweekday = try std.fmt.parseInt(u8, string[9..10], 10),
         };
@@ -193,8 +200,13 @@ pub const ISOCalendar = struct {
         _ = fmt;
         _ = options;
         try writer.print(
-            "{d:0>4}-W{d:0>2}-{d}",
-            .{ calendar.isoyear, calendar.isoweek, calendar.isoweekday },
+            "{s}{d:0>4}-W{d:0>2}-{d}",
+            .{
+                if (calendar.isoyear < 0) "-" else "",
+                @abs(calendar.isoyear),
+                calendar.isoweek,
+                calendar.isoweekday,
+            },
         );
     }
 };
@@ -213,7 +225,7 @@ pub const tz_options = union(tzOpts) {
 
 /// The fields of a datetime instance.
 pub const Fields = struct {
-    year: u16 = 1, // [1, 9999]
+    year: i16 = 1, // [1, 9999]
     month: u8 = 1, // [1, 12]
     day: u8 = 1, // [1, 32]
     hour: u8 = 0, // [0, 23]
@@ -224,7 +236,6 @@ pub const Fields = struct {
     tz_options: ?tz_options = null,
 
     pub fn validate(fields: Fields) RangeError!void {
-        if (fields.year > max_year or fields.year < min_year) return RangeError.YearOutOfRange;
         if (fields.month > 12 or fields.month < 1) return RangeError.MonthOutOfRange;
         const max_days = cal.daysInMonth(@truncate(fields.month), cal.isLeapYear(fields.year));
         if (fields.day > max_days or fields.day < 1) return RangeError.DayOutOfRange;
@@ -238,7 +249,7 @@ pub const Fields = struct {
 /// Datetime fields without timezone and UTC offset. All fields optional and undefined by default.
 /// Helper for `Datetime.replace()`.
 pub const OptFields = struct {
-    year: ?u16 = null,
+    year: ?i16 = null,
     month: ?u8 = null,
     day: ?u8 = null,
     hour: ?u8 = null,
@@ -252,9 +263,9 @@ pub const OptFields = struct {
 pub fn fromFields(fields: Fields) ZdtError!Datetime {
     _ = try fields.validate();
 
-    const d = cal.dateToRD([_]u16{ fields.year, fields.month, fields.day });
+    const d: i32 = cal.dateToRD(.{ .year = fields.year, .month = fields.month, .day = fields.day });
     // Note : need to truncate seconds to 59 so that Unix time is 'correct'
-    const s = if (fields.second == 60) 59 else fields.second;
+    const s: u8 = if (fields.second == 60) 59 else fields.second;
     var dt = Datetime{
         .year = fields.year,
         .month = fields.month,
@@ -264,9 +275,9 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         .second = fields.second,
         .nanosecond = fields.nanosecond,
         .unix_sec = ( //
-            @as(i40, d) * s_per_day +
-                @as(u17, fields.hour) * s_per_hour +
-                @as(u12, fields.minute) * s_per_minute + s //
+            @as(i64, d) * s_per_day +
+                @as(u32, fields.hour) * s_per_hour +
+                @as(u16, fields.minute) * s_per_minute + s //
         ),
     };
 
@@ -474,10 +485,10 @@ fn normalizeToUnix(dt: *Datetime) TzError!void {
 
     const s_after_midnight: i32 = @intCast(@mod(fake_unix, s_per_day));
     const days: i32 = @intCast(@divFloor(fake_unix, s_per_day));
-    const ymd: [3]u16 = cal.rdToDate(days);
-    dt.year = @intCast(ymd[0]);
-    dt.month = @intCast(ymd[1]);
-    dt.day = @intCast(ymd[2]);
+    const ymd: cal.Date = cal.rdToDate(days);
+    dt.year = @truncate(ymd.year);
+    dt.month = @intCast(ymd.month);
+    dt.day = @intCast(ymd.day);
     dt.hour = @intCast(@divFloor(s_after_midnight, s_per_hour));
     dt.minute = @intCast(@divFloor(@mod(s_after_midnight, s_per_hour), s_per_minute));
     dt.second = @intCast(@mod(s_after_midnight, s_per_minute));
@@ -577,8 +588,11 @@ pub fn floorTo(dt: *const Datetime, timespan: Duration.Timespan) ZdtError!Dateti
 /// The current time with nanosecond resolution.
 /// If 'null' is supplied as tz_options, naive datetime resembling UTC is returned.
 pub fn now(opts: ?tz_options) ZdtError!Datetime {
-    const t = std.time.nanoTimestamp();
-    return try Datetime.fromUnix(@intCast(t), Duration.Resolution.nanosecond, opts);
+    return try Datetime.fromUnix(
+        std.time.nanoTimestamp(),
+        Duration.Resolution.nanosecond,
+        opts,
+    );
 }
 
 /// Current UTC time is fail-safe since it contains a pre-defined time zone.
@@ -589,6 +603,16 @@ pub fn nowUTC() Datetime {
         Duration.Resolution.nanosecond,
         .{ .utc_offset = UTCoffset.UTC },
     ) catch unreachable;
+}
+
+/// Check if a datetime is within a leap year
+pub fn isLeapYear(dt: *const Datetime) bool {
+    return cal.isLeapYear(dt.year);
+}
+
+/// Check if a datetime is within February of a leap year
+pub fn isLeapMonth(dt: *const Datetime) bool {
+    return cal.isLeapMonth(dt.year, dt.month);
 }
 
 /// Compare two instances with respect to their Unix time.
@@ -649,14 +673,13 @@ pub fn addRelative(dt: *const Datetime, rel_delta: Duration.RelativeDelta) ZdtEr
         );
 
     const days_off: i32 = @intCast(nrd.days + nrd.weeks * 7 + new_time[4]);
-    var rd_day = cal.dateToRD([3]u16{ dt.year, @as(u16, dt.month), @as(u16, dt.day) });
+    var rd_day: i32 = cal.dateToRD(.{ .year = dt.year, .month = dt.month, .day = dt.day });
     rd_day = if (nrd.negative) rd_day - days_off else rd_day + days_off;
-    const new_date = cal.rdToDate(rd_day);
-
+    const new_date: cal.Date = cal.rdToDate(rd_day);
     var result: Fields = .{
-        .year = @truncate(new_date[0]),
-        .month = @truncate(new_date[1]),
-        .day = @truncate(new_date[2]),
+        .year = @truncate(new_date.year),
+        .month = @truncate(new_date.month),
+        .day = @truncate(new_date.day),
         .hour = @truncate(new_time[0]),
         .minute = @truncate(new_time[1]),
         .second = @truncate(new_time[2]),
@@ -761,14 +784,12 @@ pub fn monthEnum(dt: Datetime) Month {
 
 /// Number of the weekday starting at 0 == Sunday (strftime/strptime: `%w`).
 pub fn weekdayNumber(dt: Datetime) u8 {
-    const days = cal.dateToRD([3]u16{ dt.year, dt.month, dt.day });
-    return cal.weekdayFromUnixdays(days);
+    return cal.weekdayFromUnixdays(cal.dateToRD(.{ .year = dt.year, .month = dt.month, .day = dt.day }));
 }
 
 /// ISO-number of the weekday, starting at 1 == Monday (strftime/strptime: `%u`).
 pub fn weekdayIsoNumber(dt: Datetime) u8 {
-    const days = cal.dateToRD([3]u16{ dt.year, dt.month, dt.day });
-    return cal.ISOweekdayFromUnixdays(days);
+    return cal.ISOweekdayFromUnixdays(cal.dateToRD(.{ .year = dt.year, .month = dt.month, .day = dt.day }));
 }
 
 /// Roll datetime forward to the specified next weekday. Makes a new datetime.
@@ -799,7 +820,7 @@ pub fn previousWeekday(dt: Datetime, d: Weekday) Datetime {
 
 /// nth weekday of given month and year, returned as a Datetime.
 /// nth must be in range [1..5]; although 5 might return an error for certain year/month combinations.
-pub fn nthWeekday(year: u16, month: u8, wd: Weekday, nth: u8) ZdtError!Datetime {
+pub fn nthWeekday(year: i16, month: u8, wd: Weekday, nth: u8) ZdtError!Datetime {
     if (nth > 5 or nth == 0) return RangeError.DayOutOfRange;
     var dt = try Datetime.fromFields(.{ .year = year, .month = month });
     if (dt.weekday() != wd) dt = dt.nextWeekday(wd);
@@ -898,25 +919,25 @@ pub fn formatOffset(
 }
 
 /// Calculate the date of Easter (Gregorian calendar).
-pub fn EasterDate(year: u16) ZdtError!Datetime {
-    const ymd = cal.gregorianEaster(year);
+pub fn EasterDate(year: i16) ZdtError!Datetime {
+    const easterdate = cal.gregorianEaster(year);
     return try Datetime.fromFields(.{
-        .year = ymd[0],
-        .month = @truncate(ymd[1]),
-        .day = @truncate(ymd[2]),
+        .year = @truncate(easterdate.year),
+        .month = @truncate(easterdate.month),
+        .day = @truncate(easterdate.day),
     });
 }
 
-/// Julian calendar easter date.
+/// Julian calendar Easter date.
 ///
 /// Note that from year 1900 to 2099, 13 days must be added to the Julian
 /// calendar date to get the equivalent Gregorian calendar date.
-pub fn EasterDateJulian(year: u16) ZdtError!Datetime {
-    const ymd = cal.julianEaster(year);
+pub fn EasterDateJulian(year: i16) ZdtError!Datetime {
+    const ymd: cal.Date = cal.julianEaster(year);
     return try Datetime.fromFields(.{
-        .year = ymd[0],
-        .month = @truncate(ymd[1]),
-        .day = @truncate(ymd[2]),
+        .year = @truncate(ymd.year),
+        .month = @truncate(ymd.month),
+        .day = @truncate(ymd.day),
     });
 }
 
@@ -933,7 +954,7 @@ pub fn EasterDateJulian(year: u16) ZdtError!Datetime {
 /// For example
 /// ```
 /// std.debug.print("{%Y-%m}", .{dt});
-///   ...would evaluate to
+/// //  ...would evaluate to
 /// "2025-03"
 /// ```
 pub fn format(
@@ -946,8 +967,8 @@ pub fn format(
         return try str.tokenizeAndPrint(&dt, fmt, writer);
 
     try writer.print(
-        "{d:0>4}-{d:0>2}-{d:0>2}T{d:0>2}:{d:0>2}:{d:0>2}",
-        .{ dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second },
+        "{s}{d:0>4}-{d:0>2}-{d:0>2}T{d:0>2}:{d:0>2}:{d:0>2}",
+        .{ if (dt.year < 0) "-" else "", @abs(dt.year), dt.month, dt.day, dt.hour, dt.minute, dt.second },
     );
 
     if (options.precision) |p| switch (p) {
@@ -1021,7 +1042,7 @@ fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) TzErro
                     });
                 }
             }
-            // implicid 'else':
+            // implicit 'else':
             // if we do not have DST, are not surrounding timetypes
             return surrounding;
         },
@@ -1030,6 +1051,7 @@ fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) TzErro
 }
 
 // t1, t2: [hour, minute, second, nanosecond]
+// returns:  [hour, minute, second, nanosecond, day_change(0 or 1)]
 fn addTimes(t1: [4]u32, t2: [4]u32) [5]u32 {
     var new_sec: u32 = t1[2] + t2[2];
     var new_ns: u32 = t1[3] + t2[3];
@@ -1052,6 +1074,7 @@ fn addTimes(t1: [4]u32, t2: [4]u32) [5]u32 {
 }
 
 // t1, t2: [hour, minute, second, nanosecond]
+// returns:  [hour, minute, second, nanosecond, day_change(0 or 1)]
 fn subTimes(t1: [4]u32, t2: [4]u32) [5]u32 {
     var _t1 = [4]i32{
         @intCast(t1[0]), @intCast(t1[1]), @intCast(t1[2]), @intCast(t1[3]),

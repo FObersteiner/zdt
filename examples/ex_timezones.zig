@@ -18,6 +18,7 @@ pub fn main() !void {
     println("load timezone, dynamically allocated memory:", .{});
     var tz_berlin: Timezone = try Timezone.fromTzdata("Europe/Berlin", allocator);
     defer tz_berlin.deinit();
+    println("Info: {any}", .{tz_berlin});
     var now_berlin: Datetime = try Datetime.now(.{ .tz = &tz_berlin });
     const now_utc: Datetime = Datetime.nowUTC();
     println("Now, UTC time    : {s}", .{now_utc});
