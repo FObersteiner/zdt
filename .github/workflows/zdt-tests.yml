@@ -22,8 +22,8 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{matrix.os}}
     steps:
-      - uses: actions/checkout@main
-      - uses: mlugg/setup-zig@v1
+      - uses: actions/checkout@v3
+      - uses: mlugg/setup-zig@v2
         with:
           version: 0.14.0
       - run: zig build test
@@ -33,14 +33,14 @@ jobs:
         os: [ubuntu-latest]
     runs-on: ${{matrix.os}}
     steps:
-      - uses: actions/checkout@main
-      - uses: mlugg/setup-zig@v1
+      - uses: actions/checkout@v3
+      - uses: mlugg/setup-zig@v2
         with:
           version: master
       - run: zig build test
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@main
-      - uses: mlugg/setup-zig@v1
+      - uses: actions/checkout@v3
+      - uses: mlugg/setup-zig@v2
       - run: zig fmt --check build.zig lib/**/*.zig tests/*.zig
