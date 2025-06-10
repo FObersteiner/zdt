@@ -1001,11 +1001,23 @@ fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) TzErro
     switch (_tz.rules) {
         .tzif => {
             if (idx > 0)
-                surrounding[1] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx))].timetype.*;
+                surrounding[1] = _tz.rules.tzif.timetypes[
+                    _tz.rules.tzif.transitions[
+                        @as(u64, @intCast(idx))
+                    ].timetype_idx
+                ];
             if (idx >= 1)
-                surrounding[0] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx - 1))].timetype.*;
+                surrounding[0] = _tz.rules.tzif.timetypes[
+                    _tz.rules.tzif.transitions[
+                        @as(u64, @intCast(idx - 1))
+                    ].timetype_idx
+                ];
             if (idx > 0 and idx < _tz.rules.tzif.transitions.len - 1)
-                surrounding[2] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx + 1))].timetype.*;
+                surrounding[2] = _tz.rules.tzif.timetypes[
+                    _tz.rules.tzif.transitions[
+                        @as(u64, @intCast(idx + 1))
+                    ].timetype_idx
+                ];
             return surrounding;
         },
         .tzif_fixedsize => {
@@ -1021,7 +1033,7 @@ fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) TzErro
                         @as(u64, @intCast(idx - 1))
                     ].timetype_idx
                 ];
-            if (idx > 0 and idx < _tz.rules.tzif_fixedsize.transitions.len - 1)
+            if (idx > 0 and idx < _tz.rules.tzif_fixedsize.n_transitions - 1)
                 surrounding[2] = _tz.rules.tzif_fixedsize.__timetypes_data[
                     _tz.rules.tzif_fixedsize.__transitions_data[
                         @as(u64, @intCast(idx + 1))

@@ -10,7 +10,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 6, .patch = 7 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 6, .patch = 8 };
 
 const tzdb_tag = "2025b";
 

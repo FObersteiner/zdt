@@ -32,8 +32,10 @@ pub fn main() !void {
     });
 
     if (proc_update.stderr.len > 0) {
-        log.err("update command failed : {s}", .{proc_update.stderr});
-        // error might originate from pyenv bug... try to continue.
+        log.err("update command failed : {s} ({d})", .{ proc_update.stderr, proc_update.stderr.len });
+        allocator.free(proc_update.stdout);
+        allocator.free(proc_update.stderr);
+        return;
     }
 
     if (proc_update.stdout.len > 0) {
@@ -58,7 +60,7 @@ pub fn main() !void {
     });
 
     if (proc_tag.stderr.len > 0) {
-        log.err("update command failed : {s}", .{proc_update.stderr});
+        log.warn("tag checkout command : {s} ({d})", .{ proc_tag.stderr, proc_tag.stderr.len });
     }
     if (proc_tag.stdout.len > 0) {
         log.info("submodule update stdout: {s}", .{proc_update.stdout});
@@ -112,9 +114,7 @@ pub fn main() !void {
     const target_dir_copy = try std.fmt.bufPrint(&path_buffer, "{s}/usr/share/zoneinfo", .{tmp_dir});
 
     var src_dir = try std.fs.cwd().openDir(target_dir_copy, .{ .iterate = true });
-    errdefer src_dir.close();
     var dest_dir = try std.fs.cwd().makeOpenPath(target_dir_abs, .{});
-    errdefer dest_dir.close();
 
     log.info("copy stuff from {s} to {s}", .{ target_dir_copy, target_dir_abs });
 
@@ -125,12 +125,12 @@ pub fn main() !void {
         switch (entry.kind) {
             .file => {
                 entry.dir.copyFile(entry.basename, dest_dir, entry.path, .{}) catch |err| {
-                    log.warn("copy file: {}", .{err});
+                    log.info("copy file: {}", .{err});
                 };
             },
             .directory => {
                 dest_dir.makeDir(entry.path) catch |err| {
-                    log.warn("make dir: {}, path: {s}", .{ err, entry.path });
+                    log.info("make dir: {}, path: {s}", .{ err, entry.path });
                 };
             },
             else => return error.UnexpectedEntryKind,
@@ -144,13 +144,15 @@ pub fn main() !void {
 
     var del_dir = try std.fs.cwd().openDir(tmp_dir, .{ .iterate = true });
     defer del_dir.close();
-    try del_dir.deleteTree(tmp_dir);
+    _ = del_dir.deleteTree(tmp_dir) catch |err| {
+        log.info("del tmp : {}, path: {s}", .{ err, tmp_dir });
+    };
 
     const proc_wintzmapping = try std.process.Child.run(.{
         .cwd = source_dir_abs,
         .allocator = allocator,
         .argv = &[_][]const u8{
-            "python",
+            "python3",
             "../scripts/gen_wintz_mapping.py",
         },
     });
@@ -167,7 +169,7 @@ pub fn main() !void {
         .cwd = source_dir_abs,
         .allocator = allocator,
         .argv = &[_][]const u8{
-            "python",
+            "python3",
             "../scripts/gen_tzdb_embedding.py",
             tzdbtag.?,
         },

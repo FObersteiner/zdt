@@ -674,7 +674,7 @@ test "parse with abbreviated month and day name, locale-specific" {
 }
 
 test "parse with month name and day, user-defined locale" {
-    // TODO : does not work on Windows atm, need to have a look at this some other time...
+    // TODO : does not work on Windows atm...
     if (builtin.os.tag == .windows) return error.SkipZigTest;
 
     // Try to set a different locale. This might fail if the locale is not installed.
