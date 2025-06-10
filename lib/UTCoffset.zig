@@ -70,7 +70,7 @@ pub fn atUnixtime(tz: *const Timezone, unixtime: i64) TzError!UTCoffset {
         .tzif => {
             // If the tz only has one timetype (offset spec.): use this.
             // Otherwise try to determine it from the defined transitions.
-            const idx = if (tz.rules.tzif.timetypes.len == 1) -1 else findTransition(tz.rules.tzif.transitions, unixtime);
+            const idx = if (tz.rules.tzif.timetypes.len == 1) -1 else findTransitionIdx(&tz.rules.tzif.transitions, unixtime);
 
             const timet = switch (idx) {
                 -1 => blk: {
@@ -90,6 +90,7 @@ pub fn atUnixtime(tz: *const Timezone, unixtime: i64) TzError!UTCoffset {
 
                 // Unix time precedes defined range of transitions => use first entry in timetypes (likely a LMT)
                 -3 => tz.rules.tzif.timetypes[0],
+
                 else => tz.rules.tzif.transitions[@intCast(idx)].timetype.*,
             };
 
@@ -101,7 +102,10 @@ pub fn atUnixtime(tz: *const Timezone, unixtime: i64) TzError!UTCoffset {
             };
         },
         .tzif_fixedsize => { // same as .tzif but for the fixed-size structure
-            const idx = if (tz.rules.tzif_fixedsize.timetypes.len == 1) -1 else findTransition(tz.rules.tzif_fixedsize.transitions, unixtime);
+            const idx: i32 = if (tz.rules.tzif_fixedsize.timetypes.len == 1)
+                -1
+            else
+                findTransitionIdx(&tz.rules.tzif_fixedsize.transitions, unixtime);
 
             const timet = switch (idx) {
                 -1 => blk: {
@@ -110,13 +114,19 @@ pub fn atUnixtime(tz: *const Timezone, unixtime: i64) TzError!UTCoffset {
                 },
 
                 -2 => blk: {
-                    const psxtz = psx.parsePosixTzString(tz.rules.tzif_fixedsize.footer.?) catch return TzError.InvalidPosixTz;
+                    const psxtz = psx.parsePosixTzString(std.mem.sliceTo(tz.rules.tzif_fixedsize.__footer_data[0..], '\n')) catch
+                        return TzError.InvalidPosixTz;
                     if (psxtz.dst_offset) |_| return psxtz.utcOffsetAt(unixtime);
-                    break :blk tz.rules.tzif_fixedsize.transitions[tz.rules.tzif_fixedsize.transitions.len - 1].timetype.*;
+                    break :blk tz.rules.tzif_fixedsize.__timetypes_data[
+                        tz.rules.tzif_fixedsize.__transitions_data[
+                            tz.rules.tzif_fixedsize.transitions.len - 1
+                        ].timetype_idx
+                    ];
                 },
 
-                -3 => tz.rules.tzif_fixedsize.timetypes[0],
-                else => tz.rules.tzif_fixedsize.transitions[@intCast(idx)].timetype.*,
+                -3 => tz.rules.tzif_fixedsize.__timetypes_data[0],
+
+                else => tz.rules.tzif_fixedsize.__timetypes_data[tz.rules.tzif_fixedsize.__transitions_data[@intCast(idx)].timetype_idx],
             };
 
             return .{
@@ -170,22 +180,22 @@ pub fn format(
 /// -2 : target is larger than last transition element
 /// -3 : target is smaller than first transition element
 /// ```
-fn findTransition(array: []const tzif.Transition, target: i64) i32 {
-    if (array.len == 0) return -1;
+fn findTransitionIdx(transitions_ptr: *const []const tzif.Transition, target: i64) i32 {
+    if (transitions_ptr.*.len == 0) return -1;
     // we know that transitions in 'array' are sorted, so we can check first and last indices.
     // if 'target' is out of range, caller should fall back to using tz.timetype[0]
     // or tz.timetype[-1] resp.
-    if (target > array[array.len - 1].ts) return -2;
-    if (target < array[0].ts) return -3;
+    if (target > transitions_ptr.*[transitions_ptr.*.len - 1].ts) return -2;
+    if (target < transitions_ptr.*[0].ts) return -3;
 
     // now do a binary search:
     var left: usize = 0;
-    var right: usize = array.len - 1;
+    var right: usize = transitions_ptr.*.len - 1;
     while (left <= right) {
         const middle = left + @divFloor(right - left, 2);
-        if (array[middle].ts < target) {
+        if (transitions_ptr.*[middle].ts < target) {
             left = middle + 1;
-        } else if (array[middle].ts > target) {
+        } else if (transitions_ptr.*[middle].ts > target) {
             right = middle - 1;
         } else {
             return @as(i32, @intCast(middle));

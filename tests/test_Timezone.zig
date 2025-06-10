@@ -131,15 +131,6 @@ test "local tz db, from specified or default prefix" {
     try testing.expect(dt.tz != null);
     try testing.expectEqualStrings("CET", dt.tzAbbreviation());
     try testing.expectEqualStrings("Europe/Berlin", dt.tzName());
-
-    const tzinfo_noalloc = try Tz.fromSystemTzdata("Europe/Berlin", db, null);
-    dt = try Datetime.fromFields(.{ .year = 1970, .nanosecond = 1, .tz_options = .{ .tz = &tzinfo_noalloc } });
-    try testing.expect(dt.unix_sec == -3600);
-    try testing.expect(dt.hour == 0);
-    try testing.expect(dt.nanosecond == 1);
-    try testing.expect(dt.tz != null);
-    try testing.expectEqualStrings("CET", dt.tzAbbreviation());
-    try testing.expectEqualStrings("Europe/Berlin", dt.tzName());
 }
 
 test "embedded tzdata" {
@@ -156,6 +147,39 @@ test "embedded tzdata" {
 
     const err = Tz.fromTzdata("Not/Defined", testing.allocator);
     try testing.expectError(ZdtError.TzUndefined, err);
+}
+
+test "fixed size tz" {
+    var tzinfo_normal = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    defer tzinfo_normal.deinit();
+
+    var tzinfo_fixed = try Tz.fromTzdata("Europe/Berlin", null);
+    defer tzinfo_fixed.deinit();
+
+    try testing.expectEqual(tzinfo_normal.rules.tzif.transitions.len, tzinfo_fixed.rules.tzif_fixedsize.transitions.len);
+    try testing.expectEqual(tzinfo_normal.rules.tzif.timetypes.len, tzinfo_fixed.rules.tzif_fixedsize.timetypes.len);
+    // log.warn("{any}", .{tzinfo_normal.rules.tzif.timetypes[7]});
+    // log.warn("{any}", .{tzinfo_fixed.rules.tzif_fixedsize.timetypes[7]});
+
+    var off = try UTCoffset.atUnixtime(&tzinfo_fixed, 1735686000); // 2025-01-01
+    try testing.expectEqual(3600, off.seconds_east);
+    off = try UTCoffset.atUnixtime(&tzinfo_normal, 1735686000); // 2025-01-01
+    try testing.expectEqual(3600, off.seconds_east);
+
+    off = try UTCoffset.atUnixtime(&tzinfo_fixed, 1749546025); // 2025-06-10
+    try testing.expectEqual(7200, off.seconds_east);
+    off = try UTCoffset.atUnixtime(&tzinfo_normal, 1749546025); // 2025-06-10
+    try testing.expectEqual(7200, off.seconds_east);
+
+    var dt = try Datetime.fromFields(.{ .year = 2025, .nanosecond = 1, .tz_options = .{ .tz = &tzinfo_fixed } });
+    try testing.expect(dt.tz != null);
+    try testing.expect(dt.unix_sec == 1735686000);
+    try testing.expect(dt.hour == 0);
+    try testing.expect(dt.nanosecond == 1);
+    try testing.expectEqualStrings("CET", dt.tzAbbreviation());
+    try testing.expectEqualStrings("Europe/Berlin", dt.tzName());
+    dt = try dt.addRelative(.{ .months = 7 });
+    try testing.expectEqualStrings("CEST", dt.tzAbbreviation());
 }
 
 test "invalid tzfile name" {
@@ -1114,14 +1138,14 @@ test "load a lot of zones" {
 
     inline for (zones) |zone| {
         var tz_a = try Tz.fromTzdata(zone, testing.allocator);
-        const dt_a = try Datetime.fromUnix(1, Duration.Resolution.second, .{ .tz = &tz_a });
+        const dt_a = try Datetime.fromUnix(0, Duration.Resolution.second, .{ .tz = &tz_a });
         try testing.expect(dt_a.utc_offset != null);
         try testing.expectEqualStrings(zone, dt_a.tzName());
         tz_a.deinit();
 
         if (builtin.os.tag != .windows) {
             var tz_b = try Tz.fromSystemTzdata(zone, Tz.tzdb_prefix, testing.allocator);
-            const dt_b = try Datetime.fromUnix(1, Duration.Resolution.second, .{ .tz = &tz_b });
+            const dt_b = try Datetime.fromUnix(0, Duration.Resolution.second, .{ .tz = &tz_b });
             try testing.expect(dt_b.utc_offset != null);
             try testing.expectEqualStrings(zone, dt_b.tzName());
             tz_b.deinit();
@@ -1129,11 +1153,67 @@ test "load a lot of zones" {
     }
 }
 
+// TODO :
+// test "conversion between random time zones, no-alloc" {
+//     var tz_a = try Tz.fromTzdata("Africa/Luanda", null);
+//     var tz_b = try Tz.fromTzdata("Europe/Kaliningrad", null);
+
+//     var dt_a = try Datetime.fromUnix(-816207319, Duration.Resolution.second, .{ .tz = &tz_a });
+//     var dt_b = try Datetime.fromUnix(1921722761, Duration.Resolution.second, .{ .tz = &tz_b });
+//     var dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
+//     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
+
+//     var s_b = std.ArrayList(u8).init(testing.allocator);
+//     var s_c = std.ArrayList(u8).init(testing.allocator);
+//     defer s_b.deinit();
+//     defer s_c.deinit();
+
+//     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
+//     try testing.expectEqualStrings("2030-11-24T04:52:41+01:00:00", s_b.items);
+//     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
+//     try testing.expectEqualStrings("1944-02-20T04:44:41+01:00:00", s_c.items);
+
+//     s_b.clearAndFree();
+//     s_c.clearAndFree();
+
+//     tz_a = try Tz.fromTzdata("Europe/Sarajevo", null);
+//     tz_b = try Tz.fromTzdata("Pacific/Wallis", null);
+
+//     dt_a = try Datetime.fromUnix(1942114456, Duration.Resolution.second, .{ .tz = &tz_a });
+//     dt_b = try Datetime.fromUnix(-1893647018, Duration.Resolution.second, .{ .tz = &tz_b });
+//     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
+//     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
+
+//     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
+//     try testing.expectEqualStrings("1909-12-29T19:56:22+01:00:00", s_b.items);
+//     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
+//     try testing.expectEqualStrings("2031-07-18T16:14:16+12:00:00", s_c.items);
+
+//     s_b.clearAndFree();
+//     s_c.clearAndFree();
+
+//     tz_a = try Tz.fromTzdata("America/Caracas", null);
+//     tz_b = try Tz.fromTzdata("Europe/Vienna", null);
+
+//     dt_a = try Datetime.fromUnix(-485869856, Duration.Resolution.second, .{ .tz = &tz_a });
+//     dt_b = try Datetime.fromUnix(-1894391592, Duration.Resolution.second, .{ .tz = &tz_b });
+//     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
+//     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
+
+//     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
+//     try testing.expectEqualStrings("1909-12-20T23:39:08-04:27:40", s_b.items);
+//     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
+//     try testing.expectEqualStrings("1954-08-09T13:09:04+01:00:00", s_c.items);
+
+//     s_b.clearAndFree();
+//     s_c.clearAndFree();
+// }
+
 // the following test is auto-generated by gen_test_tzones.py. do not edit this line and below.
 
 test "conversion between random time zones" {
-    var tz_a = try Tz.fromTzdata("Africa/Luanda", std.testing.allocator);
-    var tz_b = try Tz.fromTzdata("Europe/Kaliningrad", null);
+    var tz_a = try Tz.fromTzdata("America/Coyhaique", testing.allocator);
+    var tz_b = try Tz.fromTzdata("America/Indiana/Vincennes", testing.allocator);
 
     var dt_a = try Datetime.fromUnix(-816207319, Duration.Resolution.second, .{ .tz = &tz_a });
     var dt_b = try Datetime.fromUnix(1921722761, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1146,17 +1226,17 @@ test "conversion between random time zones" {
     defer s_c.deinit();
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("2030-11-24T04:52:41+01:00:00", s_b.items);
+    try testing.expectEqualStrings("2030-11-24T00:52:41-03:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1944-02-20T04:44:41+01:00:00", s_c.items);
+    try testing.expectEqualStrings("1944-02-19T22:44:41-05:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Europe/Sarajevo", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Pacific/Wallis", null);
+    tz_a = try Tz.fromTzdata("UCT", testing.allocator);
+    tz_b = try Tz.fromTzdata("Etc/GMT+10", testing.allocator);
 
     dt_a = try Datetime.fromUnix(1942114456, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1893647018, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1164,17 +1244,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1909-12-29T19:56:22+01:00:00", s_b.items);
+    try testing.expectEqualStrings("1909-12-29T18:56:22+00:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("2031-07-18T16:14:16+12:00:00", s_c.items);
+    try testing.expectEqualStrings("2031-07-17T18:14:16-10:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Panama", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Cuba", null);
+    tz_a = try Tz.fromTzdata("America/Santa_Isabel", testing.allocator);
+    tz_b = try Tz.fromTzdata("America/Virgin", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1128113058, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(1223021131, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1182,17 +1262,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("2008-10-03T03:05:31-05:00:00", s_b.items);
+    try testing.expectEqualStrings("2008-10-03T01:05:31-07:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1934-04-02T22:15:42-05:00:00", s_c.items);
+    try testing.expectEqualStrings("1934-04-02T23:15:42-04:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Africa/Windhoek", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Asia/Aden", null);
+    tz_a = try Tz.fromTzdata("America/Caracas", testing.allocator);
+    tz_b = try Tz.fromTzdata("Europe/Vienna", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-485869856, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1894391592, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1200,17 +1280,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1909-12-21T06:06:48+02:00:00", s_b.items);
+    try testing.expectEqualStrings("1909-12-20T23:39:08-04:27:40", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1954-08-09T15:09:04+03:00:00", s_c.items);
+    try testing.expectEqualStrings("1954-08-09T13:09:04+01:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Africa/Lusaka", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("America/Panama", null);
+    tz_a = try Tz.fromTzdata("America/Kentucky/Monticello", testing.allocator);
+    tz_b = try Tz.fromTzdata("America/Santa_Isabel", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-999522008, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(719055854, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1218,17 +1298,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1992-10-14T11:44:14+02:00:00", s_b.items);
+    try testing.expectEqualStrings("1992-10-14T04:44:14-05:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1938-04-30T05:59:52-05:00:00", s_c.items);
+    try testing.expectEqualStrings("1938-04-30T02:59:52-08:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Etc/GMT+5", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Asia/Srednekolymsk", null);
+    tz_a = try Tz.fromTzdata("Asia/Irkutsk", testing.allocator);
+    tz_b = try Tz.fromTzdata("Canada/Pacific", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1389478107, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-195234029, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1236,17 +1316,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1963-10-25T03:19:31-05:00:00", s_b.items);
+    try testing.expectEqualStrings("1963-10-25T16:19:31+08:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1925-12-21T11:51:33+10:00:00", s_c.items);
+    try testing.expectEqualStrings("1925-12-20T17:51:33-08:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Australia/Perth", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Universal", null);
+    tz_a = try Tz.fromTzdata("America/Dawson", testing.allocator);
+    tz_b = try Tz.fromTzdata("Asia/Aqtobe", testing.allocator);
 
     dt_a = try Datetime.fromUnix(794111713, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1262529920, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1254,17 +1334,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1929-12-29T17:14:40+08:00:00", s_b.items);
+    try testing.expectEqualStrings("1929-12-29T00:14:40-09:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1995-03-02T02:35:13+00:00:00", s_c.items);
+    try testing.expectEqualStrings("1995-03-02T07:35:13+05:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Australia/Darwin", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Asia/Makassar", null);
+    tz_a = try Tz.fromTzdata("Australia/West", testing.allocator);
+    tz_b = try Tz.fromTzdata("Singapore", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1846174622, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(364596200, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1272,17 +1352,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1981-07-22T06:13:20+09:30:00", s_b.items);
+    try testing.expectEqualStrings("1981-07-22T04:43:20+08:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1911-07-02T13:40:34+07:57:36", s_c.items);
+    try testing.expectEqualStrings("1911-07-02T12:42:58+07:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Asia/Ashgabat", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Europe/Simferopol", null);
+    tz_a = try Tz.fromTzdata("America/Rio_Branco", testing.allocator);
+    tz_b = try Tz.fromTzdata("Africa/Libreville", testing.allocator);
 
     dt_a = try Datetime.fromUnix(1967326856, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(142696408, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1290,17 +1370,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1974-07-10T18:53:28+05:00:00", s_b.items);
+    try testing.expectEqualStrings("1974-07-10T08:53:28-05:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("2032-05-05T02:40:56+03:00:00", s_c.items);
+    try testing.expectEqualStrings("2032-05-05T00:40:56+01:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Asia/Bahrain", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Australia/Currie", null);
+    tz_a = try Tz.fromTzdata("Asia/Tbilisi", testing.allocator);
+    tz_b = try Tz.fromTzdata("America/Toronto", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-865972273, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-639392452, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1308,17 +1388,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1949-09-27T18:59:08+04:00:00", s_b.items);
+    try testing.expectEqualStrings("1949-09-27T17:59:08+03:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1942-07-24T14:08:47+10:00:00", s_c.items);
+    try testing.expectEqualStrings("1942-07-24T00:08:47-04:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Europe/Moscow", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Jamaica", null);
+    tz_a = try Tz.fromTzdata("Asia/Harbin", testing.allocator);
+    tz_b = try Tz.fromTzdata("Indian/Chagos", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1571932065, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-782078436, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1326,17 +1406,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1945-03-21T06:59:24+03:00:00", s_b.items);
+    try testing.expectEqualStrings("1945-03-21T12:59:24+09:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1920-03-10T03:12:15-05:00:00", s_c.items);
+    try testing.expectEqualStrings("1920-03-10T13:12:15+05:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Australia/Lindeman", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Europe/Moscow", null);
+    tz_a = try Tz.fromTzdata("Pacific/Kosrae", testing.allocator);
+    tz_b = try Tz.fromTzdata("Asia/Harbin", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1516539100, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(986091715, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1344,17 +1424,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("2001-04-01T12:21:55+10:00:00", s_b.items);
+    try testing.expectEqualStrings("2001-04-01T13:21:55+11:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1921-12-11T14:08:20+03:00:00", s_c.items);
+    try testing.expectEqualStrings("1921-12-11T19:08:20+08:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Asia/Colombo", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Asia/Chita", null);
+    tz_a = try Tz.fromTzdata("Etc/GMT-4", testing.allocator);
+    tz_b = try Tz.fromTzdata("Etc/GMT+2", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1215106914, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-487293440, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1362,17 +1442,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1954-07-24T06:12:40+05:30:00", s_b.items);
+    try testing.expectEqualStrings("1954-07-24T04:42:40+04:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1931-07-01T15:18:06+09:00:00", s_c.items);
+    try testing.expectEqualStrings("1931-07-01T04:18:06-02:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Asia/Ujung_Pandang", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Asia/Dacca", null);
+    tz_a = try Tz.fromTzdata("America/Noronha", testing.allocator);
+    tz_b = try Tz.fromTzdata("Europe/Tiraspol", testing.allocator);
 
     dt_a = try Datetime.fromUnix(1367598722, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1473054982, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1380,17 +1460,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1923-04-29T02:01:14+07:57:36", s_b.items);
+    try testing.expectEqualStrings("1923-04-28T16:03:38-02:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("2013-05-03T22:32:02+06:00:00", s_c.items);
+    try testing.expectEqualStrings("2013-05-03T19:32:02+03:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Asia/Nicosia", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Indian/Chagos", null);
+    tz_a = try Tz.fromTzdata("Europe/Moscow", testing.allocator);
+    tz_b = try Tz.fromTzdata("EET", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-260468215, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1511958403, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1398,17 +1478,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1922-02-02T13:33:17+02:00:00", s_b.items);
+    try testing.expectEqualStrings("1922-02-02T14:33:17+03:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1961-09-30T12:43:05+05:00:00", s_c.items);
+    try testing.expectEqualStrings("1961-09-30T09:43:05+02:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Guadeloupe", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("MST7MDT", null);
+    tz_a = try Tz.fromTzdata("Pacific/Wallis", testing.allocator);
+    tz_b = try Tz.fromTzdata("America/Cuiaba", testing.allocator);
 
     dt_a = try Datetime.fromUnix(824105261, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(477126985, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1416,17 +1496,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1985-02-13T03:16:25-04:00:00", s_b.items);
+    try testing.expectEqualStrings("1985-02-13T19:16:25+12:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1996-02-11T23:07:41-07:00:00", s_c.items);
+    try testing.expectEqualStrings("1996-02-12T02:07:41-04:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Coral_Harbour", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Etc/GMT-1", null);
+    tz_a = try Tz.fromTzdata("Brazil/DeNoronha", testing.allocator);
+    tz_b = try Tz.fromTzdata("Europe/Tallinn", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-444856409, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-2017440120, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1434,17 +1514,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1906-01-26T18:38:24-05:19:36", s_b.items);
+    try testing.expectEqualStrings("1906-01-26T21:48:20-02:09:40", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1955-11-27T05:46:31+01:00:00", s_c.items);
+    try testing.expectEqualStrings("1955-11-27T07:46:31+03:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Africa/Libreville", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("America/Adak", null);
+    tz_a = try Tz.fromTzdata("Asia/Makassar", testing.allocator);
+    tz_b = try Tz.fromTzdata("Australia/Darwin", testing.allocator);
 
     dt_a = try Datetime.fromUnix(2081029752, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(230882752, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1452,17 +1532,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1977-04-26T07:05:52+01:00:00", s_b.items);
+    try testing.expectEqualStrings("1977-04-26T14:05:52+08:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("2035-12-11T13:49:12-10:00:00", s_c.items);
+    try testing.expectEqualStrings("2035-12-12T09:19:12+09:30:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Shiprock", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("America/Fort_Nelson", null);
+    tz_a = try Tz.fromTzdata("ROK", testing.allocator);
+    tz_b = try Tz.fromTzdata("America/Whitehorse", testing.allocator);
 
     dt_a = try Datetime.fromUnix(1751368983, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(693621470, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1470,7 +1550,7 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1991-12-24T17:37:50-07:00:00", s_b.items);
+    try testing.expectEqualStrings("1991-12-25T09:37:50+09:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
     try testing.expectEqualStrings("2025-07-01T04:23:03-07:00:00", s_c.items);
 
@@ -1479,8 +1559,8 @@ test "conversion between random time zones" {
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Pacific/Samoa", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("America/Indiana/Tell_City", null);
+    tz_a = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
+    tz_b = try Tz.fromTzdata("HST", testing.allocator);
 
     dt_a = try Datetime.fromUnix(715858672, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-373086081, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1488,17 +1568,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1958-03-06T09:58:39-11:00:00", s_b.items);
+    try testing.expectEqualStrings("1958-03-06T21:58:39+01:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1992-09-07T04:37:52-05:00:00", s_c.items);
+    try testing.expectEqualStrings("1992-09-06T23:37:52-10:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Europe/Vienna", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Australia/Hobart", null);
+    tz_a = try Tz.fromTzdata("America/Argentina/Mendoza", testing.allocator);
+    tz_b = try Tz.fromTzdata("Europe/Mariehamn", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-293022949, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1445358615, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1506,17 +1586,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1924-03-14T08:29:45+01:00:00", s_b.items);
+    try testing.expectEqualStrings("1924-03-14T03:29:45-04:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1960-09-18T22:44:11+10:00:00", s_c.items);
+    try testing.expectEqualStrings("1960-09-18T14:44:11+02:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Asia/Kashgar", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("US/Eastern", null);
+    tz_a = try Tz.fromTzdata("America/North_Dakota/Beulah", testing.allocator);
+    tz_b = try Tz.fromTzdata("Asia/Aqtau", testing.allocator);
 
     dt_a = try Datetime.fromUnix(560485083, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(2064615505, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1524,17 +1604,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("2035-06-05T06:18:25+06:00:00", s_b.items);
+    try testing.expectEqualStrings("2035-06-04T19:18:25-05:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1987-10-05T22:18:03-04:00:00", s_c.items);
+    try testing.expectEqualStrings("1987-10-06T07:18:03+05:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Africa/Dakar", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Africa/Timbuktu", null);
+    tz_a = try Tz.fromTzdata("Africa/Bangui", testing.allocator);
+    tz_b = try Tz.fromTzdata("Europe/Skopje", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1010224506, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(579644539, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1542,17 +1622,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1988-05-14T20:22:19+00:00:00", s_b.items);
+    try testing.expectEqualStrings("1988-05-14T21:22:19+01:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1937-12-27T14:04:54+00:00:00", s_c.items);
+    try testing.expectEqualStrings("1937-12-27T15:04:54+01:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Asuncion", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("America/Mexico_City", null);
+    tz_a = try Tz.fromTzdata("Brazil/West", testing.allocator);
+    tz_b = try Tz.fromTzdata("Asia/Khandyga", testing.allocator);
 
     dt_a = try Datetime.fromUnix(42640281, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1385885032, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1560,17 +1640,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1926-01-31T12:05:28-03:50:40", s_b.items);
+    try testing.expectEqualStrings("1926-01-31T11:56:08-04:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1971-05-09T06:31:21-06:00:00", s_c.items);
+    try testing.expectEqualStrings("1971-05-09T21:31:21+09:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Guadeloupe", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Africa/Nouakchott", null);
+    tz_a = try Tz.fromTzdata("Pacific/Wallis", testing.allocator);
+    tz_b = try Tz.fromTzdata("America/Anchorage", testing.allocator);
 
     dt_a = try Datetime.fromUnix(1094749082, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(775994453, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1578,17 +1658,17 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1994-08-04T06:00:53-04:00:00", s_b.items);
+    try testing.expectEqualStrings("1994-08-04T22:00:53+12:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("2004-09-09T16:58:02+00:00:00", s_c.items);
+    try testing.expectEqualStrings("2004-09-09T08:58:02-08:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();
     s_b.clearAndFree();
     s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("NZ", std.testing.allocator);
-    tz_b = try Tz.fromTzdata("Africa/Sao_Tome", null);
+    tz_a = try Tz.fromTzdata("America/Argentina/Cordoba", testing.allocator);
+    tz_b = try Tz.fromTzdata("America/Anguilla", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-44705548, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(788932013, Duration.Resolution.second, .{ .tz = &tz_b });
@@ -1596,9 +1676,9 @@ test "conversion between random time zones" {
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
     try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1995-01-01T16:46:53+13:00:00", s_b.items);
+    try testing.expectEqualStrings("1995-01-01T00:46:53-03:00:00", s_b.items);
     try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1968-08-01T13:47:32+00:00:00", s_c.items);
+    try testing.expectEqualStrings("1968-08-01T09:47:32-04:00:00", s_c.items);
 
     tz_a.deinit();
     tz_b.deinit();

@@ -25,11 +25,20 @@ pub const min_year: i16 = 0;
 /// to avoid ambiguities when parsing datetime strings.
 pub const max_year: i16 = 9999;
 
-pub const unix_s_min: i64 = -719528 * @as(i64, s_per_day); // 0000-01-01 00:00:00
-pub const unix_s_max: i64 = (2932897 * @as(i64, s_per_day)) - 1; // 9999-12-31 23:59:59
+/// 0000-01-01 00:00:00
+pub const unix_s_min: i64 = -719528 * @as(i64, s_per_day);
 
+/// 9999-12-31 23:59:59
+pub const unix_s_max: i64 = (2932897 * @as(i64, s_per_day)) - 1;
+
+/// The Unix epoch
 pub const epoch = Datetime{ .year = 1970, .unix_sec = 0, .utc_offset = UTCoffset.UTC };
+
+/// The current century
 pub const century: i16 = 2000;
+
+/// Microseconds between 1970-01-01 and 2000-01-01
+pub const us_from_epoch_to_y2k: i64 = 946_684_800_000_000;
 
 const s_per_minute: u8 = 60;
 const s_per_hour: u16 = 3600;
@@ -311,7 +320,8 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
     // Now we're left with a 'real' time zone, which is more complicated.
     // We have already calculated a 'localized' Unix time, as dt.unix_sec.
     // For that, We can obtain a UTC offset, subtract it and see if we get the same datetime.
-    const local_offset = try UTCoffset.atUnixtime(dt.tz.?, dt.unix_sec);
+    const local_offset: UTCoffset = try UTCoffset.atUnixtime(dt.tz.?, dt.unix_sec);
+
     const unix_guess_1 = dt.unix_sec - local_offset.seconds_east;
     var dt_guess_1 = try Datetime.fromUnix(
         unix_guess_1,
@@ -983,63 +993,52 @@ pub fn format(
 
 /// Surrounding timetypes at a given transition index. This index might be
 /// negative to indicate out-of-range values.
-fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) TzError![3]?*tzif.Timetype {
+fn getSurroundingTimetypes(local_offset: UTCoffset, _tz: *const Timezone) TzError![3]?tzif.Timetype {
     const idx = local_offset.__transition_index;
-    var surrounding = [3]?*tzif.Timetype{ null, null, null };
+    var surrounding = [3]?tzif.Timetype{ null, null, null };
     const dummy: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 };
+
     switch (_tz.rules) {
         .tzif => {
             if (idx > 0)
-                surrounding[1] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx))].timetype;
+                surrounding[1] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx))].timetype.*;
             if (idx >= 1)
-                surrounding[0] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx - 1))].timetype;
+                surrounding[0] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx - 1))].timetype.*;
             if (idx > 0 and idx < _tz.rules.tzif.transitions.len - 1)
-                surrounding[2] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx + 1))].timetype;
+                surrounding[2] = _tz.rules.tzif.transitions[@as(u64, @intCast(idx + 1))].timetype.*;
             return surrounding;
         },
         .tzif_fixedsize => {
             if (idx > 0)
-                surrounding[1] = _tz.rules.tzif_fixedsize.transitions[@as(u64, @intCast(idx))].timetype;
+                surrounding[1] = _tz.rules.tzif_fixedsize.__timetypes_data[
+                    _tz.rules.tzif_fixedsize.__transitions_data[
+                        @as(u64, @intCast(idx))
+                    ].timetype_idx
+                ];
             if (idx >= 1)
-                surrounding[0] = _tz.rules.tzif_fixedsize.transitions[@as(u64, @intCast(idx - 1))].timetype;
+                surrounding[0] = _tz.rules.tzif_fixedsize.__timetypes_data[
+                    _tz.rules.tzif_fixedsize.__transitions_data[
+                        @as(u64, @intCast(idx - 1))
+                    ].timetype_idx
+                ];
             if (idx > 0 and idx < _tz.rules.tzif_fixedsize.transitions.len - 1)
-                surrounding[2] = _tz.rules.tzif_fixedsize.transitions[@as(u64, @intCast(idx + 1))].timetype;
+                surrounding[2] = _tz.rules.tzif_fixedsize.__timetypes_data[
+                    _tz.rules.tzif_fixedsize.__transitions_data[
+                        @as(u64, @intCast(idx + 1))
+                    ].timetype_idx
+                ];
             return surrounding;
         },
         .posixtz => {
             if (_tz.rules.posixtz.dst_offset) |dst_offset| { // do we have DST at all ?
                 if (local_offset.is_dst) {
-                    surrounding[0] = @constCast(&tzif.Timetype{
-                        .offset = _tz.rules.posixtz.std_offset,
-                        .flags = 2,
-                        .name_data = dummy,
-                    });
-                    surrounding[1] = @constCast(&tzif.Timetype{
-                        .offset = dst_offset,
-                        .flags = 1,
-                        .name_data = dummy,
-                    });
-                    surrounding[2] = @constCast(&tzif.Timetype{
-                        .offset = _tz.rules.posixtz.std_offset,
-                        .flags = 2,
-                        .name_data = dummy,
-                    });
+                    surrounding[0] = (tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
+                    surrounding[1] = (tzif.Timetype{ .offset = dst_offset, .flags = 1, .name_data = dummy });
+                    surrounding[2] = (tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
                 } else {
-                    surrounding[0] = @constCast(&tzif.Timetype{
-                        .offset = dst_offset,
-                        .flags = 1,
-                        .name_data = dummy,
-                    });
-                    surrounding[1] = @constCast(&tzif.Timetype{
-                        .offset = _tz.rules.posixtz.std_offset,
-                        .flags = 2,
-                        .name_data = dummy,
-                    });
-                    surrounding[2] = @constCast(&tzif.Timetype{
-                        .offset = dst_offset,
-                        .flags = 1,
-                        .name_data = dummy,
-                    });
+                    surrounding[0] = (tzif.Timetype{ .offset = dst_offset, .flags = 1, .name_data = dummy });
+                    surrounding[1] = (tzif.Timetype{ .offset = _tz.rules.posixtz.std_offset, .flags = 2, .name_data = dummy });
+                    surrounding[2] = (tzif.Timetype{ .offset = dst_offset, .flags = 1, .name_data = dummy });
                 }
             }
             // implicit 'else':
@@ -1103,4 +1102,21 @@ fn subTimes(t1: [4]u32, t2: [4]u32) [5]u32 {
     if (day_change) new_h += 24;
 
     return [5]u32{ @intCast(new_h), new_min, new_sec, new_ns, @intFromBool(day_change) };
+}
+
+/// postgres-specific constants
+const pg_oids = struct {
+    const timestamp_oid = 1114;
+    const timestamptz_oid = 1184;
+};
+
+/// Make a datetime from postgres raw data / 8 bytes representing an i64 (big endian).
+pub fn fromPgzRow(data: []const u8, oid: i32) !Datetime {
+    assert(data.len >= 8);
+    assert(oid == pg_oids.timestamp_oid or oid == pg_oids.timestamptz_oid);
+    const millenium_micros: i128 = std.mem.readInt(i64, data[0..8], .big);
+    // PostgreSQL stores times from the 2k millenium instead of the Unix epoch.
+    const micros: i128 = millenium_micros + us_from_epoch_to_y2k;
+
+    return fromUnix(micros, .microsecond, .{ .tz = &Timezone.UTC });
 }

@@ -23,8 +23,13 @@ pub fn main() !void {
     const posixTz = try Timezone.fromPosixTz("GMT0BST-1,M3.5.0/1:00,M10.5.0/2:00");
     var a_date_posix_tz = try a_date.tzConvert(.{ .tz = &posixTz });
     println("datetime in posix tz: {s}", .{a_date_posix_tz});
-    println("posix tz name: {s}", .{a_date_posix_tz.tzName()});
-    println("posix tz offset name: {s}", .{a_date_posix_tz.tzAbbreviation()});
+    println("  posix tz name: {s}", .{a_date_posix_tz.tzName()});
+    println("  posix tz offset name: {s}", .{a_date_posix_tz.tzAbbreviation()});
+
+    const another_date = try Datetime.fromFields(.{ .year = 1970, .month = 8, .tz_options = .{ .tz = &posixTz } });
+    println("another datetime in posix tz: {s}", .{another_date});
+    println("  posix tz name: {s}", .{another_date.tzName()});
+    println("  posix tz offset name: {s}", .{another_date.tzAbbreviation()});
 }
 
 fn println(comptime fmt: []const u8, args: anytype) void {
