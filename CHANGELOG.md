@@ -13,11 +13,21 @@ Types of changes
 
 ## [Unreleased]
 
+### Added
+
+- Datetime formatter / printing: add option to print any number of digits (0-9) for the fractional seconds by using the `{s:.n}` notation, with `n` specifying the number of digits.
+- `zdt-types` example, size of the timezone database
+
+### Fixed
+
+- links in API overview docs (<https://codeberg.org/FObersteiner/zdt/src/branch/main/docs/02-API-overview.md>)
+- `zdt-types` example, size of `UTCOffset`
+
 ## 2025-06-10, v0.6.8
 
 ### Changed
 
-- Re-enable all tests that were still disabled in v0.6.7.
+- Re-enable all tests that were disabled in v0.6.7.
 
 ### Fixed
 

@@ -6,11 +6,13 @@
 
 ## unspecified
 
+- host/run docs and CI on codeberg
+
 - experiment with comptime-generation of timezone database
 
-- iso-caledar parsing / formatting with %G %V %u directives
+- iso-caledar parsing and formatting with %G %V %u directives
 
-- improve parser flagging
+- improve parser flagging?
 
 - Windows: DST disabled tz (#1)
 
@@ -22,4 +24,4 @@
 
 ## see also
 
-- [issues](https://github.com/FObersteiner/zdt/issues)
+- [issues](https://codeberg.org/FObersteiner/zdt/issues)

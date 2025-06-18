@@ -22,7 +22,7 @@ with open(dst, "w") as fp:
 
     print('const std = @import("std");\n', file=fp)
     print(
-        """pub fn sizeOftzdata() usize {
+        """pub fn sizeOfTZdata() usize {
     var s: usize = 0;
     for (tzdata.keys()) |zone| {
         if (tzdata.get(zone)) |TZifBytes| s += TZifBytes.len;

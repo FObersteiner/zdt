@@ -1,8 +1,8 @@
-# String <--> Datetine
+# String <--> Datetime
 
 ## string parsing, string generation
 
-Available (✔), planned (o) and not-planned (-) directives as of `zdt` v0.6.4:
+Available (✔), maybe (o) and not-planned (-) directives as of `zdt` v0.6.9:
 
 | directive   | parse   | format   | example                                                                      | meaning (see also: technical notes)                                                                                                                                              |
 |:------------|:--------|:---------|:-----------------------------------------------------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

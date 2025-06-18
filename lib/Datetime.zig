@@ -982,8 +982,15 @@ pub fn format(
     );
 
     if (options.precision) |p| switch (p) {
+        0 => {},
+        1 => try writer.print(".{d:0>1}", .{dt.nanosecond / 1_000_000_00}),
+        2 => try writer.print(".{d:0>2}", .{dt.nanosecond / 1_000_000_0}),
         3 => try writer.print(".{d:0>3}", .{dt.nanosecond / 1_000_000}),
+        4 => try writer.print(".{d:0>4}", .{dt.nanosecond / 1_000_00}),
+        5 => try writer.print(".{d:0>5}", .{dt.nanosecond / 1_000_0}),
         6 => try writer.print(".{d:0>6}", .{dt.nanosecond / 1_000}),
+        7 => try writer.print(".{d:0>7}", .{dt.nanosecond / 100}),
+        8 => try writer.print(".{d:0>8}", .{dt.nanosecond / 10}),
         9 => try writer.print(".{d:0>9}", .{dt.nanosecond}),
         else => if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond}),
     } else if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond});

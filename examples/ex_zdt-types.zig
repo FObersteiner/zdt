@@ -8,7 +8,7 @@ const Timezone = zdt.Timezone;
 const UTCoffset = zdt.UTCoffset;
 
 pub fn main() !void {
-    println("OS / architecture: {s} / {s}", .{ @tagName(builtin.os.tag), @tagName(builtin.cpu.arch) });
+    println("OS: {s}, architecture: {s}", .{ @tagName(builtin.os.tag), @tagName(builtin.cpu.arch) });
     println("Zig version: {s}\n", .{builtin.zig_version_string});
 
     println("---> Datetime", .{});
@@ -19,9 +19,9 @@ pub fn main() !void {
     println("", .{});
 
     println("---> Duration", .{});
-    println("size of {s}: {} bytes", .{ @typeName(zdt.Duration), @sizeOf(zdt.Duration) });
-    inline for (std.meta.fields(zdt.Duration)) |field| {
-        println("  field {s} byte offset: {}", .{ field.name, @offsetOf(zdt.Duration, field.name) });
+    println("size of {s}: {} bytes", .{ @typeName(Duration), @sizeOf(Duration) });
+    inline for (std.meta.fields(Duration)) |field| {
+        println("  field {s} byte offset: {}", .{ field.name, @offsetOf(Duration, field.name) });
     }
     println("", .{});
 
@@ -32,8 +32,12 @@ pub fn main() !void {
     }
     println("", .{});
 
+    println("---> Timezone Database", .{});
+    println("  {d} bytes", .{Timezone.sizeOfTZdata()});
+    println("", .{});
+
     println("---> UTCoffset", .{});
-    println("size of {s}: {} bytes", .{ @typeName(UTCoffset), @sizeOf(Datetime) });
+    println("size of {s}: {} bytes", .{ @typeName(UTCoffset), @sizeOf(UTCoffset) });
     inline for (std.meta.fields(UTCoffset)) |field| {
         println("  field {s} byte offset: {}", .{ field.name, @offsetOf(UTCoffset, field.name) });
     }

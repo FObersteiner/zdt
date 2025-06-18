@@ -19,7 +19,7 @@ const Timezone = @This();
 
 /// embedded IANA time zone database (eggert/tz)
 pub const tzdata = @import("./tzdata.zig").tzdata;
-pub const sizeOftzdata = @import("./tzdata.zig").sizeOftzdata;
+pub const sizeOfTZdata = @import("./tzdata.zig").sizeOfTZdata;
 pub const tzdb_version = @import("./tzdata.zig").tzdb_version;
 
 /// auto-generated prefix / path of the current eggert/tz database, as shipped with zdt;
