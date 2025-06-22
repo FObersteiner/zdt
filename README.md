@@ -1,5 +1,5 @@
 # zdt
 
-## Please Note...
+## Please Note:
 
-**This repository is only a mirror of [zdt on Codeberg](https://codeberg.org/FObersteiner/zdt).** If you want to contribute (which is very welcome!) or raise an issue, please do so over there.
+**This repository is a mirror of [zdt on Codeberg](https://codeberg.org/FObersteiner/zdt).** If you want to contribute (which is very welcome!) or raise an issue, please have a look over there.
