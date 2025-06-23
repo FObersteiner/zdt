@@ -15,6 +15,22 @@ Types of changes
 
 ### Added
 
+- min and max values for Duration type (public constants); these ensure that the Duration.asNanoseconds() method won't faile due to integer over-/underflow
+- Duration.addClip and Duration.subClip methods which won't return an error. If the result would be out-of-range, it will be clipped to the min/max value for the Duration type.
+
+### Changed
+
+- API: Duration.add and Duration.sub methods now return an error.SecondsOutOfRange if the resulting Duration would not satisfy the min/max value for the Duration type
+- to ensure there is no over-/underflow of the Duration type, Datetime difference calculation methods use Duration.fromTimespanMultiple to generate the result
+
+### Removed
+
+- `build.zig.zon`: scripts from the `scripts/` directory. Those are only needed for development.
+
+## 2025-06-18, v0.6.9
+
+### Added
+
 - Datetime formatter / printing: add option to print any number of digits (0-9) for the fractional seconds by using the `{s:.n}` notation, with `n` specifying the number of digits.
 - `zdt-types` example, size of the timezone database
 
@@ -56,6 +72,7 @@ Types of changes
 - `Datetime.isLeapYear` - returns if a datetime is in a leap year
 - `Datetime.isLeapMonth` - returns if a datetime is in a February of a leap year
 - more tests for the calendaric calculations
+- string length check and maximum length for POSIX TZ strings
 
 ### Changed
 
@@ -63,7 +80,6 @@ Types of changes
   - greatly enhances the range of dates that can be represented
   - is now a rather straight-forward conversion of the C++ code from the [EAF paper](https://onlinelibrary.wiley.com/doi/full/10.1002/spe.3172)
 - revised test location; internal tests are in respective zig files now
-- add string length check and maximum length for POSIX TZ strings
 
 ### Fixed
 

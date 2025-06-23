@@ -11,7 +11,7 @@ pub fn main() !void {
 
     const now_utc = Datetime.nowUTC();
     println("now, UTC : {s}", .{now_utc});
-    const past_midnight = try now_utc.floorTo(Duration.Timespan.day);
+    const past_midnight = try now_utc.floorTo(.day);
 
     // difference between two datetimes expressed as Duration:
     println(
@@ -20,12 +20,12 @@ pub fn main() !void {
     );
 
     // Durations from Timespans:
-    const tomorrow = try now_utc.add(Duration.fromTimespanMultiple(1, Duration.Timespan.day));
+    const tomorrow = try now_utc.add(Duration.fromTimespanMultiple(1, .day));
     println("tomorrow, same time : {s}", .{tomorrow});
     println("tomorrow, same time, is {d} seconds away from now\n", .{tomorrow.diff(now_utc).asSeconds()});
 
     // Timespan units range from nanoseconds to weeks:
-    const two_weeks_ago = try now_utc.sub(Duration.fromTimespanMultiple(2, Duration.Timespan.week));
+    const two_weeks_ago = try now_utc.sub(Duration.fromTimespanMultiple(2, .week));
     println("two weeks ago : {s}", .{two_weeks_ago});
 
     // ISO8601-duration parser on-board:

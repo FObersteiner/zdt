@@ -46,7 +46,7 @@
 
 #### From an ISO8601 duration string, relative timespan ("wall-time")
 
-- [`zdt.Duration.RelativeDelta.fromISO8601`](https://fobersteiner.codeberg.page/#zdt.Duration.RelativeDelta.fromISO8601) - might include years and months.
+- [`zdt.Duration.RelativeDelta.fromISO8601`](https://fobersteiner.codeberg.page/#zdt.Duration.RelativeDelta.fromISO8601) - the RelativeDelta sub-type might include the ambiguous quantities years and months.
 
 #### From multiples of a timespan
 
@@ -60,7 +60,7 @@
 
 #### Total seconds
 
-- [`zdt.Duration.totalSeconds`](https://fobersteiner.codeberg.page/#zdt.Duration.totalSeconds)
+- [`zdt.Duration.totalSeconds`](https://fobersteiner.codeberg.page/#zdt.Duration.totalSeconds) - there are equivalent methods for total minutes, hours etc.
 
 ## Timezone
 

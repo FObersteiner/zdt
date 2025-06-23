@@ -1,14 +1,24 @@
 //! a period in time
 
 const std = @import("std");
+const testing = std.testing;
 const log = std.log.scoped(.zdt__Duration);
 
 const FormatError = @import("./errors.zig").FormatError;
+const RangeError = @import("./errors.zig").RangeError;
 
 const Duration = @This();
 
-// max. digits per quantity in an ISO8601 duration string
-const maxDigits: usize = 99;
+// max. digits per quantity in an ISO8601 duration string (arbitrary)
+const max_n_digits: usize = 99;
+
+/// For the 'asNanoseconds' method to work correctly, the maximum number of seconds
+/// that can be represented by a Duration's __sec is (max(i128) - (1e9 - 1)) / 1e9.
+/// The minus 1e9 are required to correctly handle __nsec, which can be (1e9 - 1) max.
+pub const max_sec: i128 = 170141183460469231731687303714; // ~36909691 years
+
+/// For the minimum, it is just min(i128) / 1e9 since the __nsec is always positive.
+pub const min_sec: i128 = -170141183460469231731687303715;
 
 /// Any duration represented in seconds.
 /// Do not modify directly.
@@ -18,7 +28,10 @@ __sec: i128 = 0,
 /// Do not modify directly.
 __nsec: u32 = 0,
 
-/// Create a duration from multiple of specific a timespan
+/// Create a duration from multiple of specific a timespan.
+///
+/// The Duration type can represent any timespan that can fit into  a 64 bit
+/// signed integer, i.e. up to 2^63 weeks. Therefore, no error is returned.
 pub fn fromTimespanMultiple(n: i64, timespan: Timespan) Duration {
     const ns: i128 = @as(i128, @intCast(@intFromEnum(timespan))) * n;
     return .{
@@ -50,8 +63,7 @@ pub fn fromISO8601(string: []const u8) FormatError!Duration {
 pub fn toTimespanMultiple(duration: Duration, timespan: Timespan) i128 {
     const ns: i128 = duration.asNanoseconds();
     const divisor: u64 = @intFromEnum(timespan);
-    const result = std.math.divCeil(i128, ns, @as(i128, divisor)) catch unreachable;
-    return @intCast(result);
+    return std.math.divCeil(i128, ns, @as(i128, divisor)) catch unreachable;
 }
 
 /// Representation as seconds with fractional seconds
@@ -78,25 +90,82 @@ pub fn totalDays(duration: Duration) f64 {
     return @floatCast(@as(f128, @floatFromInt(ns)) / 86_400_000_000_000);
 }
 
-/// Add a duration to another. Makes a new Duration.P
-pub fn add(this: Duration, other: Duration) Duration {
+/// Add a duration to another. Makes a new Duration.
+///
+/// Returns RangeError.SecondsOutOfRange if the sum of the durations
+/// wouldn't satisfy the requirement of 'asNanoseconds()' to work.
+pub fn add(this: Duration, other: Duration) RangeError!Duration {
     const s: i128 = this.__sec + other.__sec;
     const ns: u32 = this.__nsec + other.__nsec;
-    return .{
+    const result = Duration{
         .__sec = s + @divFloor(ns, 1_000_000_000),
         .__nsec = @truncate(@mod(ns, 1_000_000_000)),
     };
+    if (result.__sec > max_sec or result.__sec < min_sec) return RangeError.SecondOutOfRange;
+    return result;
+}
+
+/// Add a duration to another. Makes a new Duration.
+///
+/// If the resulting Duration would be out-of-range to satisfy the
+/// requirement of 'asNanoseconds()' to work, the result is clipped
+/// to max_sec or min_sec, respectively.
+pub fn addClip(this: Duration, other: Duration) Duration {
+    const s: i128 = this.__sec + other.__sec;
+    const ns: u32 = this.__nsec + other.__nsec;
+    var result = Duration{
+        .__sec = s + @divFloor(ns, 1_000_000_000),
+        .__nsec = @truncate(@mod(ns, 1_000_000_000)),
+    };
+    if (result.__sec > max_sec) {
+        result.__sec = max_sec;
+        return result;
+    }
+    if (result.__sec < min_sec) {
+        result.__sec = min_sec;
+        return result;
+    }
+    return result;
 }
 
 /// Subtract a duration from another. Makes a new Duration.
-pub fn sub(this: Duration, other: Duration) Duration {
+///
+/// Returns RangeError.SecondsOutOfRange if the difference of the durations
+/// wouldn't satisfy the requirement of 'asNanoseconds()' to work.
+pub fn sub(this: Duration, other: Duration) RangeError!Duration {
     var s: i128 = this.__sec - other.__sec;
     var ns: i32 = @as(i32, @intCast(this.__nsec)) - @as(i32, @intCast(other.__nsec));
     if (ns < 0) {
         s -= 1;
         ns += 1_000_000_000;
     }
-    return .{ .__sec = s, .__nsec = @intCast(ns) };
+    const result = Duration{ .__sec = s, .__nsec = @intCast(ns) };
+    if (result.__sec > max_sec or result.__sec < min_sec) return RangeError.SecondOutOfRange;
+    return result;
+}
+
+/// Subtract a duration from another. Makes a new Duration.
+///
+/// If the resulting Duration would be out-of-range to satisfy the
+/// requirement of 'asNanoseconds()' to work, the result is clipped
+/// to max_sec or min_sec, respectively.
+pub fn subClip(this: Duration, other: Duration) Duration {
+    var s: i128 = this.__sec - other.__sec;
+    var ns: i32 = @as(i32, @intCast(this.__nsec)) - @as(i32, @intCast(other.__nsec));
+    if (ns < 0) {
+        s -= 1;
+        ns += 1_000_000_000;
+    }
+    var result = Duration{ .__sec = s, .__nsec = @intCast(ns) };
+    if (result.__sec < min_sec) {
+        result.__sec = min_sec;
+        return result;
+    }
+    if (result.__sec > max_sec) {
+        result.__sec = max_sec;
+        return result;
+    }
+    return result;
 }
 
 /// Convert a duration to seconds, don't forget the nanos just because they're small 😎
@@ -393,7 +462,7 @@ fn parseAndAdvanceS(string: []const u8, idx_ptr: *usize, sec: *u32, nsec: *u32) 
     const end_idx = idx_ptr.*;
     var have_fraction: bool = false;
     while (idx_ptr.* > 0 and
-        end_idx - idx_ptr.* < maxDigits and
+        end_idx - idx_ptr.* < max_n_digits and
         !std.ascii.isAlphabetic(string[idx_ptr.*])) : (idx_ptr.* -= 1)
     {
         if (string[idx_ptr.*] == '.') have_fraction = true;
@@ -429,7 +498,7 @@ fn parseAndAdvanceS(string: []const u8, idx_ptr: *usize, sec: *u32, nsec: *u32) 
 fn parseAndAdvanceYmWdHM(comptime T: type, string: []const u8, idx_ptr: *usize) FormatError!T {
     const end_idx = idx_ptr.*;
     while (idx_ptr.* > 0 and
-        end_idx - idx_ptr.* < maxDigits and
+        end_idx - idx_ptr.* < max_n_digits and
         !std.ascii.isAlphabetic(string[idx_ptr.*])) : (idx_ptr.* -= 1)
     {}
     return try std.fmt.parseInt(T, string[idx_ptr.* + 1 .. end_idx + 1], 10);

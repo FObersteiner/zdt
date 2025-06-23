@@ -647,10 +647,8 @@ pub fn compareWall(this: Datetime, other: Datetime) ZdtError!std.math.Order {
 /// Add absolute duration to a datetime.
 pub fn add(dt: *const Datetime, td: Duration) ZdtError!Datetime {
     const ns: i128 = ( //
-        @as(i128, dt.unix_sec) * ns_per_s + //
-            @as(i128, dt.nanosecond) + //
-            td.__sec * ns_per_s + //
-            td.__nsec //
+        @as(i128, dt.unix_sec) * ns_per_s + @as(i128, dt.nanosecond) + //
+            td.asNanoseconds() //
     );
     const opts: ?tz_options = if (dt.tz) |tz_ptr| .{ .tz = tz_ptr } else null;
     return try Datetime.fromUnix(ns, Duration.Resolution.nanosecond, opts);
@@ -727,7 +725,11 @@ pub fn diff(this: Datetime, other: Datetime) Duration {
         s -= 1;
         ns += 1_000_000_000;
     }
-    return .{ .__sec = s, .__nsec = @intCast(ns) };
+    // We use 'addClip' here to avoid the error union from the normal 'add'.
+    // Since we add < 1_000_000_000 ns, the Duration type will never overflow
+    // and the result won't become incorrect from clipping.
+    return (Duration.fromTimespanMultiple(s, .second)
+        .addClip(Duration.fromTimespanMultiple(ns, .nanosecond)));
 }
 
 /// Calculate wall time difference between two aware datetimes.
@@ -746,7 +748,11 @@ pub fn diffWall(this: Datetime, other: Datetime) TzError!Duration {
         s -= 1;
         ns += 1_000_000_000;
     }
-    return .{ .__sec = s, .__nsec = @intCast(ns) };
+    // We use 'addClip' here to avoid the error union from the normal 'add'.
+    // Since we add < 1_000_000_000 ns, the Duration type will never overflow
+    // and the result won't become incorrect from clipping.
+    return (Duration.fromTimespanMultiple(s, .second)
+        .addClip(Duration.fromTimespanMultiple(ns, .nanosecond)));
 }
 
 /// Validate a datetime in terms of leap seconds;
