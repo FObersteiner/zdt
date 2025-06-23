@@ -6,6 +6,7 @@
     .paths = .{
         // benchmark directory not included
         "lib", // anything from lib
+        "scripts/gen_tzdb_prefix.zig",
         "LICENSE",
         "build.zig",
         "build.zig.zon",
