@@ -31,6 +31,9 @@ __designation_data: [6:0]u8 = [6:0]u8{ 0, 0, 0, 0, 0, 0 },
 __transition_index: i32 = -1,
 
 /// UTC is constant. Presumably.
+///
+/// Note that when working with time zones (not just offsets),
+/// preferably use Timezone.UTC.
 pub const UTC = UTCoffset{
     .__designation_data = [6:0]u8{ 'U', 'T', 'C', 0, 0, 0 },
 };
@@ -78,7 +81,7 @@ pub fn atUnixtime(tz: *const Timezone, unixtime: i64) TzError!UTCoffset {
                     break :blk tz.rules.tzif.timetypes[0];
                 },
 
-                // Unix time exceeds defined range of transitions => use POSIX from tzif footer
+                // Unix time exceeds defined range of transitions => use POSIX from TZif footer
                 -2 => blk: {
                     // check the POSIX TZ from the footer.
                     const psxtz = psx.parsePosixTzString(tz.rules.tzif.footer.?) catch return TzError.InvalidPosixTz;

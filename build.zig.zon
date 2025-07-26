@@ -1,12 +1,12 @@
 .{
     .name = .zdt,
     .fingerprint = 0xf0de2f12bc3fbdc6,
-    .version = "0.6.10",
-    .minimum_zig_version = "0.14.0",
+    .version = "0.7.0",
+    .minimum_zig_version = "0.14.0", // max. is 0.14.1 for zdt v0.7
     .paths = .{
         // benchmark directory not included
-        "lib", // anything from lib
-        "scripts/gen_tzdb_prefix.zig",
+        "lib", // anything from lib directory
+        "scripts/gen_tzdb_prefix.zig", // enables path-to-tzdata being updated on install / comptime
         "LICENSE",
         "build.zig",
         "build.zig.zon",

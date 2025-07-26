@@ -6,13 +6,19 @@ const benchmarks = [_][]const u8{
     "main",
 };
 
-const req_vers = std.SemanticVersion.parse("0.14.0-dev") catch unreachable;
-
+const min_zig = std.SemanticVersion.parse("0.14.0") catch unreachable;
+const max_zig = std.SemanticVersion.parse("0.14.1") catch unreachable;
 comptime {
-    if (builtin.zig_version.order(req_vers) == .lt) {
+    if (builtin.zig_version.order(min_zig) == .lt) {
         @compileError(std.fmt.comptimePrint(
-            "Your Zig version v{} does not meet the minimum build requirement of v{}",
-            .{ builtin.zig_version, req_vers },
+            "Your Zig version v{f} does not meet the minimum build requirement of v{f}",
+            .{ builtin.zig_version, min_zig },
+        ));
+    }
+    if (builtin.zig_version.order(max_zig) == .gt) {
+        @compileError(std.fmt.comptimePrint(
+            "Your Zig version v{f} does not meet the maximum build requirement of v{f}",
+            .{ builtin.zig_version, max_zig },
         ));
     }
 }

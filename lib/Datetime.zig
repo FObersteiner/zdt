@@ -22,7 +22,7 @@ const ZdtError = @import("./errors.zig").ZdtError;
 pub const min_year: i16 = 0;
 
 /// Maximum year that can be represented. The value is limited to 4 digits
-/// to avoid ambiguities when parsing datetime strings.
+/// to avoid ambiguity when parsing datetime strings.
 pub const max_year: i16 = 9999;
 
 /// 0000-01-01 00:00:00
@@ -297,8 +297,7 @@ pub fn fromFields(fields: Fields) ZdtError!Datetime {
         switch (opts) {
             .utc_offset => {
                 dt.utc_offset = fields.tz_options.?.utc_offset;
-                // if the offset represents UTC, also set the tz pointer
-                // for consistency:
+                // if the offset represents UTC, also set the tz pointer for consistency:
                 if (std.meta.eql(dt.utc_offset.?, UTCoffset.UTC)) dt.tz = &Timezone.UTC;
                 // Shortcut #2: the tz pointer is not set here; we have a fixed offset,
                 // can calculate Unix time easily and return.

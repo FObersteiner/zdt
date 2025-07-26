@@ -5,12 +5,12 @@ const log = std.log.scoped(.zdt__calendar);
 const assert = std.debug.assert;
 const testing = std.testing;
 
-pub const YEAR_MIN = -32768;
-pub const YEAR_MAX = 32767;
+pub const YEAR_MIN = -32768; // 16-bit int bounds
+pub const YEAR_MAX = 32767; // 16-bit int bounds
 
 /// Date type to be used with the rd-2-date and date-2-rd functions.
 pub const Date = struct {
-    year: i32 = 0,
+    year: i32 = 0, // TODO : i16 better here?
     month: u32 = 1,
     day: u32 = 1,
 };
@@ -71,7 +71,7 @@ fn firstday(year: i16) i16 {
 
 /// Number of ISO weeks per year
 pub fn weeksPerYear(year: i16) u8 {
-    return if (firstday(@as(i16, @intCast(year))) == 4 or firstday(@as(i16, @intCast(year - 1))) == 3) 53 else 52;
+    return if (firstday(year) == 4 or firstday(year - 1) == 3) 53 else 52;
 }
 
 /// Mapping of Unix time [s] to number of leap seconds n_leap; n_leap = array-index + 11;
@@ -648,8 +648,8 @@ test "against Pyhton ordinal" {
     var date_want_ = Date{ .year = 7343, .month = 12, .day = 7 };
     var date_hin = dateFromUnixdays(1962788);
     var date_neri = rdToDate(1962788);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -252206;
     days_hin = unixdaysFromDate([_]u16{ 1279, 6, 26 });
@@ -661,8 +661,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 1279, .month = 6, .day = 26 };
     date_hin = dateFromUnixdays(-252206);
     date_neri = rdToDate(-252206);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -614260;
     days_hin = unixdaysFromDate([_]u16{ 288, 3, 19 });
@@ -674,8 +674,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 288, .month = 3, .day = 19 };
     date_hin = dateFromUnixdays(-614260);
     date_neri = rdToDate(-614260);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2391126;
     days_hin = unixdaysFromDate([_]u16{ 8516, 9, 6 });
@@ -687,8 +687,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 8516, .month = 9, .day = 6 };
     date_hin = dateFromUnixdays(2391126);
     date_neri = rdToDate(2391126);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 434394;
     days_hin = unixdaysFromDate([_]u16{ 3159, 5, 2 });
@@ -700,8 +700,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 3159, .month = 5, .day = 2 };
     date_hin = dateFromUnixdays(434394);
     date_neri = rdToDate(434394);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 307988;
     days_hin = unixdaysFromDate([_]u16{ 2813, 3, 30 });
@@ -713,8 +713,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 2813, .month = 3, .day = 30 };
     date_hin = dateFromUnixdays(307988);
     date_neri = rdToDate(307988);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 217051;
     days_hin = unixdaysFromDate([_]u16{ 2564, 4, 7 });
@@ -726,8 +726,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 2564, .month = 4, .day = 7 };
     date_hin = dateFromUnixdays(217051);
     date_neri = rdToDate(217051);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -133898;
     days_hin = unixdaysFromDate([_]u16{ 1603, 5, 27 });
@@ -739,8 +739,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 1603, .month = 5, .day = 27 };
     date_hin = dateFromUnixdays(-133898);
     date_neri = rdToDate(-133898);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2369822;
     days_hin = unixdaysFromDate([_]u16{ 8458, 5, 9 });
@@ -752,8 +752,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 8458, .month = 5, .day = 9 };
     date_hin = dateFromUnixdays(2369822);
     date_neri = rdToDate(2369822);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -289267;
     days_hin = unixdaysFromDate([_]u16{ 1178, 1, 6 });
@@ -765,8 +765,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 1178, .month = 1, .day = 6 };
     date_hin = dateFromUnixdays(-289267);
     date_neri = rdToDate(-289267);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2119121;
     days_hin = unixdaysFromDate([_]u16{ 7771, 12, 16 });
@@ -778,8 +778,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 7771, .month = 12, .day = 16 };
     date_hin = dateFromUnixdays(2119121);
     date_neri = rdToDate(2119121);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2387423;
     days_hin = unixdaysFromDate([_]u16{ 8506, 7, 18 });
@@ -791,8 +791,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 8506, .month = 7, .day = 18 };
     date_hin = dateFromUnixdays(2387423);
     date_neri = rdToDate(2387423);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 1568271;
     days_hin = unixdaysFromDate([_]u16{ 6263, 10, 13 });
@@ -804,8 +804,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 6263, .month = 10, .day = 13 };
     date_hin = dateFromUnixdays(1568271);
     date_neri = rdToDate(1568271);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -354515;
     days_hin = unixdaysFromDate([_]u16{ 999, 5, 16 });
@@ -817,8 +817,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 999, .month = 5, .day = 16 };
     date_hin = dateFromUnixdays(-354515);
     date_neri = rdToDate(-354515);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 1757543;
     days_hin = unixdaysFromDate([_]u16{ 6781, 12, 28 });
@@ -830,8 +830,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 6781, .month = 12, .day = 28 };
     date_hin = dateFromUnixdays(1757543);
     date_neri = rdToDate(1757543);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 1050506;
     days_hin = unixdaysFromDate([_]u16{ 4846, 3, 10 });
@@ -843,8 +843,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 4846, .month = 3, .day = 10 };
     date_hin = dateFromUnixdays(1050506);
     date_neri = rdToDate(1050506);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -585856;
     days_hin = unixdaysFromDate([_]u16{ 365, 12, 25 });
@@ -856,8 +856,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 365, .month = 12, .day = 25 };
     date_hin = dateFromUnixdays(-585856);
     date_neri = rdToDate(-585856);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -594184;
     days_hin = unixdaysFromDate([_]u16{ 343, 3, 8 });
@@ -869,8 +869,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 343, .month = 3, .day = 8 };
     date_hin = dateFromUnixdays(-594184);
     date_neri = rdToDate(-594184);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -326176;
     days_hin = unixdaysFromDate([_]u16{ 1076, 12, 17 });
@@ -882,8 +882,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 1076, .month = 12, .day = 17 };
     date_hin = dateFromUnixdays(-326176);
     date_neri = rdToDate(-326176);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 197872;
     days_hin = unixdaysFromDate([_]u16{ 2511, 10, 4 });
@@ -895,8 +895,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 2511, .month = 10, .day = 4 };
     date_hin = dateFromUnixdays(197872);
     date_neri = rdToDate(197872);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 256688;
     days_hin = unixdaysFromDate([_]u16{ 2672, 10, 15 });
@@ -908,8 +908,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 2672, .month = 10, .day = 15 };
     date_hin = dateFromUnixdays(256688);
     date_neri = rdToDate(256688);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 1400451;
     days_hin = unixdaysFromDate([_]u16{ 5804, 4, 22 });
@@ -921,8 +921,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 5804, .month = 4, .day = 22 };
     date_hin = dateFromUnixdays(1400451);
     date_neri = rdToDate(1400451);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 1805887;
     days_hin = unixdaysFromDate([_]u16{ 6914, 5, 9 });
@@ -934,8 +934,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 6914, .month = 5, .day = 9 };
     date_hin = dateFromUnixdays(1805887);
     date_neri = rdToDate(1805887);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -607863;
     days_hin = unixdaysFromDate([_]u16{ 305, 9, 24 });
@@ -947,8 +947,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 305, .month = 9, .day = 24 };
     date_hin = dateFromUnixdays(-607863);
     date_neri = rdToDate(-607863);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 1634870;
     days_hin = unixdaysFromDate([_]u16{ 6446, 2, 14 });
@@ -960,8 +960,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 6446, .month = 2, .day = 14 };
     date_hin = dateFromUnixdays(1634870);
     date_neri = rdToDate(1634870);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 114823;
     days_hin = unixdaysFromDate([_]u16{ 2284, 5, 17 });
@@ -973,8 +973,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 2284, .month = 5, .day = 17 };
     date_hin = dateFromUnixdays(114823);
     date_neri = rdToDate(114823);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2284041;
     days_hin = unixdaysFromDate([_]u16{ 8223, 6, 30 });
@@ -986,8 +986,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 8223, .month = 6, .day = 30 };
     date_hin = dateFromUnixdays(2284041);
     date_neri = rdToDate(2284041);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2006650;
     days_hin = unixdaysFromDate([_]u16{ 7464, 1, 9 });
@@ -999,8 +999,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 7464, .month = 1, .day = 9 };
     date_hin = dateFromUnixdays(2006650);
     date_neri = rdToDate(2006650);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2222408;
     days_hin = unixdaysFromDate([_]u16{ 8054, 9, 30 });
@@ -1012,8 +1012,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 8054, .month = 9, .day = 30 };
     date_hin = dateFromUnixdays(2222408);
     date_neri = rdToDate(2222408);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 1566488;
     days_hin = unixdaysFromDate([_]u16{ 6258, 11, 25 });
@@ -1025,8 +1025,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 6258, .month = 11, .day = 25 };
     date_hin = dateFromUnixdays(1566488);
     date_neri = rdToDate(1566488);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 1040431;
     days_hin = unixdaysFromDate([_]u16{ 4818, 8, 9 });
@@ -1038,8 +1038,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 4818, .month = 8, .day = 9 };
     date_hin = dateFromUnixdays(1040431);
     date_neri = rdToDate(1040431);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 205432;
     days_hin = unixdaysFromDate([_]u16{ 2532, 6, 15 });
@@ -1051,8 +1051,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 2532, .month = 6, .day = 15 };
     date_hin = dateFromUnixdays(205432);
     date_neri = rdToDate(205432);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 1164957;
     days_hin = unixdaysFromDate([_]u16{ 5159, 7, 19 });
@@ -1064,8 +1064,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 5159, .month = 7, .day = 19 };
     date_hin = dateFromUnixdays(1164957);
     date_neri = rdToDate(1164957);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 1752397;
     days_hin = unixdaysFromDate([_]u16{ 6767, 11, 26 });
@@ -1077,8 +1077,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 6767, .month = 11, .day = 26 };
     date_hin = dateFromUnixdays(1752397);
     date_neri = rdToDate(1752397);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 447654;
     days_hin = unixdaysFromDate([_]u16{ 3195, 8, 21 });
@@ -1090,8 +1090,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 3195, .month = 8, .day = 21 };
     date_hin = dateFromUnixdays(447654);
     date_neri = rdToDate(447654);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2675835;
     days_hin = unixdaysFromDate([_]u16{ 9296, 3, 9 });
@@ -1103,8 +1103,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 9296, .month = 3, .day = 9 };
     date_hin = dateFromUnixdays(2675835);
     date_neri = rdToDate(2675835);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2926947;
     days_hin = unixdaysFromDate([_]u16{ 9983, 9, 17 });
@@ -1116,8 +1116,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 9983, .month = 9, .day = 17 };
     date_hin = dateFromUnixdays(2926947);
     date_neri = rdToDate(2926947);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -691905;
     days_hin = unixdaysFromDate([_]u16{ 75, 8, 18 });
@@ -1129,8 +1129,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 75, .month = 8, .day = 18 };
     date_hin = dateFromUnixdays(-691905);
     date_neri = rdToDate(-691905);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2463506;
     days_hin = unixdaysFromDate([_]u16{ 8714, 11, 8 });
@@ -1142,8 +1142,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 8714, .month = 11, .day = 8 };
     date_hin = dateFromUnixdays(2463506);
     date_neri = rdToDate(2463506);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2660688;
     days_hin = unixdaysFromDate([_]u16{ 9254, 9, 19 });
@@ -1155,8 +1155,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 9254, .month = 9, .day = 19 };
     date_hin = dateFromUnixdays(2660688);
     date_neri = rdToDate(2660688);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -49503;
     days_hin = unixdaysFromDate([_]u16{ 1834, 6, 20 });
@@ -1168,8 +1168,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 1834, .month = 6, .day = 20 };
     date_hin = dateFromUnixdays(-49503);
     date_neri = rdToDate(-49503);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2209046;
     days_hin = unixdaysFromDate([_]u16{ 8018, 3, 1 });
@@ -1181,8 +1181,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 8018, .month = 3, .day = 1 };
     date_hin = dateFromUnixdays(2209046);
     date_neri = rdToDate(2209046);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 1053411;
     days_hin = unixdaysFromDate([_]u16{ 4854, 2, 21 });
@@ -1194,8 +1194,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 4854, .month = 2, .day = 21 };
     date_hin = dateFromUnixdays(1053411);
     date_neri = rdToDate(1053411);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 707952;
     days_hin = unixdaysFromDate([_]u16{ 3908, 4, 23 });
@@ -1207,8 +1207,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 3908, .month = 4, .day = 23 };
     date_hin = dateFromUnixdays(707952);
     date_neri = rdToDate(707952);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 446314;
     days_hin = unixdaysFromDate([_]u16{ 3191, 12, 20 });
@@ -1220,8 +1220,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 3191, .month = 12, .day = 20 };
     date_hin = dateFromUnixdays(446314);
     date_neri = rdToDate(446314);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -67034;
     days_hin = unixdaysFromDate([_]u16{ 1786, 6, 20 });
@@ -1233,8 +1233,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 1786, .month = 6, .day = 20 };
     date_hin = dateFromUnixdays(-67034);
     date_neri = rdToDate(-67034);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 183929;
     days_hin = unixdaysFromDate([_]u16{ 2473, 7, 31 });
@@ -1246,8 +1246,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 2473, .month = 7, .day = 31 };
     date_hin = dateFromUnixdays(183929);
     date_neri = rdToDate(183929);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 2483164;
     days_hin = unixdaysFromDate([_]u16{ 8768, 9, 3 });
@@ -1259,8 +1259,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 8768, .month = 9, .day = 3 };
     date_hin = dateFromUnixdays(2483164);
     date_neri = rdToDate(2483164);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = 692617;
     days_hin = unixdaysFromDate([_]u16{ 3866, 4, 28 });
@@ -1272,8 +1272,8 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 3866, .month = 4, .day = 28 };
     date_hin = dateFromUnixdays(692617);
     date_neri = rdToDate(692617);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 
     days_want = -290462;
     days_hin = unixdaysFromDate([_]u16{ 1174, 9, 29 });
@@ -1285,6 +1285,6 @@ test "against Pyhton ordinal" {
     date_want_ = Date{ .year = 1174, .month = 9, .day = 29 };
     date_hin = dateFromUnixdays(-290462);
     date_neri = rdToDate(-290462);
-    try std.testing.expectEqual(date_want, date_hin);
-    try std.testing.expectEqual(date_want_, date_neri);
+    try testing.expectEqual(date_want, date_hin);
+    try testing.expectEqual(date_want_, date_neri);
 }

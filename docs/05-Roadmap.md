@@ -1,10 +1,6 @@
 # Roadmap
 
-## 0.7.x
-
-- revise Datetime struct: Would it be better to have it purely Unix time based, and calculate anything else on demand?
-
-## unspecified
+- extend range of datetimes that can be represented; 5-digit signed year
 
 - host/run docs and CI on codeberg
 
@@ -14,14 +10,10 @@
 
 - improve parser flagging?
 
-- Windows: DST disabled tz (#1)
+- Windows: handle tz with DST disabled
 
 - locale-specific parsing (%a, %A, %b, %B) on Windows
 
 - parser: consider day name if supplied
   - check if a day-of-month or day-of-year is supplied as well
   - allow to create a date if a week-of-year is supplied as well
-
-## see also
-
-- [issues](https://codeberg.org/FObersteiner/zdt/issues)
