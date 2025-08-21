@@ -3,6 +3,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
 const log = std.log.scoped(.zdt__UTCoffset);
+const Writer = std.Io.Writer;
 
 const Timezone = @import("./Timezone.zig");
 const TzError = @import("./errors.zig").TzError;
@@ -154,16 +155,35 @@ pub fn atUnixtime(tz: *const Timezone, unixtime: i64) TzError!UTCoffset {
     }
 }
 
-/// Custom formatter for the Offset struct.
-/// `fmt` is ignored.
-/// `options` can be used to modify precision.
+/// Default format for the Offset struct, gives [+|-][hh]:[mm] format
+/// or 'Z' if UTC.
+///
+/// Notes:
+/// - seconds are shown if non-zero; [+|-][hh]:[mm]:[ss]
 pub fn format(
     offset: UTCoffset,
-    comptime fmt: []const u8,
-    options: std.fmt.FormatOptions,
-    writer: anytype,
-) anyerror!void {
-    _ = fmt;
+    writer: *Writer,
+) Writer.Error!void {
+    if (std.meta.eql(offset, UTC)) {
+        try writer.print("Z", .{});
+        return;
+    }
+    const off = offset.seconds_east;
+    const absoff: u32 = if (off < 0) @intCast(off * -1) else @intCast(off);
+    const sign = if (off < 0) "-" else "+";
+    const hours = absoff / 3600;
+    const minutes = (absoff % 3600) / 60;
+    const seconds = (absoff % 3600) % 60;
+    try writer.print("{s}{d:0>2}:{d:0>2}", .{ sign, hours, minutes });
+    if (seconds != 0) try writer.print(":{d:0>2}", .{seconds});
+}
+
+/// Custom formatter used by the %z directive.
+pub fn formatB(
+    offset: UTCoffset,
+    options: std.fmt.Options,
+    writer: *Writer,
+) Writer.Error!void {
     const off = offset.seconds_east;
     const absoff: u32 = if (off < 0) @intCast(off * -1) else @intCast(off);
     const sign = if (off < 0) "-" else "+";

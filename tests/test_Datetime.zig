@@ -205,17 +205,17 @@ test "leap year and month" {
 }
 
 test "default format ISO8601, naive" {
-    var str = std.ArrayList(u8).init(testing.allocator);
-    defer str.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
 
     var dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 31 });
-    try dt.format("", .{}, str.writer());
-    try testing.expectEqualStrings("2023-12-31T00:00:00", str.items);
+    try dt.format(&w);
+    try testing.expectEqualStrings("2023-12-31T00:00:00", w.buffered());
 
-    str.clearRetainingCapacity();
+    w = .fixed(&buf);
     dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 31, .nanosecond = 1 });
-    try dt.format("", .{}, str.writer());
-    try testing.expectEqualStrings("2023-12-31T00:00:00.000000001", str.items);
+    try dt.format(&w);
+    try testing.expectEqualStrings("2023-12-31T00:00:00.000000001", w.buffered());
 }
 
 test "format offset" {
@@ -228,20 +228,21 @@ test "format offset" {
         .tz_options = .{ .utc_offset = offset },
     });
 
-    var str = std.ArrayList(u8).init(testing.allocator);
-    try dt.formatOffset(.{ .fill = ':' }, str.writer());
-    try testing.expectEqualStrings("+01:00", str.items);
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
+    try dt.formatOffset(.{ .fill = ':', .precision = 1 }, &w);
+    try testing.expectEqualStrings("+01:00", w.buffered());
 
-    str.clearAndFree();
-    try dt.format("", .{}, str.writer());
-    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", str.items);
+    w = .fixed(&buf);
+    try dt.format(&w);
+    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", w.buffered());
 
     offset = try UTCoffset.fromSeconds(3600 * 9 + 942, "", false);
     dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tz_options = .{ .utc_offset = offset } });
-    str.clearAndFree();
-    try dt.formatOffset(.{ .fill = ':', .precision = 2 }, str.writer());
-    try testing.expectEqualStrings("+09:15:42", str.items);
-    str.deinit();
+
+    w = .fixed(&buf);
+    try dt.formatOffset(.{ .fill = ':', .precision = 2 }, &w);
+    try testing.expectEqualStrings("+09:15:42", w.buffered());
 }
 
 test "compare Unix time" {

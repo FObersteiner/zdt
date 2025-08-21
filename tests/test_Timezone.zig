@@ -43,13 +43,12 @@ test "offset from seconds" {
     try testing.expect(dt_unix.unix_sec == 0);
     try testing.expect(dt_unix.hour == 1);
 
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
-
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const string = "1970-01-01T00:00:00+01:00";
     const directive = "%Y-%m-%dT%H:%M:%S%:z";
-    try dt.toString(directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
+    try dt.toString(directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
 }
 
 test "mem error" {
@@ -221,15 +220,15 @@ test "DST transitions" {
     try testing.expect(!dt_std.utc_offset.?.is_dst);
     try testing.expect(dt_dst.utc_offset.?.is_dst);
 
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
-    try dt_std.toString("%Y-%m-%dT%H:%M:%S%:z", buf.writer());
-    try testing.expectEqualStrings("2023-03-26T01:59:59+01:00", buf.items);
-    buf.clearAndFree();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
+    try dt_std.toString("%Y-%m-%dT%H:%M:%S%:z", &w);
+    try testing.expectEqualStrings("2023-03-26T01:59:59+01:00", w.buffered());
+    w = .fixed(&buf);
 
-    try dt_dst.toString("%Y-%m-%dT%H:%M:%S%:z", buf.writer());
-    try testing.expectEqualStrings("2023-03-26T03:00:00+02:00", buf.items);
-    buf.clearAndFree();
+    try dt_dst.toString("%Y-%m-%dT%H:%M:%S%:z", &w);
+    try testing.expectEqualStrings("2023-03-26T03:00:00+02:00", w.buffered());
+    w = .fixed(&buf);
 
     // DST on --> DST off (duplicate datetime), 2023-10-29
     dt_dst = try Datetime.fromUnix(1698541199, Duration.Resolution.second, .{ .tz = &tzinfo });
@@ -237,13 +236,13 @@ test "DST transitions" {
     try testing.expect(dt_dst.utc_offset.?.is_dst);
     try testing.expect(!dt_std.utc_offset.?.is_dst);
 
-    try dt_dst.toString("%Y-%m-%dT%H:%M:%S%:z", buf.writer());
-    try testing.expectEqualStrings("2023-10-29T02:59:59+02:00", buf.items);
-    buf.clearAndFree();
+    try dt_dst.toString("%Y-%m-%dT%H:%M:%S%:z", &w);
+    try testing.expectEqualStrings("2023-10-29T02:59:59+02:00", w.buffered());
+    w = .fixed(&buf);
 
-    try dt_std.toString("%Y-%m-%dT%H:%M:%S%:z", buf.writer());
-    try testing.expectEqualStrings("2023-10-29T02:00:00+01:00", buf.items);
-    buf.clearAndFree();
+    try dt_std.toString("%Y-%m-%dT%H:%M:%S%:z", &w);
+    try testing.expectEqualStrings("2023-10-29T02:00:00+01:00", w.buffered());
+    w = .fixed(&buf);
 }
 
 test "wall diff vs. abs diff" {
@@ -1166,18 +1165,14 @@ test "conversion between random time zones, no-alloc" {
     var dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    var s_b = std.ArrayList(u8).init(testing.allocator);
-    var s_c = std.ArrayList(u8).init(testing.allocator);
-    defer s_b.deinit();
-    defer s_c.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("2030-11-24T04:52:41+01:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1944-02-20T04:44:41+01:00:00", s_c.items);
-
-    s_b.clearAndFree();
-    s_c.clearAndFree();
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2030-11-24T04:52:41+01:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1944-02-20T04:44:41+01:00:00", w.buffered());
 
     tz_a = try Tz.fromTzdata("Europe/Sarajevo", null);
     tz_b = try Tz.fromTzdata("Pacific/Wallis", null);
@@ -1187,13 +1182,12 @@ test "conversion between random time zones, no-alloc" {
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1909-12-29T19:56:22+01:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("2031-07-18T16:14:16+12:00:00", s_c.items);
-
-    s_b.clearAndFree();
-    s_c.clearAndFree();
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1909-12-29T19:56:22+01:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2031-07-18T16:14:16+12:00:00", w.buffered());
 
     tz_a = try Tz.fromTzdata("America/Caracas", null);
     tz_b = try Tz.fromTzdata("Europe/Vienna", null);
@@ -1203,488 +1197,484 @@ test "conversion between random time zones, no-alloc" {
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1909-12-20T23:39:08-04:27:40", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1954-08-09T13:09:04+01:00:00", s_c.items);
-
-    s_b.clearAndFree();
-    s_c.clearAndFree();
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1909-12-20T23:39:08-04:27:40", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1954-08-09T13:09:04+01:00:00", w.buffered());
 }
 
 // the following test is auto-generated by gen_test_tzones.py. do not edit this line and below.
 
 test "conversion between random time zones" {
-    var tz_a = try Tz.fromTzdata("America/Coyhaique", testing.allocator);
-    var tz_b = try Tz.fromTzdata("America/Indiana/Vincennes", testing.allocator);
+    var tz_a = try Tz.fromTzdata("Israel", testing.allocator);
+    var tz_b = try Tz.fromTzdata("America/Guadeloupe", testing.allocator);
 
     var dt_a = try Datetime.fromUnix(-816207319, Duration.Resolution.second, .{ .tz = &tz_a });
     var dt_b = try Datetime.fromUnix(1921722761, Duration.Resolution.second, .{ .tz = &tz_b });
     var dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    var s_b = std.ArrayList(u8).init(testing.allocator);
-    var s_c = std.ArrayList(u8).init(testing.allocator);
-    defer s_b.deinit();
-    defer s_c.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("2030-11-24T00:52:41-03:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1944-02-19T22:44:41-05:00:00", s_c.items);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2030-11-24T05:52:41+02:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1944-02-20T00:44:41-03:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("UCT", testing.allocator);
-    tz_b = try Tz.fromTzdata("Etc/GMT+10", testing.allocator);
+    tz_a = try Tz.fromTzdata("America/Cayenne", testing.allocator);
+    tz_b = try Tz.fromTzdata("Indian/Cocos", testing.allocator);
 
     dt_a = try Datetime.fromUnix(1942114456, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1893647018, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1909-12-29T18:56:22+00:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("2031-07-17T18:14:16-10:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1909-12-29T15:27:02-03:29:20", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2031-07-18T10:44:16+06:30:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Santa_Isabel", testing.allocator);
-    tz_b = try Tz.fromTzdata("America/Virgin", testing.allocator);
+    tz_a = try Tz.fromTzdata("Australia/North", testing.allocator);
+    tz_b = try Tz.fromTzdata("Asia/Kathmandu", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1128113058, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(1223021131, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("2008-10-03T01:05:31-07:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1934-04-02T23:15:42-04:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2008-10-03T17:35:31+09:30:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1934-04-03T08:45:42+05:30:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Caracas", testing.allocator);
-    tz_b = try Tz.fromTzdata("Europe/Vienna", testing.allocator);
+    tz_a = try Tz.fromTzdata("America/Denver", testing.allocator);
+    tz_b = try Tz.fromTzdata("Asia/Vientiane", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-485869856, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1894391592, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1909-12-20T23:39:08-04:27:40", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1954-08-09T13:09:04+01:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1909-12-20T21:06:48-07:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1954-08-09T19:09:04+07:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Kentucky/Monticello", testing.allocator);
-    tz_b = try Tz.fromTzdata("America/Santa_Isabel", testing.allocator);
+    tz_a = try Tz.fromTzdata("Australia/Yancowinna", testing.allocator);
+    tz_b = try Tz.fromTzdata("Australia/North", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-999522008, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(719055854, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1992-10-14T04:44:14-05:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1938-04-30T02:59:52-08:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1992-10-14T19:14:14+09:30:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1938-04-30T20:29:52+09:30:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Asia/Irkutsk", testing.allocator);
-    tz_b = try Tz.fromTzdata("Canada/Pacific", testing.allocator);
+    tz_a = try Tz.fromTzdata("Etc/GMT+3", testing.allocator);
+    tz_b = try Tz.fromTzdata("America/Coral_Harbour", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1389478107, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-195234029, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1963-10-25T16:19:31+08:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1925-12-20T17:51:33-08:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1963-10-25T05:19:31-03:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1925-12-20T20:51:33-05:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Dawson", testing.allocator);
-    tz_b = try Tz.fromTzdata("Asia/Aqtobe", testing.allocator);
+    tz_a = try Tz.fromTzdata("America/Vancouver", testing.allocator);
+    tz_b = try Tz.fromTzdata("NZ-CHAT", testing.allocator);
 
     dt_a = try Datetime.fromUnix(794111713, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1262529920, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1929-12-29T00:14:40-09:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1995-03-02T07:35:13+05:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1929-12-29T01:14:40-08:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1995-03-02T16:20:13+13:45:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Australia/West", testing.allocator);
-    tz_b = try Tz.fromTzdata("Singapore", testing.allocator);
+    tz_a = try Tz.fromTzdata("Europe/Helsinki", testing.allocator);
+    tz_b = try Tz.fromTzdata("America/Anguilla", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1846174622, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(364596200, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1981-07-22T04:43:20+08:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1911-07-02T12:42:58+07:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1981-07-21T23:43:20+03:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1911-07-02T01:42:58-04:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Rio_Branco", testing.allocator);
-    tz_b = try Tz.fromTzdata("Africa/Libreville", testing.allocator);
+    tz_a = try Tz.fromTzdata("Pacific/Guadalcanal", testing.allocator);
+    tz_b = try Tz.fromTzdata("Etc/GMT-3", testing.allocator);
 
     dt_a = try Datetime.fromUnix(1967326856, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(142696408, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1974-07-10T08:53:28-05:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("2032-05-05T00:40:56+01:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1974-07-11T00:53:28+11:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2032-05-05T02:40:56+03:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Asia/Tbilisi", testing.allocator);
-    tz_b = try Tz.fromTzdata("America/Toronto", testing.allocator);
+    tz_a = try Tz.fromTzdata("Etc/GMT-14", testing.allocator);
+    tz_b = try Tz.fromTzdata("Africa/Monrovia", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-865972273, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-639392452, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1949-09-27T17:59:08+03:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1942-07-24T00:08:47-04:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1949-09-28T04:59:08+14:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1942-07-24T03:24:17-00:44:30", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Asia/Harbin", testing.allocator);
-    tz_b = try Tz.fromTzdata("Indian/Chagos", testing.allocator);
+    tz_a = try Tz.fromTzdata("America/Nome", testing.allocator);
+    tz_b = try Tz.fromTzdata("Europe/Ulyanovsk", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1571932065, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-782078436, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1945-03-21T12:59:24+09:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1920-03-10T13:12:15+05:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1945-03-20T17:59:24-10:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1920-03-10T11:12:15+03:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Pacific/Kosrae", testing.allocator);
-    tz_b = try Tz.fromTzdata("Asia/Harbin", testing.allocator);
+    tz_a = try Tz.fromTzdata("Pacific/Pago_Pago", testing.allocator);
+    tz_b = try Tz.fromTzdata("America/Nome", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1516539100, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(986091715, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("2001-04-01T13:21:55+11:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1921-12-11T19:08:20+08:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2001-03-31T15:21:55-11:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1921-12-11T00:08:20-11:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Etc/GMT-4", testing.allocator);
-    tz_b = try Tz.fromTzdata("Etc/GMT+2", testing.allocator);
+    tz_a = try Tz.fromTzdata("America/Danmarkshavn", testing.allocator);
+    tz_b = try Tz.fromTzdata("US/Arizona", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1215106914, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-487293440, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1954-07-24T04:42:40+04:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1931-07-01T04:18:06-02:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1954-07-23T21:42:40-03:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1931-06-30T23:18:06-07:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Noronha", testing.allocator);
-    tz_b = try Tz.fromTzdata("Europe/Tiraspol", testing.allocator);
+    tz_a = try Tz.fromTzdata("Africa/Maputo", testing.allocator);
+    tz_b = try Tz.fromTzdata("W-SU", testing.allocator);
 
     dt_a = try Datetime.fromUnix(1367598722, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1473054982, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1923-04-28T16:03:38-02:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("2013-05-03T19:32:02+03:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1923-04-28T20:03:38+02:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2013-05-03T20:32:02+04:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Europe/Moscow", testing.allocator);
-    tz_b = try Tz.fromTzdata("EET", testing.allocator);
+    tz_a = try Tz.fromTzdata("America/Los_Angeles", testing.allocator);
+    tz_b = try Tz.fromTzdata("America/Martinique", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-260468215, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1511958403, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1922-02-02T14:33:17+03:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1961-09-30T09:43:05+02:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1922-02-02T03:33:17-08:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1961-09-30T03:43:05-04:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Pacific/Wallis", testing.allocator);
-    tz_b = try Tz.fromTzdata("America/Cuiaba", testing.allocator);
+    tz_a = try Tz.fromTzdata("America/Merida", testing.allocator);
+    tz_b = try Tz.fromTzdata("Libya", testing.allocator);
 
     dt_a = try Datetime.fromUnix(824105261, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(477126985, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1985-02-13T19:16:25+12:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1996-02-12T02:07:41-04:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1985-02-13T01:16:25-06:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1996-02-12T08:07:41+02:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Brazil/DeNoronha", testing.allocator);
-    tz_b = try Tz.fromTzdata("Europe/Tallinn", testing.allocator);
+    tz_a = try Tz.fromTzdata("Etc/GMT+6", testing.allocator);
+    tz_b = try Tz.fromTzdata("Pacific/Kanton", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-444856409, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-2017440120, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1906-01-26T21:48:20-02:09:40", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1955-11-27T07:46:31+03:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1906-01-26T17:58:00-06:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1955-11-26T16:46:31-12:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Asia/Makassar", testing.allocator);
-    tz_b = try Tz.fromTzdata("Australia/Darwin", testing.allocator);
+    tz_a = try Tz.fromTzdata("EST5EDT", testing.allocator);
+    tz_b = try Tz.fromTzdata("Africa/Casablanca", testing.allocator);
 
     dt_a = try Datetime.fromUnix(2081029752, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(230882752, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1977-04-26T14:05:52+08:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("2035-12-12T09:19:12+09:30:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1977-04-26T02:05:52-04:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2035-12-12T00:49:12+01:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("ROK", testing.allocator);
-    tz_b = try Tz.fromTzdata("America/Whitehorse", testing.allocator);
+    tz_a = try Tz.fromTzdata("Pacific/Chuuk", testing.allocator);
+    tz_b = try Tz.fromTzdata("Asia/Thimphu", testing.allocator);
 
     dt_a = try Datetime.fromUnix(1751368983, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(693621470, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1991-12-25T09:37:50+09:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("2025-07-01T04:23:03-07:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1991-12-25T10:37:50+10:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2025-07-01T17:23:03+06:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Europe/Berlin", testing.allocator);
-    tz_b = try Tz.fromTzdata("HST", testing.allocator);
+    tz_a = try Tz.fromTzdata("Africa/Banjul", testing.allocator);
+    tz_b = try Tz.fromTzdata("Zulu", testing.allocator);
 
     dt_a = try Datetime.fromUnix(715858672, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-373086081, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1958-03-06T21:58:39+01:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1992-09-06T23:37:52-10:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1958-03-06T20:58:39+00:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1992-09-07T09:37:52+00:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Argentina/Mendoza", testing.allocator);
-    tz_b = try Tz.fromTzdata("Europe/Mariehamn", testing.allocator);
+    tz_a = try Tz.fromTzdata("Europe/Kirov", testing.allocator);
+    tz_b = try Tz.fromTzdata("NZ", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-293022949, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1445358615, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1924-03-14T03:29:45-04:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1960-09-18T14:44:11+02:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1924-03-14T10:29:45+03:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1960-09-19T00:44:11+12:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/North_Dakota/Beulah", testing.allocator);
-    tz_b = try Tz.fromTzdata("Asia/Aqtau", testing.allocator);
+    tz_a = try Tz.fromTzdata("Pacific/Marquesas", testing.allocator);
+    tz_b = try Tz.fromTzdata("America/Miquelon", testing.allocator);
 
     dt_a = try Datetime.fromUnix(560485083, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(2064615505, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("2035-06-04T19:18:25-05:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1987-10-06T07:18:03+05:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2035-06-04T14:48:25-09:30:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1987-10-06T00:18:03-02:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Africa/Bangui", testing.allocator);
-    tz_b = try Tz.fromTzdata("Europe/Skopje", testing.allocator);
+    tz_a = try Tz.fromTzdata("Australia/West", testing.allocator);
+    tz_b = try Tz.fromTzdata("Pacific/Truk", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-1010224506, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(579644539, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1988-05-14T21:22:19+01:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1937-12-27T15:04:54+01:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1988-05-15T04:22:19+08:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1937-12-28T00:04:54+10:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Brazil/West", testing.allocator);
-    tz_b = try Tz.fromTzdata("Asia/Khandyga", testing.allocator);
+    tz_a = try Tz.fromTzdata("Asia/Dhaka", testing.allocator);
+    tz_b = try Tz.fromTzdata("Asia/Taipei", testing.allocator);
 
     dt_a = try Datetime.fromUnix(42640281, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(-1385885032, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1926-01-31T11:56:08-04:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1971-05-09T21:31:21+09:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1926-01-31T21:49:28+05:53:20", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1971-05-09T20:31:21+08:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("Pacific/Wallis", testing.allocator);
-    tz_b = try Tz.fromTzdata("America/Anchorage", testing.allocator);
+    tz_a = try Tz.fromTzdata("America/Merida", testing.allocator);
+    tz_b = try Tz.fromTzdata("Atlantic/St_Helena", testing.allocator);
 
     dt_a = try Datetime.fromUnix(1094749082, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(775994453, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1994-08-04T22:00:53+12:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("2004-09-09T08:58:02-08:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1994-08-04T04:00:53-06:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2004-09-09T16:58:02+00:00:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 
-    tz_a = try Tz.fromTzdata("America/Argentina/Cordoba", testing.allocator);
-    tz_b = try Tz.fromTzdata("America/Anguilla", testing.allocator);
+    tz_a = try Tz.fromTzdata("America/Kentucky/Monticello", testing.allocator);
+    tz_b = try Tz.fromTzdata("Pacific/Chatham", testing.allocator);
 
     dt_a = try Datetime.fromUnix(-44705548, Duration.Resolution.second, .{ .tz = &tz_a });
     dt_b = try Datetime.fromUnix(788932013, Duration.Resolution.second, .{ .tz = &tz_b });
     dt_c = try dt_a.tzConvert(.{ .tz = &tz_b });
     dt_b = try dt_b.tzConvert(.{ .tz = &tz_a });
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("1995-01-01T00:46:53-03:00:00", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("1968-08-01T09:47:32-04:00:00", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1994-12-31T21:46:53-06:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("1968-08-02T02:32:32+12:45:00", w.buffered());
 
     tz_a.deinit();
     tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();
 }

@@ -18,9 +18,7 @@ const ZdtError = zdt.ZdtError;
 // ----
 
 const masks_to_try = switch (builtin.os.tag) {
-    // TODO : verify that this works on different platforms...
     .linux => [_]c_int{
-        c_locale.LC_ALL,
         c_locale.LC_TIME,
         c_locale.LC_TIME_MASK,
     },
@@ -79,41 +77,14 @@ test "format naive datetimes with format string api" {
         },
     };
 
-    inline for (cases) |case| {
-        var buf = std.ArrayList(u8).init(testing.allocator);
-        defer buf.deinit();
-        try Datetime.toString(case.dt, "%Y-%m-%d %H:%M:%S", buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
-        buf.clearAndFree();
-        try case.dt.toString("%Y-%m-%d %H:%M:%S", buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
-    }
-}
-
-test "format with precision" {
-    const cases = [_]TestCase{
-        .{
-            .dt = try Datetime.fromFields(.{ .year = 1970 }),
-            .string = "1970-01-01T00:00:00.000",
-            .prc = 3,
-        },
-        .{
-            .dt = try Datetime.fromFields(.{ .year = 1970 }),
-            .string = "1970-01-01T00:00:00.000000",
-            .prc = 6,
-        },
-        .{
-            .dt = try Datetime.fromFields(.{ .year = 1970 }),
-            .string = "1970-01-01T00:00:00.000000000",
-            .prc = 9,
-        },
-    };
-
-    inline for (cases) |case| {
-        var buf = std.ArrayList(u8).init(testing.allocator);
-        defer buf.deinit();
-        try case.dt.format("s", .{ .precision = case.prc }, buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
+    var buf: [64]u8 = undefined;
+    for (cases) |case| {
+        var w: std.Io.Writer = .fixed(&buf);
+        try Datetime.toString(case.dt, "%Y-%m-%d %H:%M:%S", &w);
+        try testing.expectEqualStrings(case.string, w.buffered());
+        w = .fixed(&buf);
+        try case.dt.toString("%Y-%m-%d %H:%M:%S", &w);
+        try testing.expectEqualStrings(case.string, w.buffered());
     }
 }
 
@@ -136,11 +107,11 @@ test "format with %f" {
         },
     };
 
-    inline for (cases) |case| {
-        var buf = std.ArrayList(u8).init(testing.allocator);
-        defer buf.deinit();
-        try Datetime.toString(case.dt, case.directive, buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
+    var buf: [64]u8 = undefined;
+    for (cases) |case| {
+        var w: std.Io.Writer = .fixed(&buf);
+        try Datetime.toString(case.dt, case.directive, &w);
+        try testing.expectEqualStrings(case.string, w.buffered());
     }
 }
 
@@ -175,207 +146,206 @@ test "format datetime with literal characters in format string" {
         .directive = "%Y-%m-%d %H:%M:%S.%f",
     } };
 
-    inline for (cases) |case| {
-        var buf = std.ArrayList(u8).init(testing.allocator);
-        defer buf.deinit();
-        try Datetime.toString(case.dt, case.directive, buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
-        buf.clearAndFree();
-        try case.dt.toString(case.directive, buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
+    var buf: [64]u8 = undefined;
+    for (cases) |case| {
+        var w: std.Io.Writer = .fixed(&buf);
+        try Datetime.toString(case.dt, case.directive, &w);
+        try testing.expectEqualStrings(case.string, w.buffered());
+        w = .fixed(&buf);
+        try case.dt.toString(case.directive, &w);
+        try testing.expectEqualStrings(case.string, w.buffered());
     }
 }
 
 test "format with z" {
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const offset = try UTCoffset.fromSeconds(3600, "", false);
     const dt = try Datetime.fromFields(.{ .year = 2021, .month = 2, .day = 18, .hour = 17, .tz_options = .{ .utc_offset = offset } });
-    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z", buf.writer());
-    try testing.expectEqualStrings("2021-02-18T17:00:00+0100", buf.items);
-    buf.clearAndFree();
-    try dt.toString("%Y-%m-%dT%H:%M:%S%z", buf.writer());
-    try testing.expectEqualStrings("2021-02-18T17:00:00+0100", buf.items);
-    buf.clearAndFree();
-    try dt.toString("%Y-%m-%dT%H:%M:%S%:z", buf.writer());
-    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", buf.items);
-    buf.clearAndFree();
-    try dt.toString("%Y-%m-%dT%H:%M:%S%::z", buf.writer());
-    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00:00", buf.items);
-    buf.clearAndFree();
-    try dt.toString("%Y-%m-%dT%H:%M:%S%:::z", buf.writer());
-    try testing.expectEqualStrings("2021-02-18T17:00:00+01", buf.items);
+    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z", &w);
+    try testing.expectEqualStrings("2021-02-18T17:00:00+0100", w.buffered());
+    w = .fixed(&buf);
+    try dt.toString("%Y-%m-%dT%H:%M:%S%z", &w);
+    try testing.expectEqualStrings("2021-02-18T17:00:00+0100", w.buffered());
+    w = .fixed(&buf);
+    try dt.toString("%Y-%m-%dT%H:%M:%S%:z", &w);
+    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00", w.buffered());
+    w = .fixed(&buf);
+    try dt.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("2021-02-18T17:00:00+01:00:00", w.buffered());
+    w = .fixed(&buf);
+    try dt.toString("%Y-%m-%dT%H:%M:%S%:::z", &w);
+    try testing.expectEqualStrings("2021-02-18T17:00:00+01", w.buffered());
 
     // 'z' has no effect on naive datetime:
     const dt_naive = try dt.tzLocalize(null);
     try testing.expect(dt_naive.utc_offset == null);
-    buf.clearAndFree();
-    try dt_naive.toString("%Y-%m-%dT%H:%M:%S%z", buf.writer());
-    try testing.expectEqualStrings("2021-02-18T17:00:00", buf.items);
+    w = .fixed(&buf);
+    try dt_naive.toString("%Y-%m-%dT%H:%M:%S%z", &w);
+    try testing.expectEqualStrings("2021-02-18T17:00:00", w.buffered());
     // 'i' also has no effect on naive datetime:
-    buf.clearAndFree();
-    try dt_naive.toString("%Y-%m-%dT%H:%M:%S %i", buf.writer());
-    try testing.expectEqualStrings("2021-02-18T17:00:00 ", buf.items);
+    w = .fixed(&buf);
+    try dt_naive.toString("%Y-%m-%dT%H:%M:%S %i", &w);
+    try testing.expectEqualStrings("2021-02-18T17:00:00 ", w.buffered());
 }
 
 test "format with z, full day off" {
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const offset = try UTCoffset.fromSeconds(-86400, "", false);
     const dt = try Datetime.fromFields(.{ .year = 1970, .month = 2, .day = 13, .hour = 12, .tz_options = .{ .utc_offset = offset } });
     const string = "1970-02-13T12:00:00-2400";
     const directive = "%Y-%m-%dT%H:%M:%S%z";
 
-    try Datetime.toString(dt, directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
-    buf.clearAndFree();
-    try dt.toString(directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
+    try Datetime.toString(dt, directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
+    w = .fixed(&buf);
+    try dt.toString(directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
 }
 
 test "format with z, strange directive" {
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const offset = try UTCoffset.fromSeconds(900, "", false);
     const dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3, .tz_options = .{ .utc_offset = offset } });
     const string = "% 2023-12-09 % 01:02:03 % +0015";
     const directive = "%% %Y-%m-%d %% %H:%M:%S %% %z";
-    try Datetime.toString(dt, directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
-    buf.clearAndFree();
-    try dt.toString(directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
+    try Datetime.toString(dt, directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
+    w = .fixed(&buf);
+    try dt.toString(directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
 }
 
 test "format with Z" {
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     var dt = try Datetime.fromFields(.{ .year = 2023, .month = 12, .day = 9, .hour = 1, .minute = 2, .second = 3 });
-    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z%Z", buf.writer());
+    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%z%Z", &w);
     // 'Z' has no effect on naive datetime:
-    try testing.expectEqualStrings("2023-12-09T01:02:03", buf.items);
-    buf.clearAndFree();
+    try testing.expectEqualStrings("2023-12-09T01:02:03", w.buffered());
 
+    w = .fixed(&buf);
     dt = try dt.tzLocalize(.{ .tz = &Tz.UTC });
-    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%:z%:Z", buf.writer());
-    try testing.expectEqualStrings("2023-12-09T01:02:03+00:00Z", buf.items);
+    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%:z%:Z", &w);
+    try testing.expectEqualStrings("2023-12-09T01:02:03+00:00Z", w.buffered());
 
     var tz_pacific = try Tz.fromTzdata("America/Los_Angeles", testing.allocator);
     defer tz_pacific.deinit();
     const dt_std = try dt.tzConvert(.{ .tz = &tz_pacific });
-    var s_std = std.ArrayList(u8).init(testing.allocator);
-    defer s_std.deinit();
+
+    w = .fixed(&buf);
     const directive_us = "%Y-%m-%dT%H:%M:%S%:z %Z (%i)";
     const string_std = "2023-12-08T17:02:03-08:00 PST (America/Los_Angeles)";
-    try Datetime.toString(dt_std, directive_us, s_std.writer());
-    try testing.expectEqualStrings(string_std, s_std.items);
+    try Datetime.toString(dt_std, directive_us, &w);
+    try testing.expectEqualStrings(string_std, w.buffered());
 
+    w = .fixed(&buf);
     const dt_dst = try dt_std.add(td.fromTimespanMultiple(6 * 4, td.Timespan.week));
-    var s_dst = std.ArrayList(u8).init(testing.allocator);
-    defer s_dst.deinit();
     const string_dst = "2024-05-24T18:02:03-07:00 PDT (America/Los_Angeles)";
-    try Datetime.toString(dt_dst, directive_us, s_dst.writer());
-    try testing.expectEqualStrings(string_dst, s_dst.items);
+    try Datetime.toString(dt_dst, directive_us, &w);
+    try testing.expectEqualStrings(string_dst, w.buffered());
 }
 
 test "format with abbreviated day name, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const dt = Datetime.epoch;
     const string = "Thu";
     const directive = "%a";
-    try Datetime.toString(dt, directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
-    buf.clearAndFree();
-    try dt.toString(directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
+    try Datetime.toString(dt, directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
+    w = .fixed(&buf);
+    try dt.toString(directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
 }
 
 test "format with abbreviated day name, enforce English" {
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const dt = Datetime.epoch;
     const string = "Thu";
     const directive = "%:a";
-    try dt.toString(directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
+    try dt.toString(directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
 }
 
 test "format with day name, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const dt = Datetime.epoch;
     const string = "Thursday";
     const directive = "%A";
-    try Datetime.toString(dt, directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
-    buf.clearAndFree();
-    try dt.toString(directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
+    try Datetime.toString(dt, directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
+    w = .fixed(&buf);
+    try dt.toString(directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
 }
 
 test "format with day name, enforce English" {
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const dt = Datetime.epoch;
     const string = "Thursday";
     const directive = "%:A";
-    try dt.toString(directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
+    try dt.toString(directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
 }
 
 test "format with abbreviated month name, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const dt = Datetime.epoch;
     const string = "Jan";
     const directive = "%b";
-    try Datetime.toString(dt, directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
-    buf.clearAndFree();
-    try dt.toString(directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
+    try Datetime.toString(dt, directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
+    w = .fixed(&buf);
+    try dt.toString(directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
 }
 
 test "format with abbreviated month name, enforce English" {
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const dt = Datetime.epoch;
     const string = "Jan";
     const directive = "%:b";
-    try dt.toString(directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
+    try dt.toString(directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
 }
 
 test "format with month name, locale-specific" {
     if (!locale_ok()) return error.SkipZigTest;
 
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const dt = Datetime.epoch;
     const string = "January";
     const directive = "%B";
-    try Datetime.toString(dt, directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
-    buf.clearAndFree();
-    try dt.toString(directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
+    try Datetime.toString(dt, directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
+    w = .fixed(&buf);
+    try dt.toString(directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
 }
 
 test "format with month name, enforce English" {
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const dt = Datetime.epoch;
     const string = "January";
     const directive = "%:B";
-    try dt.toString(directive, buf.writer());
-    try testing.expectEqualStrings(string, buf.items);
+    try dt.toString(directive, &w);
+    try testing.expectEqualStrings(string, w.buffered());
 }
 
 test "format with 12 hour clock" {
@@ -393,17 +363,16 @@ test "format with 12 hour clock" {
         .{ .hour = 23, .expected = "11:00:00" },
     };
 
-    inline for (test_cases) |case| {
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
+    for (test_cases) |case| {
         const dt = try Datetime.fromFields(.{
             .year = 2024,
             .hour = case.hour,
         });
-
-        var buf = std.ArrayList(u8).init(testing.allocator);
-        defer buf.deinit();
-
-        try dt.toString("%I:%M:%S", buf.writer());
-        try testing.expectEqualStrings(case.expected, buf.items);
+        try dt.toString("%I:%M:%S", &w);
+        try testing.expectEqualStrings(case.expected, w.buffered());
+        w = .fixed(&buf);
     }
 }
 
@@ -422,17 +391,16 @@ test "format hour to am/pm" {
         .{ .hour = 23, .expected = "11 pm" },
     };
 
-    inline for (test_cases) |case| {
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
+    for (test_cases) |case| {
         const dt = try Datetime.fromFields(.{
             .year = 2024,
             .hour = case.hour,
         });
-
-        var buf = std.ArrayList(u8).init(testing.allocator);
-        defer buf.deinit();
-
-        try dt.toString("%I %p", buf.writer());
-        try testing.expectEqualStrings(case.expected, buf.items);
+        try dt.toString("%I %p", &w);
+        try testing.expectEqualStrings(case.expected, w.buffered());
+        w = .fixed(&buf);
     }
 }
 
@@ -464,11 +432,12 @@ test "format with 2-digit year plus different weeknum and weekday variants" {
         },
     };
 
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     inline for (cases) |case| {
-        var buf = std.ArrayList(u8).init(testing.allocator);
-        try case.dt.toString("%y/%m %U %W %V %w %u %j", buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
-        buf.deinit();
+        try case.dt.toString("%y/%m %U %W %V %w %u %j", &w);
+        try testing.expectEqualStrings(case.string, w.buffered());
+        w = .fixed(&buf);
     }
 }
 
@@ -500,11 +469,12 @@ test "format with 2-digit century" {
         },
     };
 
-    inline for (cases) |case| {
-        var buf = std.ArrayList(u8).init(testing.allocator);
-        try case.dt.toString("%C", buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
-        buf.deinit();
+    var buf: [16]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
+    for (cases) |case| {
+        try case.dt.toString("%C", &w);
+        try testing.expectEqualStrings(case.string, w.buffered());
+        w = .fixed(&buf);
     }
 }
 
@@ -524,11 +494,12 @@ test "format with %s to get Unix time in seconds" {
         },
     };
 
-    inline for (cases) |case| {
-        var buf = std.ArrayList(u8).init(testing.allocator);
-        try case.dt.toString("%s", buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
-        buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
+    for (cases) |case| {
+        try case.dt.toString("%s", &w);
+        try testing.expectEqualStrings(case.string, w.buffered());
+        w = .fixed(&buf);
     }
 }
 
@@ -546,11 +517,35 @@ test "format isocalendar, %t" {
         },
     };
 
-    inline for (cases) |case| {
-        var buf = std.ArrayList(u8).init(testing.allocator);
-        try case.dt.toString(case.directive, buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
-        buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
+    for (cases) |case| {
+        try case.dt.toString(case.directive, &w);
+        try testing.expectEqualStrings(case.string, w.buffered());
+        w = .fixed(&buf);
+    }
+}
+
+test "format ISO date, %F" {
+    const cases = [_]TestCase{
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 1970, .month = 1, .day = 1 }),
+            .string = "1970-01-01",
+            .directive = "%F",
+        },
+        .{
+            .dt = try Datetime.fromFields(.{ .year = 2024, .month = 9, .day = 21 }),
+            .string = "2024-09-21",
+            .directive = "%F",
+        },
+    };
+
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
+    for (cases) |case| {
+        try case.dt.toString(case.directive, &w);
+        try testing.expectEqualStrings(case.string, w.buffered());
+        w = .fixed(&buf);
     }
 }
 
@@ -575,13 +570,14 @@ test "comptime parse with comptime format string #1" {
             .string = "1970-01-01 00:00:00",
             .dt = try Datetime.fromFields(.{ .year = 1970 }),
         },
+        // TODO : (future...) handle negative years
         // .{
         //     .string = "-1970-01-01 00:00:00",
         //     .dt = try Datetime.fromFields(.{ .year = -1970 }),
         // },
     };
 
-    inline for (cases) |case| {
+    for (cases) |case| {
         const dt = try Datetime.fromString(case.string, "%Y-%m-%d %H:%M:%S");
         try testing.expectEqual(case.dt, dt);
     }
@@ -729,11 +725,12 @@ test "parse with month name and day, user-defined locale" {
         },
     };
 
+    // var buf: [64]u8 = undefined;
+    // var w: std.Io.Writer = .fixed(&buf);
     for (cases) |case| {
-        // var buf = std.ArrayList(u8).init(testing.allocator);
-        // defer buf.deinit();
-        // try case.dt.toString(case.directive, buf.writer());
-        // log.warn("str: {s}", .{buf.items});
+        // try case.dt.toString(case.directive, &w);
+        // log.warn("str: {s}", .{w.buffered()});
+        // w = .fixed(&buf);
         const dt = try Datetime.fromString(case.string, case.directive);
         try testing.expectEqual(case.dt, dt);
     }
@@ -984,12 +981,12 @@ test "parse with z" {
 }
 
 test "string -> datetime -> string roundtrip with offset TZ" {
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     const string_in = "2023-12-09T01:02:03+09:15";
     const dt = try Datetime.fromString(string_in, "%Y-%m-%dT%H:%M:%S%z");
-    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%:z", buf.writer());
-    try testing.expectEqualStrings(string_in, buf.items);
+    try Datetime.toString(dt, "%Y-%m-%dT%H:%M:%S%:z", &w);
+    try testing.expectEqualStrings(string_in, w.buffered());
     // no name or abbreviation if it's only a UTC offset
     try testing.expectEqualStrings("", dt.tzAbbreviation());
     try testing.expectEqualStrings("", dt.tzName());
@@ -1009,7 +1006,7 @@ test "parse isocalendar, %t" {
         },
     };
 
-    inline for (cases) |case| {
+    for (cases) |case| {
         const dt = try Datetime.fromString(case.string, case.directive);
         try testing.expectEqual(case.dt, dt);
     }

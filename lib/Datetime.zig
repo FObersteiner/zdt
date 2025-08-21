@@ -3,6 +3,7 @@
 const std = @import("std");
 const log = std.log.scoped(.zdt__Datetime);
 const assert = std.debug.assert;
+const Writer = std.Io.Writer;
 
 const cal = @import("./calendar.zig");
 const str = @import("./string.zig");
@@ -202,12 +203,8 @@ pub const ISOCalendar = struct {
 
     pub fn format(
         calendar: ISOCalendar,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
+        writer: *Writer,
     ) !void {
-        _ = fmt;
-        _ = options;
         try writer.print(
             "{s}{d:0>4}-W{d:0>2}-{d}",
             .{
@@ -558,10 +555,15 @@ pub fn tzConvert(dt: *const Datetime, opts: tz_options) ZdtError!Datetime {
 /// Floor a datetime to a certain timespan. Creates a new datetime instance.
 pub fn floorTo(dt: *const Datetime, timespan: Duration.Timespan) ZdtError!Datetime {
     // any other timespan than second can lead to ambiguous or non-existent
-    // datetime - therefore we need to make a new datetime
+    // datetime - therefore we need to make a new datetime.
     var fields = Fields{
+        // timezone takes precedence:
         .tz_options = if (dt.tz) |tz_ptr| .{ .tz = tz_ptr } else null,
     };
+    // if there is no timezone, there might still be a UTC offset:
+    if (fields.tz_options == null and dt.utc_offset != null) {
+        fields.tz_options = .{ .utc_offset = dt.utc_offset.? };
+    }
     switch (timespan) {
         .second => {
             fields.year = dt.year;
@@ -610,7 +612,7 @@ pub fn nowUTC() Datetime {
     return Datetime.fromUnix(
         @intCast(t),
         Duration.Resolution.nanosecond,
-        .{ .utc_offset = UTCoffset.UTC },
+        .{ .tz = &Timezone.UTC },
     ) catch unreachable;
 }
 
@@ -902,7 +904,7 @@ pub fn fromISO8601(string: []const u8) ZdtError!Datetime {
 }
 
 /// Format a datetime into a string.
-pub fn toString(dt: Datetime, directives: []const u8, writer: anytype) anyerror!void {
+pub fn toString(dt: Datetime, directives: []const u8, writer: *Writer) anyerror!void {
     return try str.tokenizeAndPrint(&dt, directives, writer);
 }
 
@@ -927,10 +929,14 @@ pub fn tzAbbreviation(dt: *const Datetime) []const u8 {
 /// Formatted printing for UTC offset.
 pub fn formatOffset(
     dt: Datetime,
-    options: std.fmt.FormatOptions,
-    writer: anytype,
-) anyerror!void {
-    return if (dt.isAware()) dt.utc_offset.?.format("", options, writer);
+    options: ?std.fmt.Options,
+    writer: *Writer,
+) Writer.Error!void {
+    if (dt.isNaive())
+        return;
+    if (options) |opts|
+        return dt.utc_offset.?.formatB(opts, writer);
+    return dt.utc_offset.?.format(writer);
 }
 
 /// Calculate the date of Easter (Gregorian calendar).
@@ -956,51 +962,23 @@ pub fn EasterDateJulian(year: i16) ZdtError!Datetime {
     });
 }
 
-/// Custom printing for the Datetime struct, to be used e.g. in std.debug.print.
-/// Defaults to ISO8601 / RFC3339nano format.
+/// Default format for the Datetime struct, gives ISO8601 / RFC3339nano format.
 ///
-/// Nanoseconds are displayed if not zero. To get milli- or microsecond precision,
-/// use formatting directive `{s:.3}` (ms) or `{s:.6}` (us).
+/// Notes
+/// - fractional seconds are only shown if present (nanosecond != 0)
+/// - UTC offset is only shown if the datetime is timezone-aware
 ///
-/// If a formatting directive other than 's' or none is provided, the method
-/// tries to interpret it as regular datetime formatting directive, like the ones
-/// used in `Datetime.toString`.
-///
-/// For example
-/// ```
-/// std.debug.print("{%Y-%m}", .{dt});
-/// //  ...would evaluate to
-/// "2025-03"
-/// ```
+/// To define a specific output format, use `.toString(...)`. See also `zdt.Formats`.
 pub fn format(
     dt: Datetime,
-    comptime fmt: []const u8,
-    options: std.fmt.FormatOptions,
-    writer: anytype,
-) anyerror!void { // have to use 'anyerror' here due to the 'anytype' writer
-    if (!(std.mem.eql(u8, fmt, "s") or fmt.len == 0))
-        return try str.tokenizeAndPrint(&dt, fmt, writer);
-
+    writer: *Writer,
+) Writer.Error!void {
     try writer.print(
         "{s}{d:0>4}-{d:0>2}-{d:0>2}T{d:0>2}:{d:0>2}:{d:0>2}",
         .{ if (dt.year < 0) "-" else "", @abs(dt.year), dt.month, dt.day, dt.hour, dt.minute, dt.second },
     );
-
-    if (options.precision) |p| switch (p) {
-        0 => {},
-        1 => try writer.print(".{d:0>1}", .{dt.nanosecond / 1_000_000_00}),
-        2 => try writer.print(".{d:0>2}", .{dt.nanosecond / 1_000_000_0}),
-        3 => try writer.print(".{d:0>3}", .{dt.nanosecond / 1_000_000}),
-        4 => try writer.print(".{d:0>4}", .{dt.nanosecond / 1_000_00}),
-        5 => try writer.print(".{d:0>5}", .{dt.nanosecond / 1_000_0}),
-        6 => try writer.print(".{d:0>6}", .{dt.nanosecond / 1_000}),
-        7 => try writer.print(".{d:0>7}", .{dt.nanosecond / 100}),
-        8 => try writer.print(".{d:0>8}", .{dt.nanosecond / 10}),
-        9 => try writer.print(".{d:0>9}", .{dt.nanosecond}),
-        else => if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond}),
-    } else if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond});
-
-    if (dt.utc_offset) |off| try off.format("", .{ .fill = ':', .precision = 1 }, writer);
+    if (dt.nanosecond != 0) try writer.print(".{d:0>9}", .{dt.nanosecond});
+    if (dt.utc_offset) |off| try off.format(writer);
 }
 
 /// Surrounding timetypes at a given transition index. This index might be

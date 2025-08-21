@@ -103,10 +103,14 @@ test "format datetime with pre-defined formats" {
         },
     };
 
+    const sz: usize = 64;
+    var buf: [sz]u8 = undefined;
+    var w = std.Io.Writer.fixed(&buf);
+
     inline for (cases) |case| {
-        var buf = std.ArrayList(u8).init(testing.allocator);
-        defer buf.deinit();
-        try case.dt.toString(case.directive, buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
+        _ = w.consumeAll();
+        buf = std.mem.zeroes([sz]u8);
+        try case.dt.toString(case.directive, &w);
+        try testing.expectEqualStrings(case.string, std.mem.sliceTo(&buf, 0));
     }
 }

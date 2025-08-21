@@ -6,11 +6,12 @@
 //! `update-tzdb`        - retreive tzdata version string from local copy and set in zig file
 //! `update-tzdb-prefix` - update tzdata path
 //! ---
-const std = @import("std");
 const builtin = @import("builtin");
+
+const std = @import("std");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 7, .patch = 0 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 8, .patch = 0 };
 
 const tzdb_tag = "2025b";
 
@@ -38,19 +39,13 @@ const test_files = [_][]const u8{
 const tzdb_prefix_default = "/usr/share/zoneinfo/";
 const tzdb_submodule_dir = "tz";
 
-const min_zig = std.SemanticVersion.parse("0.14.0") catch unreachable;
-const max_zig = std.SemanticVersion.parse("0.14.1") catch unreachable;
+const min_zig = std.SemanticVersion.parse("0.15.1") catch unreachable;
+
 comptime {
     if (builtin.zig_version.order(min_zig) == .lt) {
         @compileError(std.fmt.comptimePrint(
             "Your Zig version v{f} does not meet the minimum build requirement of v{f}",
             .{ builtin.zig_version, min_zig },
-        ));
-    }
-    if (builtin.zig_version.order(max_zig) == .gt) {
-        @compileError(std.fmt.comptimePrint(
-            "Your Zig version v{f} does not meet the maximum build requirement of v{f}",
-            .{ builtin.zig_version, max_zig },
         ));
     }
 }
@@ -97,8 +92,10 @@ pub fn build(b: *std.Build) !void {
     );
     var gen_tzdb_prefix = b.addExecutable(.{
         .name = "gen_tzdb_prefix",
-        .root_source_file = b.path("scripts/gen_tzdb_prefix.zig"),
-        .target = b.graph.host, // tzdb is required on the host system, even if host != target
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("scripts/gen_tzdb_prefix.zig"),
+            .target = b.graph.host, // tzdb is required on the host system, even if host != target
+        }),
     });
     const run_gen_prefix = b.addRunArtifact(gen_tzdb_prefix);
     run_gen_prefix.step.dependOn(&gen_tzdb_prefix.step);
@@ -129,8 +126,10 @@ pub fn build(b: *std.Build) !void {
     {
         var gen_tzdb = b.addExecutable(.{
             .name = "gen_tzdb",
-            .root_source_file = b.path("scripts/gen_tzdb.zig"),
-            .target = b.graph.host, // tzdb is required on the host system, even if host != target
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("scripts/gen_tzdb.zig"),
+                .target = b.graph.host, // tzdb is required on the host system, even if host != target
+            }),
         });
 
         const run_tzdata_update = b.addRunArtifact(gen_tzdb);
@@ -152,10 +151,12 @@ pub fn build(b: *std.Build) !void {
         // unit tests in lib/*.zig files
         const root_test = b.addTest(.{
             .name = "zdt_root",
-            .root_source_file = b.path("lib/root.zig"),
-            .target = target,
-            .optimize = optimize,
-            // .test_runner = "./test_runner.zig",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("lib/root.zig"),
+                .target = target,
+                .optimize = optimize,
+                // .test_runner = "./test_runner.zig",
+            }),
         });
         root_test.linkLibC(); // stringIO has libc dependency
         const run_test_root = b.addRunArtifact(root_test);
@@ -165,10 +166,12 @@ pub fn build(b: *std.Build) !void {
         for (test_files) |test_name| {
             const _test = b.addTest(.{
                 .name = test_name,
-                .root_source_file = b.path(b.fmt("tests/{s}.zig", .{test_name})),
-                .target = target,
-                .optimize = optimize,
-                // .test_runner = "./test_runner.zig",
+                .root_module = b.createModule(.{
+                    .root_source_file = b.path(b.fmt("tests/{s}.zig", .{test_name})),
+                    .target = target,
+                    .optimize = optimize,
+                    // .test_runner = "./test_runner.zig",
+                }),
             });
             _test.linkLibC(); // stringIO has libc dependency
             const run_test = b.addRunArtifact(_test);
@@ -188,9 +191,11 @@ pub fn build(b: *std.Build) !void {
         inline for (example_files) |example_name| {
             const example = b.addExecutable(.{
                 .name = example_name,
-                .root_source_file = b.path(b.fmt("examples/{s}.zig", .{example_name})),
-                .target = target,
-                .optimize = optimize,
+                .root_module = b.createModule(.{
+                    .root_source_file = b.path(b.fmt("examples/{s}.zig", .{example_name})),
+                    .target = target,
+                    .optimize = optimize,
+                }),
             });
             example.linkLibC();
             example.root_module.addImport("zdt", zdt_module);

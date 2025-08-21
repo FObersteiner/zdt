@@ -13,6 +13,7 @@ pub const FormatError = error{
     ParseIntError,
     Underflow,
     UnsupportedOS,
+    WriteFailed,
 };
 
 pub const RangeError = error{
@@ -79,6 +80,7 @@ pub const TZifReadError = error{
     PipeBusy,
     ProcessFdQuotaExceeded,
     ProcessNotFound,
+    ReadFailed,
     SharingViolation,
     SocketNotConnected,
     StreamTooLong,

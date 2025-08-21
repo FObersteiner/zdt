@@ -45,6 +45,7 @@ pub fn main() !void {
 }
 
 fn println(comptime fmt: []const u8, args: anytype) void {
-    const stdout = std.io.getStdOut().writer();
-    nosuspend stdout.print(fmt ++ "\n", args) catch return;
+    var stdout = std.fs.File.stdout().writerStreaming(&.{});
+    var writer = &stdout.interface;
+    writer.print(fmt ++ "\n", args) catch return;
 }

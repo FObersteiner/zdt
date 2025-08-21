@@ -52,20 +52,17 @@ content.append(
     var dt_c = try dt_a.tzConvert(.{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
     dt_b = try dt_b.tzConvert(.{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
 
-    var s_b = std.ArrayList(u8).init(testing.allocator);
-    var s_c = std.ArrayList(u8).init(testing.allocator);
-    defer s_b.deinit();
-    defer s_c.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("{s_b}", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("{s_c}", s_c.items);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("{s_b}", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("{s_c}", w.buffered());
 
     tz_a.deinit();
-    tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();\n"""
+    tz_b.deinit();\n"""
 )
 
 for _ in range(N):
@@ -89,15 +86,15 @@ for _ in range(N):
     dt_c = try dt_a.tzConvert(.{OPEN_BRACE}.tz=&tz_b{CLOSE_BRACE});
     dt_b = try dt_b.tzConvert(.{OPEN_BRACE}.tz=&tz_a{CLOSE_BRACE});
 
-    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", s_b.writer());
-    try testing.expectEqualStrings("{s_b}", s_b.items);
-    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", s_c.writer());
-    try testing.expectEqualStrings("{s_c}", s_c.items);
+    w = .fixed(&buf);
+    try dt_b.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("{s_b}", w.buffered());
+    w = .fixed(&buf);
+    try dt_c.toString("%Y-%m-%dT%H:%M:%S%::z", &w);
+    try testing.expectEqualStrings("{s_c}", w.buffered());
 
     tz_a.deinit();
-    tz_b.deinit();
-    s_b.clearAndFree();
-    s_c.clearAndFree();\n"""
+    tz_b.deinit();\n"""
     )
 
 content.append("}\n")

@@ -5,7 +5,7 @@ const config = @import("config.zig");
 
 const zbench = @import("zbench");
 
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = std.heap.DebugAllocator(.{}){};
 
 // ----- Howard Hinnant's data algorithms:
 //
@@ -199,7 +199,8 @@ fn benchNeriSchnRD2DateCpp(_: std.mem.Allocator) void {
 }
 
 pub fn run() !void {
-    const stdout = std.io.getStdOut().writer();
+    var stdout = std.fs.File.stdout().writerStreaming(&.{});
+
     var bench = zbench.Benchmark.init(gpa.allocator(), .{});
     defer bench.deinit();
 
@@ -211,8 +212,8 @@ pub fn run() !void {
     try bench.add("ner rd-2-date (trs)", benchNeriSchnRD2Date, .{ .iterations = config.N });
     try bench.add("ner rd-2-date (cpp)", benchNeriSchnRD2DateCpp, .{ .iterations = config.N });
 
-    try stdout.writeAll("\n");
-    try bench.run(stdout);
+    // try .writeAll("\n");
+    try bench.run(&stdout.interface);
 
     std.debug.print("\n", .{});
 }

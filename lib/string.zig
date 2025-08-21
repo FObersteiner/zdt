@@ -5,6 +5,7 @@ const std = @import("std");
 const testing = std.testing;
 const assert = std.debug.assert;
 const log = std.log.scoped(.zdt__string);
+const Writer = std.Io.Writer;
 
 const Datetime = @import("./Datetime.zig");
 const cal = @import("./calendar.zig");
@@ -96,8 +97,8 @@ pub fn tokenizeAndParse(data: []const u8, directives: []const u8) ZdtError!Datet
 pub fn tokenizeAndPrint(
     dt: *const Datetime,
     directives: []const u8,
-    writer: anytype,
-) anyerror!void { // have to use 'anyerror' here due to the 'anytype' writer
+    writer: *Writer,
+) FormatError!void {
     var fmt_idx: usize = 0;
     var modifier_count: u8 = 0;
 
@@ -255,8 +256,8 @@ fn printIntoWriter(
     dt: *const Datetime,
     directive: u8,
     modifier_count: u8,
-    writer: anytype,
-) anyerror!void { // have to use 'anyerror' here due to the 'anytype' writer
+    writer: *Writer,
+) FormatError!void {
     switch (directive) {
         'd' => try writer.print("{d:0>2}", .{dt.day}),
         'e' => try writer.print("{d: >2}", .{dt.day}),
@@ -354,9 +355,16 @@ fn printIntoWriter(
         'W' => try writer.print("{d:0>2}", .{dt.weekOfYearMon()}),
         'U' => try writer.print("{d:0>2}", .{dt.weekOfYearSun()}),
         'V' => try writer.print("{d:0>2}", .{dt.toISOCalendar().isoweek}),
-        'T' => try dt.format("", .{}, writer), // ISO format
-        // 'F' => try dt.format("", .{}, writer) // ISO format, date only
-        't' => try writer.print("{s}", .{dt.toISOCalendar()}),
+        'T' => try dt.format(writer), // ISO format
+        'F' => { // ISO format, date only
+            try writer.print("{s}{d:0>2}-{d:0>2}-{d:0>2}", .{
+                if (dt.year < 0) "-" else "",
+                @abs(dt.year),
+                dt.month,
+                dt.day,
+            });
+        },
+        't' => try writer.print("{f}", .{dt.toISOCalendar()}),
         // 'x', // locale-specific, date
         // 'X', // locale-specific, time
         // 'c', // locale-specific, datetime

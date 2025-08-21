@@ -16,21 +16,21 @@ pub fn main() !void {
     const date_only = "2014-08-23";
     var parsed = try Datetime.fromISO8601(date_only);
     assert(parsed.hour == 0);
-    println("parsed '{s}'\n  to {s}", .{ date_only, parsed });
+    println("parsed '{s}'\n  to {f}", .{ date_only, parsed });
     // the default string representation of a zdt.Datetime instance is always ISO8601
 
     // we can have fractional seconds:
     const datetime_with_frac = "2014-08-23 12:15:56.123456789";
     parsed = try Datetime.fromISO8601(datetime_with_frac);
     assert(parsed.nanosecond == 123456789);
-    println("parsed '{s}'\n  to {s}", .{ datetime_with_frac, parsed });
+    println("parsed '{s}'\n  to {f}", .{ datetime_with_frac, parsed });
 
     // we can also have a leap second, and a time zone specifier (Z == UTC):
     const leap_datetime = "2016-12-31T23:59:60Z";
     parsed = try Datetime.fromISO8601(leap_datetime);
     assert(parsed.second == 60);
     assert(std.meta.eql(parsed.tz.?.*, Timezone.UTC));
-    println("parsed '{s}'\n  to {s}", .{ leap_datetime, parsed });
+    println("parsed '{s}'\n  to {f}", .{ leap_datetime, parsed });
 
     // The format might be less-standard, so we need to provide parsing directives à la strptime
     println("", .{});
@@ -39,22 +39,21 @@ pub fn main() !void {
     parsed = try Datetime.fromString(dayfirst_dtstr, "%d.%m.%Y, %H:%Mh");
     // zdt.Datetime.strptime is also available for people used to strftime/strptime
     assert(parsed.day == 23);
-    println("parsed '{s}'\n  to {s}", .{ dayfirst_dtstr, parsed });
+    println("parsed '{s}'\n  to {f}", .{ dayfirst_dtstr, parsed });
 
     // We can also go the other way around. Since the output is a runtime-known
     // and we don't want to loose bytes in temporary memory, we use an allocator.
     println("", .{});
     println("---> (usage): format datetime to string", .{});
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-    var buf = std.ArrayList(u8).init(allocator);
-    defer buf.deinit();
-    try parsed.toString("%a, %b %d %Y, %H:%Mh", buf.writer());
-    println("formatted {s}\n  to '{s}'", .{ parsed, buf.items });
+
+    var buf: [32]u8 = std.mem.zeroes([32]u8);
+    var w = std.Io.Writer.fixed(&buf);
+    try parsed.toString("%a, %b %d %Y, %H:%Mh", &w);
+    println("formatted {f}\n  to '{s}'", .{ parsed, buf });
 }
 
 fn println(comptime fmt: []const u8, args: anytype) void {
-    const stdout = std.io.getStdOut().writer();
-    nosuspend stdout.print(fmt ++ "\n", args) catch return;
+    var stdout = std.fs.File.stdout().writerStreaming(&.{});
+    var writer = &stdout.interface;
+    writer.print(fmt ++ "\n", args) catch return;
 }

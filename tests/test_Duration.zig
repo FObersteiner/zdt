@@ -523,15 +523,15 @@ test "iso duration to Duration type round-trip" {
         },
     };
 
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
     for (cases) |case| {
         const dur = try Duration.fromISO8601(case.string);
         try testing.expectEqual(case.duration, dur);
 
-        try dur.format("{s}", .{}, buf.writer());
-        try testing.expectEqualStrings(case.string, buf.items);
-        buf.clearAndFree();
+        w = .fixed(&buf);
+        try dur.format(&w);
+        try testing.expectEqualStrings(case.string, w.buffered());
     }
 }
 
@@ -645,13 +645,12 @@ test "ISO8601 duration parse and normalize" {
         .{ .have = "PT10080000M", .want = "P1000W" },
     };
 
-    var buf = std.ArrayList(u8).init(testing.allocator);
-    defer buf.deinit();
+    var buf: [64]u8 = undefined;
     for (cases) |case| {
+        var w: std.Io.Writer = .fixed(&buf);
         const reldelta = try Duration.fromISO8601(case.have);
-        try reldelta.format("{s}", .{}, buf.writer());
-        try testing.expectEqualStrings(case.want, buf.items);
-        buf.clearAndFree();
+        try reldelta.format(&w);
+        try testing.expectEqualStrings(case.want, w.buffered());
     }
 }
 
