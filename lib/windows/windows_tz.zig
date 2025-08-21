@@ -7,7 +7,7 @@ const WinTzError = @import("../errors.zig").WinTzError;
 
 const log = std.log.scoped(.zdt__windows_tz);
 
-const WINAPI: std.builtin.CallingConvention = if (@import("builtin").cpu.arch == .x86) .Stdcall else .C;
+const WINAPI: std.builtin.CallingConvention = if (@import("builtin").cpu.arch == .x86) .x86_stdcall else .c;
 const DWORD = u32;
 const LONG = i32;
 const LPCSTR = [*c]const u8;
