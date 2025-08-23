@@ -2,20 +2,12 @@
     .name = .benchmark,
     .fingerprint = 0xb70c48feaf3d5b02,
     .version = "0.0.2",
-    .minimum_zig_version = "0.15.0-dev",
+    .minimum_zig_version = "0.15.1",
     .dependencies = .{
-        // .zdt_023 = .{ // modified version in branch 'legacy-v0.2.3' that runs with zig-014
-        //     .url = "https://codeberg.org/FObersteiner/zdt/archive/v0.2.3-legacy-zig014.tar.gz",
-        //     .hash = "zdt-0.2.3-_Jkc96nsDwCAOb9CsCg3-MA6QHvikLtaJRR06TBmAQcc",
-        // },
-        // .zdt_045 = .{
-        //     .url = "https://codeberg.org/FObersteiner/zdt/archive/v0.4.5.tar.gz",
-        //     .hash = "zdt-0.4.5-AAAAAMZ_EAB3DS755CdksICtwwJMx4M8jV6eAl5_EkG3",
-        // },
-        // .zeit = .{
-        //     .url = "https://github.com/rockorager/zeit/archive/refs/tags/v0.6.0.tar.gz",
-        //     .hash = "zeit-0.0.0-5I6bk_pZAgB03N1p1GmVOZ--gOFwwQSRKj1UXb5tnaKS",
-        // },
+        .zeit = .{
+            .url = "https://github.com/rockorager/zeit/archive/ed2ca60db118414bda2b12df2039e33bad3b0b88.tar.gz",
+            .hash = "zeit-0.6.0-5I6bk0J9AgCVa0nnyL0lNY9Xa9F68hHq-ZarhuXNV-Jb",
+        },
         .zbench = .{ // requires zig-015
             .url = "https://github.com/hendriknielaender/zBench/archive/refs/tags/v0.11.1.tar.gz",
             .hash = "zbench-0.11.1-YTdc7zgmAQDtDcHPFwsLeawui27WjMLWmUwrfz7pIlB2",
