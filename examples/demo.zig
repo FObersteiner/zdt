@@ -5,9 +5,9 @@ const zdt = @import("zdt");
 
 pub fn main() !void {
     // Can use an allocator for the time zones as the size of the rule-files varies.
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    var dba = std.heap.DebugAllocator(.{}){};
+    defer _ = dba.deinit();
+    const allocator = dba.allocator();
 
     // zdt embeds the IANA tz database (about 700k of raw data).
     // If you pass null instead of the allocator, a fixed-size structure will be used - faster, but more mem required.
