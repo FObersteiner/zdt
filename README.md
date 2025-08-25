@@ -52,7 +52,7 @@ try this_time_LA.toString("%I %p, %Z", &w);
 
 const this_time_Paris = try this_time_LA.tzConvert(.{ .tz = &tz_Paris });
 
-// '{s}' directive gives ISO8601 format by default;
+// '{f}' directive gives ISO8601 format by default;
 std.debug.print(
     "Time, LA : {f} ({s})\n... that's {f} in Paris ({s})\n\n",
     .{ this_time_LA, buf, this_time_Paris, this_time_Paris.tzAbbreviation() },
@@ -91,6 +91,7 @@ See [changelog](https://codeberg.org/FObersteiner/zdt/src/branch/main/CHANGELOG.
 
 ## Zig version requirements
 
+- `v0.8.x`: Zig 0.15.1 (0.16-dev *may* work)
 - `v0.7.x`: Zig 0.14 / 0.14.1
 - `v0.6.x`: Zig 0.14 / 0.14.1
 - `v0.5.x`: Zig 0.13 / 0.14

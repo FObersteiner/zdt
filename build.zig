@@ -11,7 +11,7 @@ const builtin = @import("builtin");
 const std = @import("std");
 const log = std.log.scoped(.zdt_build);
 
-const zdt_version = std.SemanticVersion{ .major = 0, .minor = 8, .patch = 0 };
+const zdt_version = std.SemanticVersion{ .major = 0, .minor = 8, .patch = 1 };
 
 const tzdb_tag = "2025b";
 
@@ -40,7 +40,6 @@ const tzdb_prefix_default = "/usr/share/zoneinfo/";
 const tzdb_submodule_dir = "tz";
 
 const min_zig = std.SemanticVersion.parse("0.15.1") catch unreachable;
-
 comptime {
     if (builtin.zig_version.order(min_zig) == .lt) {
         @compileError(std.fmt.comptimePrint(

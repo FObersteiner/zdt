@@ -1,13 +1,7 @@
 .{
     .name = .zdt,
     .fingerprint = 0xf0de2f12bc3fbdc6,
-    .version = "0.8.0",
-    .dependencies = .{
-        .zbench = .{
-            .url = "https://github.com/hendriknielaender/zBench/archive/refs/tags/v0.9.3.tar.gz",
-            .hash = "zbench-0.9.3-YTdc79DoAABUp44km7nmp_E7XxPzBMl3FesDOU6J8S-n",
-        },
-    },
+    .version = "0.8.1",
     .minimum_zig_version = "0.15.1",
     .paths = .{
         // benchmark directory not included

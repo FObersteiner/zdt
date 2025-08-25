@@ -33,7 +33,7 @@ pub fn main() !void {
 
     const this_time_Paris = try this_time_LA.tzConvert(.{ .tz = &tz_Paris });
 
-    // '{s}' directive gives ISO8601 format by default;
+    // '{f}' directive gives ISO8601 format by default;
     std.debug.print(
         "Time, LA : {f} ({s})\n... that's {f} in Paris ({s})\n\n",
         .{ this_time_LA, buf, this_time_Paris, this_time_Paris.tzAbbreviation() },
