@@ -6,13 +6,13 @@
 
 - experiment with comptime-generation of timezone database
 
-- iso-caledar parsing and formatting with %G %V %u directives
+- iso-caledar parsing and formatting with `%G %V %u` directives
 
 - improve parser flagging?
 
 - Windows: handle tz with DST disabled
 
-- locale-specific parsing (%a, %A, %b, %B) on Windows
+- locale-specific parsing (`%a, %A, %b, %B`) on Windows
 
 - parser: consider day name if supplied
   - check if a day-of-month or day-of-year is supplied as well
