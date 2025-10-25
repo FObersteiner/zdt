@@ -22,10 +22,10 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{matrix.os}}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: mlugg/setup-zig@v2
         with:
-          version: 0.15.1
+          version: 0.15.2
       - run: zig build test
   build-tests-master:
     strategy:
@@ -33,7 +33,7 @@ jobs:
         os: [ubuntu-latest]
     runs-on: ${{matrix.os}}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: mlugg/setup-zig@v2
         with:
           version: master
